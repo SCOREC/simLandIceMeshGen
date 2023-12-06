@@ -1,11 +1,3 @@
-/*******************************************************************
- * This document is confidential information.
- * Copyright 1997-2023 Simmetrix Inc. All rights reserved. This 
- * document is an unpublished work fully protected by the United 
- * States copyright laws and is considered a trade secret belonging 
- * to the copyright holder. Disclosure, use, or reproduction without 
- * the written authorization of Simmetrix Inc. is prohibited. 
- *******************************************************************/ 
 #include "SimUtil.h"
 #include "SimModel.h"
 #include "SimInfo.h"
@@ -20,6 +12,9 @@
 #include <string>
 #include <sstream>
 #include <tuple>
+#include <array>
+#include <vector>
+#include <cassert>
 
 using namespace std;
 
@@ -28,9 +23,9 @@ void messageHandler(int type, const char *msg);
 struct JigGeom {
   int numVtx;
   int numEdges;
-  double* vtx_x;
-  double* vtx_y;
-  int* edges;
+  std::vector<double> vtx_x;
+  std::vector<double> vtx_y;
+  std::vector< std:array<int,2> > edges;
 };
 
 std::tuple<string, int> readKeyValue(std::ifstream& in, bool debug=true) {
@@ -48,12 +43,38 @@ void skipLine(std::ifstream& in, bool debug=true) {
   if(debug) std::cout << "skip line: " << line << std::endl;
 }
 
-JigGeom readJigGeom(std::string fname) {
+std::array<double, 3> readPoint(std::ifstream& in, bool debug=true) {
+  std::array<double, 3> pt;
+  std::string value;
+  std::getline(in, value, ';');
+  pt[0] = std::stoi(value);
+  std::getline(in, value, ';');
+  pt[1] = std::stoi(value);
+  std::getline(in, value);
+  pt[2] = std::stoi(value);
+  return pt;
+}
+
+std::array<int, 2> readEdge(std::ifstream& in, bool debug=true) {
+  std::array<int, 2> edge;
+  std::string value;
+  std::getline(in, value, ';');
+  edge[0] = std::stoi(value);
+  std::getline(in, value, ';');
+  edge[1] = std::stoi(value);
+  //not using the id of the edge
+  std::getline(in, value);
+  return edge;
+}
+
+JigGeom readJigGeom(std::string fname, bool debug=true) {
   std::ifstream mshFile(fname);
   if ( ! mshFile.is_open() ) {
     fprintf(stderr, "failed to open jigsaw geom file %s\n", fname.c_str());
     exit(EXIT_FAILURE);
   }
+
+  JigGeom geom;
 
   //header - skip
   skipLine(mshFile);
@@ -63,14 +84,35 @@ JigGeom readJigGeom(std::string fname) {
   {
     auto [key,value] = readKeyValue(mshFile);
     std::cout << "key: " << key << " val: " << value << std::endl;
+    assert(value == 2);
   }
   //POINT
   {
     auto [key,value] = readKeyValue(mshFile);
     std::cout << "key: " << key << " val: " << value << std::endl;
+    geom.numVtx = value;
+  }
+  geom.vtx_x.reserve(geom.numVtx);
+  geom.vtx_y.reserve(geom.numVtx);
+  //point coordinates
+  for(int i=0; i<geom.numVtx; i++) {
+    auto pt = readPoint(mshFile);
+    geom.vtx_x[i] = pt[0];
+    geom.vtx_y[i] = pt[1];
+    if(debug) std::cout << "pt " << geom.vtx_x[i] << ", " << geom.vtx_y[i] << std::endl;
+  }
+  //EDGE
+  {
+    auto [key,value] = readKeyValue(mshFile);
+    std::cout << "key: " << key << " val: " << value << std::endl;
+    geom.numEdges = value;
+  }
+  //edge indices
+  for(int i=0; i<geom.numEdges; i++) {
+    geom.edges[i] = readEdge(mshFile);
+    if(debug) std::cout << "edge " << geom.edges[i][0] << ", " << geom.edges[i][1] << std::endl;
   }
 
-  JigGeom geom;
   return geom;
 }
 
