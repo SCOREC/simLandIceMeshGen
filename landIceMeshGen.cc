@@ -67,7 +67,7 @@ std::array<int, 2> readEdge(std::ifstream& in, bool debug=true) {
   return edge;
 }
 
-JigGeom readJigGeom(std::string fname, bool debug=true) {
+JigGeom readJigGeom(std::string fname, bool debug=false) {
   std::ifstream mshFile(fname);
   if ( ! mshFile.is_open() ) {
     fprintf(stderr, "failed to open jigsaw geom file %s\n", fname.c_str());
@@ -77,40 +77,40 @@ JigGeom readJigGeom(std::string fname, bool debug=true) {
   JigGeom geom;
 
   //header - skip
-  skipLine(mshFile);
+  skipLine(mshFile,debug);
   //MSHID - skip
-  skipLine(mshFile);
+  skipLine(mshFile,debug);
   //NDIMS
   {
-    auto [key,value] = readKeyValue(mshFile);
-    std::cout << "key: " << key << " val: " << value << std::endl;
+    auto [key,value] = readKeyValue(mshFile,debug);
+    if(debug) std::cout << "key: " << key << " val: " << value << std::endl;
     assert(value == 2);
   }
   //POINT
   {
-    auto [key,value] = readKeyValue(mshFile);
-    std::cout << "key: " << key << " val: " << value << std::endl;
+    auto [key,value] = readKeyValue(mshFile,debug);
+    if(debug) std::cout << "key: " << key << " val: " << value << std::endl;
     geom.numVtx = value;
   }
   geom.vtx_x.reserve(geom.numVtx);
   geom.vtx_y.reserve(geom.numVtx);
   //point coordinates
   for(int i=0; i<geom.numVtx; i++) {
-    auto pt = readPoint(mshFile);
+    auto pt = readPoint(mshFile,debug);
     geom.vtx_x[i] = pt[0];
     geom.vtx_y[i] = pt[1];
     if(debug) std::cout << "pt " << geom.vtx_x[i] << ", " << geom.vtx_y[i] << std::endl;
   }
   //EDGE
   {
-    auto [key,value] = readKeyValue(mshFile);
-    std::cout << "key: " << key << " val: " << value << std::endl;
+    auto [key,value] = readKeyValue(mshFile,debug);
+    if(debug) std::cout << "key: " << key << " val: " << value << std::endl;
     geom.numEdges = value;
   }
   geom.edges.reserve(geom.numEdges);
   //edge indices
   for(int i=0; i<geom.numEdges; i++) {
-    geom.edges[i] = readEdge(mshFile);
+    geom.edges[i] = readEdge(mshFile,debug);
     if(debug) std::cout << "edge " << geom.edges[i][0] << ", " << geom.edges[i][1] << std::endl;
   }
 
@@ -121,19 +121,18 @@ int main(int argc, char **argv)
 {
 
   pGImporter importer;  // the importer object used to create the geometry
-  pGVertex vertices[8]; // array to store the returned model vertices
+  pGVertex* vertices;    // array to store the returned model vertices
   pGEdge edges[12];     // array to store the returned model edges
   pGFace faces[6];      // array to store the returned model faces
   pGRegion region;      // pointer to returned model region
   pGModel model;        // pointer to the complete model
 
   auto geom = readJigGeom(argv[1]);
-  return 0;
 
   // You will want to place a try/catch around all SimModSuite calls,
   // as errors are thrown.
   try {
-    Sim_logOn("importBox.log");
+    Sim_logOn("simMeshGen.log");
     SimModel_start(); // Call before Sim_readLicenseFile
     // NOTE: Sim_readLicenseFile() is for internal testing only.  To use,
     // pass in the location of a file containing your keys.  For a release 
@@ -160,10 +159,15 @@ int main(int argc, char **argv)
                               {10.000000,10.000000,10.000000},
                               {0.000000,10.000000,10.000000} };
 
+    vertices = new pGVertex[geom.numVtx];
+
     // First we'll add the vertices
     int i;
-    for(i=0; i<8; i++)
-      vertices[i] = GImporter_createVertex(importer,vert_xyz[i]);
+    for(i=0; i<geom.numVtx; i++) {
+      double vtx[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
+      vertices[i] = GImporter_createVertex(importer, vtx);
+    }
+    return 0;
 
     // Now we'll add the edges
     pGVertex startVert, endVert;
@@ -307,6 +311,7 @@ int main(int argc, char **argv)
     M_release(mesh);
     // end of meshing section
 
+    delete [] vertices;
     // cleanup
     GM_release(model);
     Progress_delete(progress);
