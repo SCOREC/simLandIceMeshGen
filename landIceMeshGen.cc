@@ -25,7 +25,7 @@ struct JigGeom {
   int numEdges;
   std::vector<double> vtx_x;
   std::vector<double> vtx_y;
-  std::vector< std:array<int,2> > edges;
+  std::vector<std::array<int,2> > edges;
 };
 
 std::tuple<string, int> readKeyValue(std::ifstream& in, bool debug=true) {
@@ -107,6 +107,7 @@ JigGeom readJigGeom(std::string fname, bool debug=true) {
     std::cout << "key: " << key << " val: " << value << std::endl;
     geom.numEdges = value;
   }
+  geom.edges.reserve(geom.numEdges);
   //edge indices
   for(int i=0; i<geom.numEdges; i++) {
     geom.edges[i] = readEdge(mshFile);
@@ -126,7 +127,7 @@ int main(int argc, char **argv)
   pGRegion region;      // pointer to returned model region
   pGModel model;        // pointer to the complete model
 
-  auto geom = readJigGeom("mesh.msh");
+  auto geom = readJigGeom(argv[1]);
   return 0;
 
   // You will want to place a try/catch around all SimModSuite calls,
