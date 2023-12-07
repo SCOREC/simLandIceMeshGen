@@ -114,8 +114,8 @@ JigGeom readJigGeom(std::string fname, bool debug=false) {
   //point coordinates
   for(int i=0; i<geom.numVtx; i++) {
     auto pt = readPoint(mshFile,debug);
-    geom.vtx_x[i] = pt[0];
-    geom.vtx_y[i] = pt[1];
+    geom.vtx_x.push_back(pt[0]);
+    geom.vtx_y.push_back(pt[1]);
     if(debug) std::cout << "pt " << geom.vtx_x[i] << ", " << geom.vtx_y[i] << std::endl;
   }
   //EDGE
@@ -127,7 +127,7 @@ JigGeom readJigGeom(std::string fname, bool debug=false) {
   geom.edges.reserve(geom.numEdges);
   //edge indices
   for(int i=0; i<geom.numEdges; i++) {
-    geom.edges[i] = readEdge(mshFile,debug);
+    geom.edges.push_back(readEdge(mshFile,debug));
     if(debug) std::cout << "edge " << geom.edges[i][0] << ", " << geom.edges[i][1] << std::endl;
   }
 
