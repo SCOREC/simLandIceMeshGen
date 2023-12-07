@@ -122,7 +122,7 @@ int main(int argc, char **argv)
 
   pGImporter importer;  // the importer object used to create the geometry
   pGVertex* vertices;    // array to store the returned model vertices
-  pGEdge edges[12];     // array to store the returned model edges
+  pGEdge* edges;     // array to store the returned model edges
   pGFace faces[6];      // array to store the returned model faces
   pGRegion region;      // pointer to returned model region
   pGModel model;        // pointer to the complete model
@@ -148,18 +148,8 @@ int main(int argc, char **argv)
     // Create the pGImporter object
     importer = GImporter_new();
 
-    // We are going to create a cube with a length of 10 on each side. 
-    // location of the corner points of the cube
-    double vert_xyz[8][3] = { {0.000000,0.000000,0.000000},
-                              {10.000000,0.000000,0.000000},
-                              {10.000000,10.000000,0.000000},
-                              {0.000000,10.000000,0.000000}, 
-                              {0.000000,0.000000,10.000000},
-                              {10.000000,0.000000,10.000000},
-                              {10.000000,10.000000,10.000000},
-                              {0.000000,10.000000,10.000000} };
-
     vertices = new pGVertex[geom.numVtx];
+    edges = new pGEdge[geom.numEdges];
 
     // First we'll add the vertices
     int i;
@@ -167,45 +157,24 @@ int main(int argc, char **argv)
       double vtx[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
       vertices[i] = GImporter_createVertex(importer, vtx);
     }
-    return 0;
 
     // Now we'll add the edges
-    pGVertex startVert, endVert;
     double point0[3],point1[3];  // xyz locations of the two vertices
     pCurve linearCurve;
 
     // First, the bottom edges at z=0, connecting the first four vertices in the array
     // 0->1, 1->2, 2->3, 3->0  (indices of the vertices)
-    for(i=0; i<4; i++) {
-      startVert = vertices[i];
-      endVert = vertices[(i+1)%4];
+    for(i=0; i<geom.numEdges; i++) {
+      const auto startVertIdx = geom.edges[i][0];
+      const auto endVertIdx = geom.edges[i][1];
+      auto startVert = vertices[startVertIdx];
+      auto endVert = vertices[endVertIdx];
       GV_point(startVert, point0);
       GV_point(endVert, point1);
       linearCurve = SCurve_createLine(point0, point1);
       edges[i] = GImporter_createEdge(importer, startVert, endVert, linearCurve, 0, 1, 1);
     }
-    
-    // Now the side edges of the box, traveling from z=0 to z=10
-    // 0->4, 1->5, 2->6, 3->7
-    for(i=0; i<4; i++) {
-      startVert = vertices[i];
-      endVert = vertices[i+4];
-      GV_point(startVert,point0);
-      GV_point(endVert,point1);
-      linearCurve = SCurve_createLine(point0,point1);
-      edges[i+4] = GImporter_createEdge(importer,startVert, endVert, linearCurve, 0, 1, 1);
-    }
-
-    // Finally the top edges at z=10
-    // 4->5, 5->6, 6->7, 7->4
-    for(i=0; i<4; i++) {
-      startVert = vertices[i+4];
-      endVert = vertices[(i+1)%4+4];
-      GV_point(startVert, point0);
-      GV_point(endVert, point1);
-      linearCurve = SCurve_createLine(point0, point1);
-      edges[i+8] = GImporter_createEdge(importer, startVert, endVert, linearCurve, 0, 1, 1);
-    }
+    return 0; 
 
     // Now add the faces
     double corner[3], xPt[3], yPt[3];  // the points defining the surface of the face
@@ -312,6 +281,7 @@ int main(int argc, char **argv)
     // end of meshing section
 
     delete [] vertices;
+    delete [] edges;
     // cleanup
     GM_release(model);
     Progress_delete(progress);
