@@ -173,7 +173,7 @@ int main(int argc, char **argv)
 
     // First we'll add the vertices
     int i;
-    for(i=0; i<4; /*geom.numVtx;*/ i++) {
+    for(i=0; i<geom.numVtx; i++) {
       double vtx[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
       vertices[i] = GImporter_createVertex(importer, vtx);
     }
@@ -182,9 +182,7 @@ int main(int argc, char **argv)
     double point0[3],point1[3];  // xyz locations of the two vertices
     pCurve linearCurve;
 
-    // First, the bottom edges at z=0, connecting the first four vertices in the array
-    // 0->1, 1->2, 2->3, 3->0  (indices of the vertices)
-    for(i=0; i<4; /*geom.numEdges;*/ i++) {
+    for(i=0; i<geom.numEdges; i++) {
       const auto startVertIdx = geom.edges[i][0];
       const auto endVertIdx = geom.edges[i][1];
       auto startVert = vertices[startVertIdx];
@@ -203,7 +201,8 @@ int main(int argc, char **argv)
     int* faceDirs;                     // the direction of the edge with respect to the face
 
     // When defining the loop, will always start with the first edge in the faceEdges array
-    int loopDef[1] = {0}; //FIXME needs to be length two for the outer face, and length one for the inner
+    const int numLoops = 2;
+    int loopDef[2] = {0,4};
     pSurface planarSurface;
 
     // First the face between the bounding rectangle and the grounding line
@@ -220,16 +219,20 @@ int main(int argc, char **argv)
     planarSurface = SSurface_createPlane(corner,xPt,yPt);
 
     // Create the face
-    faceEdges = new pGEdge[4]; //geom.numEdges];
-    faceDirs = new int[4]; //geom.numEdges];
+    faceEdges = new pGEdge[geom.numEdges];
+    faceDirs = new int[geom.numEdges];
     // the first four edges define the outer bounding rectangle
-    // - the jigsaw geometry file order is clockwise, reverse the order as
-    //   required by GImporter_createFace
     for(i=0; i<4; i++) {
       faceDirs[i] = 1;
       faceEdges[i] = edges[i];
     }
-    faces[0] = GImporter_createFace(importer,4,faceEdges,faceDirs,1,loopDef,planarSurface,1);
+    // the remaining edges define the grounding line
+    int j;
+    for(i=4, j=geom.numEdges-1; i<geom.numEdges, j>=4; i++, j--) {
+      faceDirs[i] = 0;
+      faceEdges[i] = edges[j];
+    }
+    faces[1] = GImporter_createFace(importer,geom.numEdges,faceEdges,faceDirs,numLoops,loopDef,planarSurface,1);
 
     // Now complete the model and delete the importer
     model = GImporter_complete(importer);
