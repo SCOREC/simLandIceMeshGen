@@ -15,10 +15,18 @@
 #include <array>
 #include <vector>
 #include <cassert>
+#include <algorithm> //[min|max]element
 
 using namespace std;
 
 void messageHandler(int type, const char *msg);
+
+struct PlaneBounds {
+  double minX;
+  double maxX;
+  double minY;
+  double maxY;
+};
 
 struct JigGeom {
   int numVtx;
@@ -42,6 +50,15 @@ void skipLine(std::ifstream& in, bool debug=true) {
   std::getline(in, line);
   if(debug) std::cout << "skip line: " << line << std::endl;
 }
+
+PlaneBounds getBoundingPlane(JigGeom& geom) {
+  auto minX = std::min_element(geom.vtx_x.begin(), geom.vtx_x.end());
+  auto maxX = std::max_element(geom.vtx_x.begin(), geom.vtx_x.end());
+  auto minY = std::min_element(geom.vtx_y.begin(), geom.vtx_y.end());
+  auto maxY = std::max_element(geom.vtx_y.begin(), geom.vtx_y.end());
+  return {*minX, *maxX, *minY, *maxY};
+}
+
 
 std::array<double, 3> readPoint(std::ifstream& in, bool debug=true) {
   std::array<double, 3> pt;
@@ -174,27 +191,36 @@ int main(int argc, char **argv)
       linearCurve = SCurve_createLine(point0, point1);
       edges[i] = GImporter_createEdge(importer, startVert, endVert, linearCurve, 0, 1, 1);
     }
-    return 0; 
+
+    auto planeBounds = getBoundingPlane(geom);
 
     // Now add the faces
     double corner[3], xPt[3], yPt[3];  // the points defining the surface of the face
-    pGEdge faceEdges[4];               // the array of edges connected to the face
-    int faceDirs[4];                   // the direction of the edge with respect to the face
+    pGEdge* faceEdges;                 // the array of edges connected to the face
+    int* faceDirs;                     // the direction of the edge with respect to the face
     // There is only one loop per surface for the faces of the box
     // When defining the loop, will always start with the first edge in the faceEdges array
     int loopDef[1] = {0};        
     pSurface planarSurface;
 
-    // First the bottom face
-    // Define the surface - we want the normal to point out of the box
-    for(i=0; i<3; i++) {
-      corner[i] = vert_xyz[1][i];  // the corner is at {10,0,0}
-      xPt[i] = vert_xyz[0][i];     // the xPt is at {0,0,0}
-      yPt[i] = vert_xyz[2][i];     // the yPt is at {10,10,0}
-    }
+    // First the face between the bounding box and the grounding line
+    // Define the surface
+    corner[0] = planeBounds.minX;
+    corner[1] = planeBounds.minY;
+    corner[2] = 0;
+    xPt[0] = planeBounds.maxX;
+    xPt[1] = planeBounds.minY;
+    xPt[2] = 0;
+    yPt[0] = planeBounds.minX;
+    yPt[1] = planeBounds.maxY;
+    yPt[2] = 0;
     planarSurface = SSurface_createPlane(corner,xPt,yPt);
+    return 0;
+/*
     // Create the face 
-    for(i=0; i<4; i++) {
+    faceEdges = new pGEdge[geom.numEdges];
+    faceDirs = new int[geom.numEdges];
+    for(i=0; i<geom.numEdges; i++) {
       faceDirs[i] = 0;
       faceEdges[i] = edges[3-i]; // edge order 3->2->1->0
     }
@@ -279,9 +305,12 @@ int main(int argc, char **argv)
     MS_deleteMeshCase(meshCase);
     M_release(mesh);
     // end of meshing section
+*/
 
     delete [] vertices;
     delete [] edges;
+    delete [] faceEdges;
+    delete [] faceDirs;
     // cleanup
     GM_release(model);
     Progress_delete(progress);
