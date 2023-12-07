@@ -304,8 +304,8 @@ int main(int argc, char **argv)
     // the remaining edges define the grounding line
     int j;
     for(i=4, j=geom.numEdges-1; i<geom.numEdges, j>=4; i++, j--) {
-      faceDirs[i] = 0;
-      faceEdges[i] = edges[j];
+      faceDirs[i] = 1;
+      faceEdges[i] = edges[i];
     }
     faces[1] = GImporter_createFace(importer,geom.numEdges,faceEdges,faceDirs,numLoops,loopDef,planarSurface,1);
 
