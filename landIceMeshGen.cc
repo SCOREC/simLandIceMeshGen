@@ -201,9 +201,9 @@ int main(int argc, char **argv)
     double corner[3], xPt[3], yPt[3];  // the points defining the surface of the face
     pGEdge* faceEdges;                 // the array of edges connected to the face
     int* faceDirs;                     // the direction of the edge with respect to the face
-    // There is only one loop per surface for the faces of the box
+
     // When defining the loop, will always start with the first edge in the faceEdges array
-    int loopDef[1] = {0};        
+    int loopDef[1] = {0}; //FIXME needs to be length two for the outer face, and length one for the inner
     pSurface planarSurface;
 
     // First the face between the bounding rectangle and the grounding line
@@ -226,13 +226,18 @@ int main(int argc, char **argv)
     // - the jigsaw geometry file order is clockwise, reverse the order as
     //   required by GImporter_createFace
     for(i=0; i<4; i++) {
-      faceDirs[i] = 1;
+      faceDirs[i] = 0;
       faceEdges[i] = edges[3-i];
     }
-    faces[0] = GImporter_createFace(importer,4,faceEdges,faceDirs,1,loopDef,planarSurface,1);
+    faces[0] = GImporter_createFace(importer,4,faceEdges,faceDirs,1,loopDef,planarSurface,0);
 
     // Now complete the model and delete the importer
     model = GImporter_complete(importer);
+    auto isValid = GM_isValid(model,2,NULL);
+    if(!isValid) {
+      fprintf(stderr, "ERROR: model is not valid... exiting\n");
+      exit(EXIT_FAILURE);
+    }
     GImporter_delete(importer);
     
     cout<<"Number of vertices in model: "<<GM_numVertices(model)<<endl;
