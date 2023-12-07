@@ -140,11 +140,14 @@ int main(int argc, char **argv)
   pGImporter importer;  // the importer object used to create the geometry
   pGVertex* vertices;    // array to store the returned model vertices
   pGEdge* edges;     // array to store the returned model edges
-  pGFace faces[6];      // array to store the returned model faces
+  pGFace faces[2];      // array to store the returned model faces
   pGRegion region;      // pointer to returned model region
   pGModel model;        // pointer to the complete model
 
   auto geom = readJigGeom(argv[1]);
+  const auto prefix = std::string(argv[2]);
+  std::string modelFileName = prefix + ".smd";
+  std::string meshFileName = prefix + ".sms";
 
   // You will want to place a try/catch around all SimModSuite calls,
   // as errors are thrown.
@@ -203,7 +206,7 @@ int main(int argc, char **argv)
     int loopDef[1] = {0};        
     pSurface planarSurface;
 
-    // First the face between the bounding box and the grounding line
+    // First the face between the bounding rectangle and the grounding line
     // Define the surface
     corner[0] = planeBounds.minX;
     corner[1] = planeBounds.minY;
@@ -215,65 +218,19 @@ int main(int argc, char **argv)
     yPt[1] = planeBounds.maxY;
     yPt[2] = 0;
     planarSurface = SSurface_createPlane(corner,xPt,yPt);
-    return 0;
-/*
-    // Create the face 
-    faceEdges = new pGEdge[geom.numEdges];
-    faceDirs = new int[geom.numEdges];
-    for(i=0; i<geom.numEdges; i++) {
-      faceDirs[i] = 0;
-      faceEdges[i] = edges[3-i]; // edge order 3->2->1->0
+
+    // Create the face
+    faceEdges = new pGEdge[4]; //geom.numEdges];
+    faceDirs = new int[4]; //geom.numEdges];
+    // the first four edges define the outer bounding rectangle
+    // - the jigsaw geometry file order is clockwise, reverse the order as
+    //   required by GImporter_createFace
+    for(i=0; i<4; i++) {
+      faceDirs[i] = 1;
+      faceEdges[i] = edges[3-i];
     }
     faces[0] = GImporter_createFace(importer,4,faceEdges,faceDirs,1,loopDef,planarSurface,1);
 
-    // Now the side faces of the box - each side face has the edges defined in the same way
-    // for the first side face, the edge order is 0->5->8->4
-    for(i=0; i<4; i++) {
-      //Define surface such that normals all point out of the box
-      for(int j=0; j<3; j++) {
-        corner[j] = vert_xyz[i][j];      // the corner is the lower left vertex location
-        xPt[j] = vert_xyz[(i+1)%4][j];   // the xPt the lower right vertex location
-        yPt[j] = vert_xyz[i+4][j];       // the yPt is the upper left vertex location
-      }
-      planarSurface = SSurface_createPlane(corner,xPt,yPt);
-
-      faceEdges[0] = edges[i];
-      faceDirs[0] = 1;
-      faceEdges[1] = edges[(i+1)%4+4];
-      faceDirs[1] = 1;
-      faceEdges[2] = edges[i+8];
-      faceDirs[2] = 0;
-      faceEdges[3] = edges[i+4];
-      faceDirs[3] = 0;
-
-      faces[i+1] = GImporter_createFace(importer,4,faceEdges,faceDirs,1,loopDef,planarSurface,1);
-    }
-
-    // Finally the top face of the box
-    // Define the surface - we want the normal to point out of the box
-    for(i=0; i<3; i++) {
-      corner[i] = vert_xyz[4][i];  // the corner is at {0,0,10}
-      xPt[i] = vert_xyz[5][i];     // the xPt is at {10,0,10}
-      yPt[i] = vert_xyz[7][i];     // the yPt is at {0,10,10}
-    }
-    planarSurface = SSurface_createPlane(corner,xPt,yPt);
-    // Define and insert the face
-    for(i=0; i<4; i++) {
-      faceDirs[i] = 1;
-      faceEdges[i] = edges[i+8]; // edge order 8->9->10->11
-    }
-    faces[5] = GImporter_createFace(importer,4,faceEdges,faceDirs,1,loopDef,planarSurface,1);
-    
-    // Create the region of the box 
-  
-    // the side of the face used by the region is stored in regionDirs.  The normal of the 
-    // face points out of side 1, so since we created the normals to point away from the box, 
-    // the region uses side 0 of each face.
-    int regionDirs[6] = {0,0,0,0,0,0};
-    int shellIndex[1] = {0};
-    
-    region = GImporter_createRegion(importer,6,faces,regionDirs,1,shellIndex);
-    
     // Now complete the model and delete the importer
     model = GImporter_complete(importer);
     GImporter_delete(importer);
@@ -282,7 +239,7 @@ int main(int argc, char **argv)
     cout<<"Number of edges in model: "<<GM_numEdges(model)<<endl;
     cout<<"Number of faces in model: "<<GM_numFaces(model)<<endl;
     cout<<"Number of regions in model: "<<GM_numRegions(model)<<endl;
-    GM_write(model,"model.smd",0,0);
+    GM_write(model,modelFileName.c_str(),0,0);
 
     // This next section creates a surface mesh from the model.  You can comment out this section
     // if you don't want to mesh
@@ -297,15 +254,11 @@ int main(int argc, char **argv)
     SurfaceMesher_delete(surfMesh);
     cout<<"Number of mesh faces in surface: "<<M_numFaces(mesh)<<endl;
     
-    pVolumeMesher volMesh = VolumeMesher_new(meshCase,mesh);
-    VolumeMesher_execute(volMesh,progress);
-    VolumeMesher_delete(volMesh);
-    M_write(mesh,"volume.sms",0,progress);
+    M_write(mesh,meshFileName.c_str(),0,progress);
     cout<<"Number of mesh regions in volume: "<<M_numRegions(mesh)<<endl;
     MS_deleteMeshCase(meshCase);
     M_release(mesh);
     // end of meshing section
-*/
 
     delete [] vertices;
     delete [] edges;
