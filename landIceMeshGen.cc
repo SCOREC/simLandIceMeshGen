@@ -16,6 +16,7 @@
 #include <vector>
 #include <cassert>
 #include <algorithm> //[min|max]element
+#include <map>
 
 using namespace std;
 
@@ -134,6 +135,79 @@ JigGeom readJigGeom(std::string fname, bool debug=false) {
   return geom;
 }
 
+bool isPtCoincident(double ax, double ay, double bx, double by, double tol=1) {
+  double xDelta = std::abs(ax-bx);
+  double yDelta = std::abs(ay-by);
+  return (xDelta < tol && yDelta < tol);
+}
+
+bool checkVertexUse(JigGeom& geom, bool debug=false) {
+  std::map<int,int> vtxCounter;
+  for(int i=0; i<geom.numVtx; i++)
+    vtxCounter[i] = 0;
+  for(auto e : geom.edges) {
+    vtxCounter[e[0]]++;
+    vtxCounter[e[1]]++;
+  }
+  bool isOk = true;
+  for(auto p : vtxCounter) {
+    if(p.second != 2) {
+      std::cout << "vtx " << p.first << " uses " << p.second << "\n";
+      isOk = false;
+    }
+  }
+  return isOk;
+}
+
+JigGeom cleanJigGeom(JigGeom& dirty, bool debug=false) {
+  assert(checkVertexUse(dirty));
+  //trying to check the the dirty geom has a chain of edges
+  assert(dirty.numEdges == dirty.numVtx);
+  //the first four edges form a loop
+  assert(dirty.edges[0][0] == dirty.edges[3][1]);
+  //the remaining edges form a loop
+  assert(dirty.edges[4][0] == dirty.edges[dirty.numEdges-1][1]);
+
+  JigGeom clean;
+  clean.vtx_x.reserve(dirty.numVtx);
+  clean.vtx_y.reserve(dirty.numVtx);
+  //Look for vertices that are nearly coincident
+  clean.vtx_x.push_back(dirty.vtx_x[0]);
+  clean.vtx_y.push_back(dirty.vtx_y[0]);
+  for(int i=1; i<dirty.numVtx; i++) {
+    auto close = isPtCoincident(dirty.vtx_x[i-1],dirty.vtx_y[i-1],
+                                dirty.vtx_x[i],dirty.vtx_y[i]);
+    if( !close ) {
+      clean.vtx_x.push_back(dirty.vtx_x[i]);
+      clean.vtx_y.push_back(dirty.vtx_y[i]);
+    } else {
+      if(debug) {
+        std::cout << "coincident pt "
+          << i-1
+          << " (" << dirty.vtx_x[i-1] << ", " << dirty.vtx_y[i-1] << ") "
+          << i
+          << " (" << dirty.vtx_x[i] << ", " << dirty.vtx_y[i] << ")\n";
+      }
+    }
+  }
+  clean.numVtx = clean.vtx_x.size();
+
+  //loops have an equal number of verts and edges
+  clean.edges.reserve(dirty.numVtx);
+  //the first loop is the rectangular boundary
+  for(int i=0; i<3; i++)
+    clean.edges.push_back({i,i+1});
+  clean.edges.push_back({3,0}); //close the loop
+  //the second loop is the grounding line
+  for(int i=4; i<clean.numVtx-1; i++)
+    clean.edges.push_back({i,i+1});
+  clean.edges.push_back({clean.numVtx-1,4}); //close the loop
+
+  clean.numEdges = clean.edges.size();
+  assert(clean.numEdges == clean.numVtx);
+  return clean;
+}
+
 int main(int argc, char **argv)
 {
 
@@ -144,7 +218,8 @@ int main(int argc, char **argv)
   pGRegion region;      // pointer to returned model region
   pGModel model;        // pointer to the complete model
 
-  auto geom = readJigGeom(argv[1]);
+  auto dirty = readJigGeom(argv[1]);
+  auto geom = cleanJigGeom(dirty, true);
   const auto prefix = std::string(argv[2]);
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
