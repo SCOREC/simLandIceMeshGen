@@ -226,10 +226,10 @@ int main(int argc, char **argv)
     // - the jigsaw geometry file order is clockwise, reverse the order as
     //   required by GImporter_createFace
     for(i=0; i<4; i++) {
-      faceDirs[i] = 0;
-      faceEdges[i] = edges[3-i];
+      faceDirs[i] = 1;
+      faceEdges[i] = edges[i];
     }
-    faces[0] = GImporter_createFace(importer,4,faceEdges,faceDirs,1,loopDef,planarSurface,0);
+    faces[0] = GImporter_createFace(importer,4,faceEdges,faceDirs,1,loopDef,planarSurface,1);
 
     // Now complete the model and delete the importer
     model = GImporter_complete(importer);
