@@ -173,7 +173,7 @@ int main(int argc, char **argv)
 
     // First we'll add the vertices
     int i;
-    for(i=0; i<geom.numVtx; i++) {
+    for(i=0; i<4; /*geom.numVtx;*/ i++) {
       double vtx[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
       vertices[i] = GImporter_createVertex(importer, vtx);
     }
@@ -184,7 +184,7 @@ int main(int argc, char **argv)
 
     // First, the bottom edges at z=0, connecting the first four vertices in the array
     // 0->1, 1->2, 2->3, 3->0  (indices of the vertices)
-    for(i=0; i<geom.numEdges; i++) {
+    for(i=0; i<4; /*geom.numEdges;*/ i++) {
       const auto startVertIdx = geom.edges[i][0];
       const auto endVertIdx = geom.edges[i][1];
       auto startVert = vertices[startVertIdx];
