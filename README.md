@@ -19,3 +19,14 @@ cmake -S simLandIceMeshGen -B buildSimLandIceMeshGen
 cmake --build buildSimLandIceMeshGen
 ```
 
+## run
+
+```
+./landIceMeshGen /path/to/jigsaw/geom.msh outputPrefix
+```
+
+The resulting mesh will be extrememly coarse with a lot of spider webs near the
+grounding line.  Using SimModeler and setting a relative size attribute of 0.5
+on all the grounding line edges will give a reasonable mesh of about 1M
+elements.
+
