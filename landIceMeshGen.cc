@@ -303,7 +303,7 @@ int main(int argc, char **argv)
     }
     // the remaining edges define the grounding line
     int j;
-    for(i=4, j=geom.numEdges-1; i<geom.numEdges, j>=4; i++, j--) {
+    for(i=4; i<geom.numEdges; i++) {
       faceDirs[i] = 1;
       faceEdges[i] = edges[i];
     }
