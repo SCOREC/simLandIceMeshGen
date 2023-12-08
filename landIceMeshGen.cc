@@ -314,16 +314,16 @@ int main(int argc, char **argv)
     // **************
     // Create the 'ice' face bounded by the grounding line
     // **************
+    const int numEdgesInnerFace = geom.numEdges-4;
     const int numLoopsInnerFace=1;
     int loopDefInnerFace[1] = {0};
     int j=geom.numEdges-1;
-    for(i=4; i<geom.numEdges; i++) {
-      faceDirs[i-4] = 0;
-      faceEdges[i-4] = edges[j--];
+    for(i=0; i<numEdgesInnerFace; i++) {
+      faceDirs[i] = 0;
+      faceEdges[i] = edges[j--];
     }
-    faces[0] = GImporter_createFace(importer,geom.numEdges,faceEdges,faceDirs,
+    faces[0] = GImporter_createFace(importer,numEdgesInnerFace,faceEdges,faceDirs,
                                     numLoopsInnerFace,loopDefInnerFace,planarSurface,1);
-
 
     // Now complete the model and delete the importer
     model = GImporter_complete(importer);
