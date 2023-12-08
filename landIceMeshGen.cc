@@ -281,7 +281,7 @@ int main(int argc, char **argv)
     pSurface planarSurface;
 
     // **************
-    // Create the face between the bounding rectangle and the grounding line
+    // Create the face between the bounding rectangle and the grounding line (water)
     // **************
     // Define the surface
     corner[0] = planeBounds.minX;
@@ -322,7 +322,7 @@ int main(int argc, char **argv)
       faceDirs[i] = 0;
       faceEdges[i] = edges[j--];
     }
-    faces[0] = GImporter_createFace(importer,numEdgesInnerFace,faceEdges,faceDirs,
+    faces[1] = GImporter_createFace(importer,numEdgesInnerFace,faceEdges,faceDirs,
                                     numLoopsInnerFace,loopDefInnerFace,planarSurface,1);
 
     // Now complete the model and delete the importer
