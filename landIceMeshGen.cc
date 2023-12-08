@@ -307,7 +307,7 @@ int main(int argc, char **argv)
       faceDirs[i] = 1;
       faceEdges[i] = edges[i];
     }
-    faces[1] = GImporter_createFace(importer,geom.numEdges,faceEdges,faceDirs,numLoops,loopDef,planarSurface,1);
+    faces[0] = GImporter_createFace(importer,geom.numEdges,faceEdges,faceDirs,numLoops,loopDef,planarSurface,1);
 
     // Now complete the model and delete the importer
     model = GImporter_complete(importer);
