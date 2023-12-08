@@ -276,11 +276,13 @@ int main(int argc, char **argv)
     int* faceDirs;                     // the direction of the edge with respect to the face
 
     // When defining the loop, will always start with the first edge in the faceEdges array
-    const int numLoops = 2;
-    int loopDef[2] = {0,4};
+    const int numLoopsOuterFace= 2;
+    int loopDefOuterFace[2] = {0,4};
     pSurface planarSurface;
 
-    // First the face between the bounding rectangle and the grounding line
+    // **************
+    // Create the face between the bounding rectangle and the grounding line
+    // **************
     // Define the surface
     corner[0] = planeBounds.minX;
     corner[1] = planeBounds.minY;
@@ -302,12 +304,26 @@ int main(int argc, char **argv)
       faceEdges[i] = edges[i];
     }
     // the remaining edges define the grounding line
-    int j;
     for(i=4; i<geom.numEdges; i++) {
       faceDirs[i] = 1;
       faceEdges[i] = edges[i];
     }
-    faces[0] = GImporter_createFace(importer,geom.numEdges,faceEdges,faceDirs,numLoops,loopDef,planarSurface,1);
+    faces[0] = GImporter_createFace(importer,geom.numEdges,faceEdges,faceDirs,
+                                    numLoopsOuterFace,loopDefOuterFace,planarSurface,1);
+
+    // **************
+    // Create the 'ice' face bounded by the grounding line
+    // **************
+    const int numLoopsInnerFace=1;
+    int loopDefInnerFace[1] = {0};
+    int j=geom.numEdges-1;
+    for(i=4; i<geom.numEdges; i++) {
+      faceDirs[i-4] = 0;
+      faceEdges[i-4] = edges[j--];
+    }
+    faces[0] = GImporter_createFace(importer,geom.numEdges,faceEdges,faceDirs,
+                                    numLoopsInnerFace,loopDefInnerFace,planarSurface,1);
+
 
     // Now complete the model and delete the importer
     model = GImporter_complete(importer);
