@@ -17,6 +17,7 @@
 #include <cassert>
 #include <algorithm> //[min|max]element
 #include <map>
+#include <limits> //std::numeric_limits
 
 using namespace std;
 
@@ -347,10 +348,19 @@ int main(int argc, char **argv)
     pACase meshCase = MS_newMeshCase(model);
     
     pModelItem domain = GM_domain(model);
-    const auto globMeshSize = 40*1000.0;
-    const auto contourMeshSize = globMeshSize/4;
-    MS_setMeshSize(meshCase,domain,1,globMeshSize,NULL);
     //set the size on the geometric model edges that define the ice-water contour
+    auto minGEdgeLen = std::numeric_limits<double>::max();
+    for(i=4; i<geom.numEdges; i++) {
+      auto len = GE_length(faceEdges[i]);
+      if( len < minGEdgeLen )
+        minGEdgeLen = len;
+    }
+    cout << "Min geometric model edge length: " << minGEdgeLen << endl;
+    const auto contourMeshSize = minGEdgeLen*4;
+    const auto globMeshSize = contourMeshSize*20;
+    cout << "Contour absolute mesh size target: " << contourMeshSize << endl;
+    cout << "Global absolute mesh size target: " << globMeshSize << endl;
+    MS_setMeshSize(meshCase,domain,1,globMeshSize,NULL);
     for(i=4; i<geom.numEdges; i++)
       MS_setMeshSize(meshCase,faceEdges[i],1,contourMeshSize,NULL);
     
