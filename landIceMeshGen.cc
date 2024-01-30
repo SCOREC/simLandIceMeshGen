@@ -314,6 +314,7 @@ int main(int argc, char **argv)
     // **************
     // Create the 'ice' face bounded by the grounding line
     // **************
+    planarSurface = SSurface_createPlane(corner,xPt,yPt);
     const int numEdgesInnerFace = geom.numEdges-4;
     const int numLoopsInnerFace=1;
     int loopDefInnerFace[1] = {0};
