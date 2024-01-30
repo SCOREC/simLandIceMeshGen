@@ -347,7 +347,12 @@ int main(int argc, char **argv)
     pACase meshCase = MS_newMeshCase(model);
     
     pModelItem domain = GM_domain(model);
-    MS_setMeshSize(meshCase,domain,2,0.05,NULL);
+    const auto globMeshSize = 40*1000.0;
+    const auto contourMeshSize = globMeshSize/4;
+    MS_setMeshSize(meshCase,domain,1,globMeshSize,NULL);
+    //set the size on the geometric model edges that define the ice-water contour
+    for(i=4; i<geom.numEdges; i++)
+      MS_setMeshSize(meshCase,faceEdges[i],1,contourMeshSize,NULL);
     
     pSurfaceMesher surfMesh = SurfaceMesher_new(meshCase,mesh);
     SurfaceMesher_execute(surfMesh,progress);
