@@ -214,6 +214,29 @@ JigGeom cleanJigGeom(JigGeom& dirty, double coincidentVtxToleranceSquared, bool 
   return clean;
 }
 
+std::array<double, 3> subtractPts(double a[3], double b[3]) {
+  return { b[0] - a[0], b[1] - a[1], b[2] - a[2] };
+}
+
+std::array<double, 3> getNormal(pGEdge first, pGEdge second) {
+  //the tail of edge first is the head of edge second
+  assert( GE_vertex(first, 1) == GE_vertex(second, 0));
+  pGVertex src = GE_vertex(first, 1);
+  pGVertex uDest = GE_vertex(first, 0);
+  pGVertex vDest = GE_vertex(second, 1);
+  double srcPt[3];
+  GV_point(src,srcPt);
+  double uDestPt[3];
+  GV_point(uDest,uDestPt);
+  double vDestPt[3];
+  GV_point(vDest,vDestPt);
+  auto u = subtractPts(uDestPt,srcPt);
+  auto v = subtractPts(vDestPt,srcPt);
+  return { u[1]*v[2] - u[2]*v[1],
+           u[2]*v[0] - u[0]*v[2],
+           u[0]*v[1] - u[1]*v[0] };
+}
+
 int main(int argc, char **argv)
 {
   assert(argc==4);
@@ -265,6 +288,7 @@ int main(int argc, char **argv)
     for(i=0; i<geom.numVtx; i++) {
       double vtx[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
       vertices[i] = GImporter_createVertex(importer, vtx);
+      std::cout << "vtx " << i << " (" << vtx[0] << " , " << vtx[1] << ")\n";
     }
 
     // Now we'll add the edges
@@ -280,6 +304,10 @@ int main(int argc, char **argv)
       GV_point(endVert, point1);
       linearCurve = SCurve_createLine(point0, point1);
       edges[i] = GImporter_createEdge(importer, startVert, endVert, linearCurve, 0, 1, 1);
+      std::cout << "edge " << i
+                << " (" << point0[0] << " , " << point0[1] << ")"
+                << ",(" << point1[0] << " , " << point1[1] << ")\n";
+
     }
 
     auto planeBounds = getBoundingPlane(geom);
@@ -305,32 +333,46 @@ int main(int argc, char **argv)
     yPt[0] = planeBounds.minX;
     yPt[1] = planeBounds.maxY;
     yPt[2] = 0;
-    planarSurface = SSurface_createPlane(corner,xPt,yPt);
+
+    const int faceDirectionFwd = 1;
+    const int faceDirectionRev = 0;
+    const int sameNormal = 1;
+    const int oppositeNormal = 0;
 
     // Create the face
     faceEdges = new pGEdge[geom.numEdges];
     faceDirs = new int[geom.numEdges];
     // the first four edges define the outer bounding rectangle
     for(i=0; i<4; i++) {
-      faceDirs[i] = 1;
+      faceDirs[i] = faceDirectionFwd; //clockwise
       faceEdges[i] = edges[i];
     }
     if(geom.numEdges > 4) {
       // the remaining edges define the grounding line 
       // TODO generalize loop creation
+      int j=geom.numEdges-1;
       for(i=4; i<geom.numEdges; i++) {
-        faceDirs[i] = 1;
-        faceEdges[i] = edges[i];
+        faceDirs[i] = faceDirectionRev; //counter clockwise
+        //all edges are input in counter clockwise order,
+        //reverse the order so the face is on the left (simmetrix requirement)
+        faceEdges[i] = edges[j--];
       }
+
       int numLoopsOuterFace= 2;
-      int loopDefOuterFace[2] = {0,4};
+      int loopFirstEdgeIdx[2] = {0,4};
+      planarSurface = SSurface_createPlane(corner,xPt,yPt);
       faces[0] = GImporter_createFace(importer,geom.numEdges,faceEdges,faceDirs,
-                                      numLoopsOuterFace,loopDefOuterFace,planarSurface,1);
+                                      numLoopsOuterFace,loopFirstEdgeIdx,planarSurface,sameNormal);
+      std::cout << "faces[0] area: " << GF_area(faces[0], 0.2) << "\n";
+      assert(GF_area(faces[0], 0.2) > 0);
     } else {
       int numLoopsOuterFace= 1;
-      int loopDefOuterFace[1] = {0};
+      int loopFirstEdgeIdx[1] = {0};
+      planarSurface = SSurface_createPlane(corner,xPt,yPt);
       faces[0] = GImporter_createFace(importer,geom.numEdges,faceEdges,faceDirs,
-                                      numLoopsOuterFace,loopDefOuterFace,planarSurface,1);
+                                      numLoopsOuterFace,loopFirstEdgeIdx,planarSurface,sameNormal);
+      std::cout << "faces[0] area: " << GF_area(faces[0], 0.2) << "\n";
+      assert(GF_area(faces[0], 0.2) > 0);
     }
 
     if(geom.numEdges > 4) {
@@ -340,14 +382,17 @@ int main(int argc, char **argv)
       planarSurface = SSurface_createPlane(corner,xPt,yPt);
       const int numEdgesInnerFace = geom.numEdges-4;
       const int numLoopsInnerFace=1;
-      int loopDefInnerFace[1] = {0};
-      int j=geom.numEdges-1;
+      int loopFirstEdgeIdx[1] = {0};
+      int j=4;
       for(i=0; i<numEdgesInnerFace; i++) {
-        faceDirs[i] = 0;
-        faceEdges[i] = edges[j--];
+        faceDirs[i] = faceDirectionFwd; //clockwise
+        faceEdges[i] = edges[j++];
       }
       faces[1] = GImporter_createFace(importer,numEdgesInnerFace,faceEdges,faceDirs,
-                                      numLoopsInnerFace,loopDefInnerFace,planarSurface,1);
+                                      numLoopsInnerFace,loopFirstEdgeIdx,planarSurface,
+                                      sameNormal);
+      std::cout << "faces[1] area: " << GF_area(faces[1], 0.2) << "\n";
+      assert(GF_area(faces[1], 0.2) > 0);
     }
 
     // Now complete the model and delete the importer
@@ -356,6 +401,8 @@ int main(int argc, char **argv)
     if(!isValid) {
       fprintf(stderr, "ERROR: model is not valid... exiting\n");
       exit(EXIT_FAILURE);
+    } else {
+      cout << "Model is valid.\n";
     }
     GImporter_delete(importer);
     
@@ -386,7 +433,16 @@ int main(int argc, char **argv)
     MS_setMeshSize(meshCase,domain,1,globMeshSize,NULL);
     for(i=4; i<geom.numEdges; i++)
       MS_setMeshSize(meshCase,faceEdges[i],1,contourMeshSize,NULL);
-    
+
+    {
+      GFIter fIter = GM_faceIter(model);
+      pGFace modelFace;
+      while(modelFace=GFIter_next(fIter)){
+        assert(GF_area(modelFace, 0.2) > 0);
+      }
+      GFIter_delete(fIter);
+    }
+
     pSurfaceMesher surfMesh = SurfaceMesher_new(meshCase,mesh);
     SurfaceMesher_execute(surfMesh,progress);
     SurfaceMesher_delete(surfMesh);
