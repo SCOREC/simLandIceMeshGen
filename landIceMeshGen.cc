@@ -160,7 +160,7 @@ bool checkVertexUse(JigGeom& geom, bool debug=false) {
   return isOk;
 }
 
-JigGeom cleanJigGeom(JigGeom& dirty, bool debug=false) {
+JigGeom cleanJigGeom(JigGeom& dirty, double coincidentVtxTolerance, bool debug=false) {
   assert(checkVertexUse(dirty));
   //trying to check the the dirty geom has a chain of edges
   assert(dirty.numEdges == dirty.numVtx);
@@ -177,7 +177,8 @@ JigGeom cleanJigGeom(JigGeom& dirty, bool debug=false) {
   clean.vtx_y.push_back(dirty.vtx_y[0]);
   for(int i=1; i<dirty.numVtx; i++) {
     auto close = isPtCoincident(dirty.vtx_x[i-1],dirty.vtx_y[i-1],
-                                dirty.vtx_x[i],dirty.vtx_y[i]);
+                                dirty.vtx_x[i],dirty.vtx_y[i],
+                                coincidentVtxTolerance);
     if( !close ) {
       clean.vtx_x.push_back(dirty.vtx_x[i]);
       clean.vtx_y.push_back(dirty.vtx_y[i]);
@@ -211,6 +212,7 @@ JigGeom cleanJigGeom(JigGeom& dirty, bool debug=false) {
 
 int main(int argc, char **argv)
 {
+  assert(argc==4);
 
   pGImporter importer;  // the importer object used to create the geometry
   pGVertex* vertices;    // array to store the returned model vertices
@@ -220,7 +222,7 @@ int main(int argc, char **argv)
   pGModel model;        // pointer to the complete model
 
   auto dirty = readJigGeom(argv[1]);
-  auto geom = cleanJigGeom(dirty, true);
+  auto geom = cleanJigGeom(dirty, std::stof(argv[3]), true);
   const auto prefix = std::string(argv[2]);
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
@@ -356,8 +358,8 @@ int main(int argc, char **argv)
         minGEdgeLen = len;
     }
     cout << "Min geometric model edge length: " << minGEdgeLen << endl;
-    const auto contourMeshSize = minGEdgeLen*16;
-    const auto globMeshSize = contourMeshSize*32;
+    const auto contourMeshSize = minGEdgeLen*32;
+    const auto globMeshSize = contourMeshSize*64;
     cout << "Contour absolute mesh size target: " << contourMeshSize << endl;
     cout << "Global absolute mesh size target: " << globMeshSize << endl;
     MS_setMeshSize(meshCase,domain,1,globMeshSize,NULL);
