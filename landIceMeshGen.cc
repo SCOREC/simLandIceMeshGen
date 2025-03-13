@@ -136,10 +136,11 @@ JigGeom readJigGeom(std::string fname, bool debug=false) {
   return geom;
 }
 
-bool isPtCoincident(double ax, double ay, double bx, double by, double tol=1) {
+bool isPtCoincident(double ax, double ay, double bx, double by, double tolSquared=1) {
   double xDelta = std::abs(ax-bx);
   double yDelta = std::abs(ay-by);
-  return (xDelta < tol && yDelta < tol);
+  double length = xDelta*xDelta + yDelta*yDelta;
+  return (length < tolSquared);
 }
 
 bool checkVertexUse(JigGeom& geom, bool debug=false) {
@@ -160,7 +161,7 @@ bool checkVertexUse(JigGeom& geom, bool debug=false) {
   return isOk;
 }
 
-JigGeom cleanJigGeom(JigGeom& dirty, double coincidentVtxTolerance, bool debug=false) {
+JigGeom cleanJigGeom(JigGeom& dirty, double coincidentVtxToleranceSquared, bool debug=false) {
   assert(checkVertexUse(dirty));
   //trying to check the the dirty geom has a chain of edges
   assert(dirty.numEdges == dirty.numVtx);
@@ -178,7 +179,7 @@ JigGeom cleanJigGeom(JigGeom& dirty, double coincidentVtxTolerance, bool debug=f
   for(int i=1; i<dirty.numVtx; i++) {
     auto close = isPtCoincident(dirty.vtx_x[i-1],dirty.vtx_y[i-1],
                                 dirty.vtx_x[i],dirty.vtx_y[i],
-                                coincidentVtxTolerance);
+                                coincidentVtxToleranceSquared);
     if( !close ) {
       clean.vtx_x.push_back(dirty.vtx_x[i]);
       clean.vtx_y.push_back(dirty.vtx_y[i]);
@@ -195,15 +196,18 @@ JigGeom cleanJigGeom(JigGeom& dirty, double coincidentVtxTolerance, bool debug=f
   clean.numVtx = clean.vtx_x.size();
 
   //loops have an equal number of verts and edges
+  assert(dirty.numVtx >= 4); // there must be a bounding box
   clean.edges.reserve(dirty.numVtx);
   //the first loop is the rectangular boundary
   for(int i=0; i<3; i++)
     clean.edges.push_back({i,i+1});
   clean.edges.push_back({3,0}); //close the loop
-  //the second loop is the grounding line
-  for(int i=4; i<clean.numVtx-1; i++)
-    clean.edges.push_back({i,i+1});
-  clean.edges.push_back({clean.numVtx-1,4}); //close the loop
+  if(dirty.numVtx > 4) { //there is another loop
+    //the second loop is the grounding line
+    for(int i=4; i<clean.numVtx-1; i++)
+      clean.edges.push_back({i,i+1});
+    clean.edges.push_back({clean.numVtx-1,4}); //close the loop
+  }
 
   clean.numEdges = clean.edges.size();
   assert(clean.numEdges == clean.numVtx);
@@ -217,7 +221,7 @@ int main(int argc, char **argv)
   pGImporter importer;  // the importer object used to create the geometry
   pGVertex* vertices;    // array to store the returned model vertices
   pGEdge* edges;     // array to store the returned model edges
-  pGFace faces[2];      // array to store the returned model faces
+  pGFace* faces;      // array to store the returned model faces
   pGRegion region;      // pointer to returned model region
   pGModel model;        // pointer to the complete model
 
@@ -249,6 +253,13 @@ int main(int argc, char **argv)
     vertices = new pGVertex[geom.numVtx];
     edges = new pGEdge[geom.numEdges];
 
+    //TODO generalize face creation
+    if(geom.numEdges > 4) {
+      faces = new pGFace[2];
+    } else {
+      faces = new pGFace[1];
+    }
+
     // First we'll add the vertices
     int i;
     for(i=0; i<geom.numVtx; i++) {
@@ -279,8 +290,6 @@ int main(int argc, char **argv)
     int* faceDirs;                     // the direction of the edge with respect to the face
 
     // When defining the loop, will always start with the first edge in the faceEdges array
-    const int numLoopsOuterFace= 2;
-    int loopDefOuterFace[2] = {0,4};
     pSurface planarSurface;
 
     // **************
@@ -306,28 +315,40 @@ int main(int argc, char **argv)
       faceDirs[i] = 1;
       faceEdges[i] = edges[i];
     }
-    // the remaining edges define the grounding line
-    for(i=4; i<geom.numEdges; i++) {
-      faceDirs[i] = 1;
-      faceEdges[i] = edges[i];
+    if(geom.numEdges > 4) {
+      // the remaining edges define the grounding line 
+      // TODO generalize loop creation
+      for(i=4; i<geom.numEdges; i++) {
+        faceDirs[i] = 1;
+        faceEdges[i] = edges[i];
+      }
+      int numLoopsOuterFace= 2;
+      int loopDefOuterFace[2] = {0,4};
+      faces[0] = GImporter_createFace(importer,geom.numEdges,faceEdges,faceDirs,
+                                      numLoopsOuterFace,loopDefOuterFace,planarSurface,1);
+    } else {
+      int numLoopsOuterFace= 1;
+      int loopDefOuterFace[1] = {0};
+      faces[0] = GImporter_createFace(importer,geom.numEdges,faceEdges,faceDirs,
+                                      numLoopsOuterFace,loopDefOuterFace,planarSurface,1);
     }
-    faces[0] = GImporter_createFace(importer,geom.numEdges,faceEdges,faceDirs,
-                                    numLoopsOuterFace,loopDefOuterFace,planarSurface,1);
 
-    // **************
-    // Create the 'ice' face bounded by the grounding line
-    // **************
-    planarSurface = SSurface_createPlane(corner,xPt,yPt);
-    const int numEdgesInnerFace = geom.numEdges-4;
-    const int numLoopsInnerFace=1;
-    int loopDefInnerFace[1] = {0};
-    int j=geom.numEdges-1;
-    for(i=0; i<numEdgesInnerFace; i++) {
-      faceDirs[i] = 0;
-      faceEdges[i] = edges[j--];
+    if(geom.numEdges > 4) {
+      // **************
+      // Create the 'ice' face bounded by the grounding line
+      // **************
+      planarSurface = SSurface_createPlane(corner,xPt,yPt);
+      const int numEdgesInnerFace = geom.numEdges-4;
+      const int numLoopsInnerFace=1;
+      int loopDefInnerFace[1] = {0};
+      int j=geom.numEdges-1;
+      for(i=0; i<numEdgesInnerFace; i++) {
+        faceDirs[i] = 0;
+        faceEdges[i] = edges[j--];
+      }
+      faces[1] = GImporter_createFace(importer,numEdgesInnerFace,faceEdges,faceDirs,
+                                      numLoopsInnerFace,loopDefInnerFace,planarSurface,1);
     }
-    faces[1] = GImporter_createFace(importer,numEdgesInnerFace,faceEdges,faceDirs,
-                                    numLoopsInnerFace,loopDefInnerFace,planarSurface,1);
 
     // Now complete the model and delete the importer
     model = GImporter_complete(importer);
@@ -350,13 +371,13 @@ int main(int argc, char **argv)
     pACase meshCase = MS_newMeshCase(model);
     
     pModelItem domain = GM_domain(model);
-    //set the size on the geometric model edges that define the ice-water contour
+    //find the smallest size of the geometric model edges
     auto minGEdgeLen = std::numeric_limits<double>::max();
-    for(i=4; i<geom.numEdges; i++) {
+    for(i=0; i<geom.numEdges; i++) {
       auto len = GE_length(faceEdges[i]);
       if( len < minGEdgeLen )
         minGEdgeLen = len;
-    }
+    } 
     cout << "Min geometric model edge length: " << minGEdgeLen << endl;
     const auto contourMeshSize = minGEdgeLen*32;
     const auto globMeshSize = contourMeshSize*64;
@@ -379,6 +400,7 @@ int main(int argc, char **argv)
 
     delete [] vertices;
     delete [] edges;
+    delete [] faces;
     delete [] faceEdges;
     delete [] faceDirs;
     // cleanup
