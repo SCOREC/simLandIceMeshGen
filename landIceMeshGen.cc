@@ -356,8 +356,8 @@ int main(int argc, char **argv)
         minGEdgeLen = len;
     }
     cout << "Min geometric model edge length: " << minGEdgeLen << endl;
-    const auto contourMeshSize = minGEdgeLen*4;
-    const auto globMeshSize = contourMeshSize*20;
+    const auto contourMeshSize = minGEdgeLen*16;
+    const auto globMeshSize = contourMeshSize*32;
     cout << "Contour absolute mesh size target: " << contourMeshSize << endl;
     cout << "Global absolute mesh size target: " << globMeshSize << endl;
     MS_setMeshSize(meshCase,domain,1,globMeshSize,NULL);
