@@ -261,6 +261,8 @@ int main(int argc, char **argv)
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
 
+  const auto debug = false;
+
   // You will want to place a try/catch around all SimModSuite calls,
   // as errors are thrown.
   try {
@@ -295,7 +297,7 @@ int main(int argc, char **argv)
     for(i=0; i<geom.numVtx; i++) {
       double vtx[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
       vertices[i] = GImporter_createVertex(importer, vtx);
-      std::cout << "vtx " << i << " (" << vtx[0] << " , " << vtx[1] << ")\n";
+      if(debug) std::cout << "vtx " << i << " (" << vtx[0] << " , " << vtx[1] << ")\n";
     }
 
     // Now we'll add the edges
@@ -311,9 +313,11 @@ int main(int argc, char **argv)
       GV_point(endVert, point1);
       linearCurve = SCurve_createLine(point0, point1);
       edges[i] = GImporter_createEdge(importer, startVert, endVert, linearCurve, 0, 1, 1);
-      std::cout << "edge " << i
-                << " (" << point0[0] << " , " << point0[1] << ")"
-                << ",(" << point1[0] << " , " << point1[1] << ")\n";
+      if(debug) {
+        std::cout << "edge " << i
+                  << " (" << point0[0] << " , " << point0[1] << ")"
+                  << ",(" << point1[0] << " , " << point1[1] << ")\n";
+      }
 
     }
 
