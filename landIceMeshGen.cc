@@ -239,6 +239,13 @@ std::array<double, 3> getNormal(pGEdge first, pGEdge second) {
 
 int main(int argc, char **argv)
 {
+  if(argc!=4) {
+    std::cerr << "Usage: <jigsaw .msh file> <output prefix> <coincidentVtxToleranceSquared>\n";
+    std::cerr << "coincidentVtxToleranceSquared is the mininum allowed distance (squared) between "
+                 "adjacent vertices in the .msh file.  Vertices within the specified distance "
+                 "will be merged.\n";
+    return 1;
+  }
   assert(argc==4);
 
   pGImporter importer;  // the importer object used to create the geometry
