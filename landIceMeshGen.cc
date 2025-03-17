@@ -449,7 +449,9 @@ int main(int argc, char **argv)
       GFIter fIter = GM_faceIter(model);
       pGFace modelFace;
       while(modelFace=GFIter_next(fIter)){
-        assert(GF_area(modelFace, 0.2) > 0);
+        const double area = GF_area(modelFace, 0.2);
+        cout << "face area: " << area << "\n";
+        assert(area > 0);
       }
       GFIter_delete(fIter);
     }
