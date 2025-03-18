@@ -17,6 +17,12 @@ module load cmake
 module load simmetrix-simmodsuite/2025.0-250108dev-llxq6sk
 ```
 
+clone
+
+```
+git clone git@github.com:scorec/simLandIceMeshGen
+```
+
 build
 
 ```
@@ -30,9 +36,4 @@ cmake --build buildSimLandIceMeshGen
 ./buildSimLandIceMeshGen/landIceMeshGen simLandIceMeshGen/oneSquare.msh one 0.5
 ./buildSimLandIceMeshGen/landIceMeshGen simLandIceMeshGen/twoSquares.msh two 0.5
 ```
-
-The resulting mesh will be extrememly coarse with a lot of spider webs near the
-grounding line.  Using SimModeler and setting a relative size attribute of 0.5
-on all the grounding line edges will give a reasonable mesh of about 1M
-elements.
 
