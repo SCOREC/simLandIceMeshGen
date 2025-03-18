@@ -30,7 +30,7 @@ struct PlaneBounds {
   double maxY;
 };
 
-struct JigGeom {
+struct GeomInfo {
   int numVtx;
   int numEdges;
   std::vector<double> vtx_x;
@@ -53,7 +53,7 @@ void skipLine(std::ifstream& in, bool debug=true) {
   if(debug) std::cout << "skip line: " << line << std::endl;
 }
 
-PlaneBounds getBoundingPlane(JigGeom& geom) {
+PlaneBounds getBoundingPlane(GeomInfo& geom) {
   auto minX = std::min_element(geom.vtx_x.begin(), geom.vtx_x.end());
   auto maxX = std::max_element(geom.vtx_x.begin(), geom.vtx_x.end());
   auto minY = std::min_element(geom.vtx_y.begin(), geom.vtx_y.end());
@@ -86,14 +86,14 @@ std::array<int, 2> readEdge(std::ifstream& in, bool debug=true) {
   return edge;
 }
 
-JigGeom readJigGeom(std::string fname, bool debug=false) {
+GeomInfo readJigGeom(std::string fname, bool debug=false) {
   std::ifstream mshFile(fname);
   if ( ! mshFile.is_open() ) {
     fprintf(stderr, "failed to open jigsaw geom file %s\n", fname.c_str());
     exit(EXIT_FAILURE);
   }
 
-  JigGeom geom;
+  GeomInfo geom;
 
   //header - skip
   skipLine(mshFile,debug);
@@ -143,7 +143,7 @@ bool isPtCoincident(double ax, double ay, double bx, double by, double tolSquare
   return (length < tolSquared);
 }
 
-bool checkVertexUse(JigGeom& geom, bool debug=false) {
+bool checkVertexUse(GeomInfo& geom, bool debug=false) {
   std::map<int,int> vtxCounter;
   for(int i=0; i<geom.numVtx; i++)
     vtxCounter[i] = 0;
@@ -161,7 +161,7 @@ bool checkVertexUse(JigGeom& geom, bool debug=false) {
   return isOk;
 }
 
-JigGeom cleanJigGeom(JigGeom& dirty, double coincidentVtxToleranceSquared, bool debug=false) {
+GeomInfo cleanJigGeom(GeomInfo& dirty, double coincidentVtxToleranceSquared, bool debug=false) {
   assert(checkVertexUse(dirty));
   //trying to check the the dirty geom has a chain of edges
   assert(dirty.numEdges == dirty.numVtx);
@@ -170,7 +170,7 @@ JigGeom cleanJigGeom(JigGeom& dirty, double coincidentVtxToleranceSquared, bool 
   //the remaining edges form a loop
   assert(dirty.edges[4][0] == dirty.edges[dirty.numEdges-1][1]);
 
-  JigGeom clean;
+  GeomInfo clean;
   clean.vtx_x.reserve(dirty.numVtx);
   clean.vtx_y.reserve(dirty.numVtx);
   //Look for vertices that are nearly coincident
