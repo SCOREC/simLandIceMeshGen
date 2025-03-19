@@ -86,6 +86,90 @@ std::array<int, 2> readEdge(std::ifstream& in, bool debug=true) {
   return edge;
 }
 
+/*
+Removed getline in the following functions to use for VTK files because of better whitespace handling
+*/
+std::array<double, 3> readPointVtk(std::ifstream& in, bool debug=true) {
+  std::array<double, 3> pt;
+    in >> pt[0] >> pt[1] >> pt[2];
+    return pt;
+}
+
+std::array<int, 2> readEdgeVtk(std::ifstream& in, bool debug=true) {
+  int numPoints; 
+  in >> numPoints;
+  assert(numPoints == 2);
+
+  std::array<int, 2> edge;
+  in >> edge[0] >> edge[1];
+
+  return edge;
+
+}
+GeomInfo readVtkGeom(std::string fname, bool debug=false) {
+  std::ifstream vtkFile(fname);
+  if ( ! vtkFile.is_open() ) {
+    fprintf(stderr, "failed to open VTK geom file %s\n", fname.c_str());
+    exit(EXIT_FAILURE);
+  }
+
+  GeomInfo geom;
+
+  //Version
+  skipLine(vtkFile,debug);
+  //Title
+  skipLine(vtkFile,debug);
+  //Format of VTK
+  std:string format;
+  vtkFile >> format;
+  //Check for ASCII for now
+  assert(format =="ASCII");
+  //Skip to next line
+  skipLine(vtkFile,debug);
+  
+  //Dataset Type
+  std::string keyword, datasetType;
+  vtkFile >> keyword >> datasetType;
+  assert(keyword == "DATASET");
+  //Check for Polydata for now
+  assert(datasetType == "POLYDATA");
+
+  //Read points
+  int numPoints;
+  std::string dataType;
+  vtkFile >> keyword >> numPoints >> dataType;
+  assert(keyword == "POINTS");
+  geom.numVtx = numPoints;
+
+  //DID not change
+  geom.vtx_x.reserve(geom.numVtx);
+  geom.vtx_y.reserve(geom.numVtx);
+
+  //point coordinates
+  for(int i=0; i<geom.numVtx; i++) {
+    auto pt = readPointVtk(vtkFile,debug);
+    geom.vtx_x.push_back(pt[0]);
+    geom.vtx_y.push_back(pt[1]);
+    if(debug) std::cout << "pt " << geom.vtx_x[i] << ", " << geom.vtx_y[i] << std::endl;
+  }
+
+  //Read lines
+  vtkFile >> keyword >> geom.numEdges;
+    int totalIndexCount;
+    vtkFile >> totalIndexCount;
+    assert(keyword == "LINES");
+
+  geom.edges.reserve(geom.numEdges);
+
+  //edge indices
+  for(int i=0; i<geom.numEdges; i++) {
+    geom.edges.push_back(readEdgeVtk(vtkFile,debug));
+    if(debug) std::cout << "edge " << geom.edges[i][0] << ", " << geom.edges[i][1] << std::endl;
+  }
+
+  return geom;
+}
+
 GeomInfo readJigGeom(std::string fname, bool debug=false) {
   std::ifstream mshFile(fname);
   if ( ! mshFile.is_open() ) {
@@ -163,6 +247,7 @@ bool checkVertexUse(GeomInfo& geom, bool debug=false) {
 
 GeomInfo cleanJigGeom(GeomInfo& dirty, double coincidentVtxToleranceSquared, bool debug=false) {
   assert(checkVertexUse(dirty));
+
   //trying to check the the dirty geom has a chain of edges
   assert(dirty.numEdges == dirty.numVtx);
   //the first four edges form a loop
@@ -254,8 +339,9 @@ int main(int argc, char **argv)
   pGFace* faces;      // array to store the returned model faces
   pGRegion region;      // pointer to returned model region
   pGModel model;        // pointer to the complete model
-
-  auto dirty = readJigGeom(argv[1]);
+  
+  auto dirty = readVtkGeom(argv[1]);
+  //auto dirty = readJigGeom(argv[1]);
   auto geom = cleanJigGeom(dirty, std::stof(argv[3]), true);
   const auto prefix = std::string(argv[2]);
   std::string modelFileName = prefix + ".smd";
