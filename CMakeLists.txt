@@ -10,3 +10,7 @@ add_executable(landIceMeshGen landIceMeshGen.cc)
 target_include_directories(landIceMeshGen PRIVATE ${SIMMODSUITE_INCLUDE_DIR})
 target_link_libraries(landIceMeshGen PRIVATE ${SIMMODSUITE_LIBS})
 
+add_executable(testCurveCreation testCurveCreation.cc)
+target_include_directories(testCurveCreation PRIVATE ${SIMMODSUITE_INCLUDE_DIR})
+target_link_libraries(testCurveCreation PRIVATE ${SIMMODSUITE_LIBS})
+
