@@ -6,11 +6,13 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 find_package(SimModSuite MODULE REQUIRED)
 
-add_executable(landIceMeshGen landIceMeshGen.cc)
-target_include_directories(landIceMeshGen PRIVATE ${SIMMODSUITE_INCLUDE_DIR})
-target_link_libraries(landIceMeshGen PRIVATE ${SIMMODSUITE_LIBS})
+function(addTest name)
+  add_executable(${name} ${name}.cc)
+  target_include_directories(${name} PRIVATE ${SIMMODSUITE_INCLUDE_DIR})
+  target_link_libraries(${name} PRIVATE ${SIMMODSUITE_LIBS})
+endfunction()
 
-add_executable(testCurveCreation testCurveCreation.cc)
-target_include_directories(testCurveCreation PRIVATE ${SIMMODSUITE_INCLUDE_DIR})
-target_link_libraries(testCurveCreation PRIVATE ${SIMMODSUITE_LIBS})
+addTest(landIceMeshGen)
+addTest(testCurveCreation)
+addTest(testSplineFitting)
 
