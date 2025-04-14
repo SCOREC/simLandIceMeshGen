@@ -25,14 +25,50 @@ using namespace std;
 
 void messageHandler(int type, const char *msg);
 
-void fitCubicSplineToPoints()
+namespace LandiceMeshGen {
+class Spline {
+  public:
+    Spline(std::vector<double> pts_in, std::vector<double> knots_in, int dim_in, int order_in, int numPts_in) :
+      pts(pts_in), knots(knots_in), dim(dim_in), order(order_in), numPts(numPts_in) {}
+    std::vector<double>& getKnots() { return knots; }
+    std::vector<double>& getPts() { return pts; }
+    size_t getOrder() { return order; }
+    size_t getDim() { return dim; }
+    size_t getNumPts() { return numPts; }
+  private:
+    std::vector<double> pts;
+    std::vector<double> knots;
+    size_t order;
+    size_t dim;
+    size_t numPts;
+};
+}
+
+pCurve createPCurveFromSpline(LandiceMeshGen::Spline& spline) {
+  return SCurve_createBSpline(spline.getOrder(), spline.getNumPts(),
+      spline.getPts().data(),spline.getKnots().data(),NULL);
+
+}
+
+//assumption here is that all the x coordinates are listed first, then the y
+//coordinates
+LandiceMeshGen::Spline fit2dCubicSplineToPoints(std::vector<double> pts)
 {
+  bool debug = true;
+  const auto dim = 2;
   const auto degree = 3;
-  Eigen::Array<double,2,4> points {
-    {0, 4, 8, 12},
-    {0, 1, 1 ,0}
-  };
+  assert(pts.size() % dim == 0);
+  const auto numPts = pts.size() / dim;
+  Eigen::Array<double,dim,Eigen::Dynamic> points(dim,numPts);
+  size_t row = 0;
+  size_t col = 0;
+  for (auto val : pts) points(row++ % dim, col++ % numPts) = val;
   const Eigen::Spline2d spline = Eigen::SplineFitting<Eigen::Spline2d>::Interpolate(points, degree);
+  const auto eKnots = spline.knots();
+  std::vector<double> knots {eKnots.begin(), eKnots.end()};
+  if(debug)
+    for (auto val : knots) std::cout << val << " "; std::cout << "\n";
+  return LandiceMeshGen::Spline(pts, knots, dim, degree, numPts);
 }
 
 int main(int argc, char **argv)
@@ -68,12 +104,13 @@ int main(int argc, char **argv)
     // Create the pGImporter object
     importer = GImporter_new();
 
-    fitCubicSplineToPoints();
-
     const auto numPts = 4;
-    std::vector<double> pts = {0.,0.,0., 4.,1.,0., 8.,1.,0., 12.,0.,0.};
+    std::vector<double> pts = {0, 4, 8, 12,  //x
+                               0, 1, 1 ,0};  //y
 
-    auto curve = SCurve_createPiecewiseLinear(numPts, pts.data());
+    auto spline = fit2dCubicSplineToPoints(pts);
+
+    auto curve = createPCurveFromSpline(spline);
 
     vertices = new pGVertex[2];
     double startVtx[3] = {0,0,0};
