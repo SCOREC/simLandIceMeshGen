@@ -5,11 +5,13 @@ project(simLandIceMeshGen VERSION 0.0.1 LANGUAGES CXX)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 find_package(SimModSuite MODULE REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 function(addTest name)
   add_executable(${name} ${name}.cc)
   target_include_directories(${name} PRIVATE ${SIMMODSUITE_INCLUDE_DIR})
   target_link_libraries(${name} PRIVATE ${SIMMODSUITE_LIBS})
+  target_link_libraries(${name} PRIVATE Eigen3::Eigen)
 endfunction()
 
 addTest(landIceMeshGen)
