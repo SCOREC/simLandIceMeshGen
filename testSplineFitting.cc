@@ -45,25 +45,44 @@ class Spline {
 }
 
 pCurve createPCurveFromSpline(LandiceMeshGen::Spline& spline) {
+  bool debug = true;
+  //transpose the points and knots vector for simmetrix
+  const auto& sPts = spline.getPts();
+  const auto dim = spline.getDim();
+  const auto numPts = spline.getNumPts();
+  std::vector<double> pts(dim*numPts);
+  //FIXME this doesn't work - out of bounds access and wrong order
+  for( int row = 0; row < dim; row++) {
+    for( int col = 0; col < numPts; col++) {
+      pts[col*numPts + row] = sPts.at(row*dim + col);
+    }
+  }
+  if (debug) {
+    for (auto val : sPts) std::cout << val << " "; std::cout << "\n";
+    for (auto val : pts) std::cout << val << " "; std::cout << "\n";
+  }
   return SCurve_createBSpline(spline.getOrder(), spline.getNumPts(),
       spline.getPts().data(),spline.getKnots().data(),NULL);
 
 }
 
-//assumption here is that all the x coordinates are listed first, then the y
-//coordinates
-LandiceMeshGen::Spline fit2dCubicSplineToPoints(std::vector<double> pts)
+//assumption here is that all the x coordinates are listed first, then y, and
+//then z
+LandiceMeshGen::Spline fit3dCubicSplineToPoints(std::vector<double> pts)
 {
   bool debug = true;
-  const auto dim = 2;
+  const auto dim = 3;
   const auto degree = 3;
   assert(pts.size() % dim == 0);
   const auto numPts = pts.size() / dim;
   Eigen::Array<double,dim,Eigen::Dynamic> points(dim,numPts);
-  size_t row = 0;
-  size_t col = 0;
-  for (auto val : pts) points(row++ % dim, col++ % numPts) = val;
-  const Eigen::Spline2d spline = Eigen::SplineFitting<Eigen::Spline2d>::Interpolate(points, degree);
+  int ptsIdx = 0;
+  for( int row = 0; row < dim; row++) {
+    for( int col = 0; col < numPts; col++) {
+      points(row,col) = pts.at(ptsIdx++);
+    }
+  }
+  const Eigen::Spline3d spline = Eigen::SplineFitting<Eigen::Spline3d>::Interpolate(points, degree);
   const auto eKnots = spline.knots();
   std::vector<double> knots {eKnots.begin(), eKnots.end()};
   if(debug)
@@ -106,9 +125,10 @@ int main(int argc, char **argv)
 
     const auto numPts = 4;
     std::vector<double> pts = {0, 4, 8, 12,  //x
-                               0, 1, 1 ,0};  //y
+                               0, 1, 1 ,0,   //y
+                               0, 0, 0 ,0};  //z
 
-    auto spline = fit2dCubicSplineToPoints(pts);
+    auto spline = fit3dCubicSplineToPoints(pts);
 
     auto curve = createPCurveFromSpline(spline);
 
