@@ -51,15 +51,14 @@ pCurve createPCurveFromSpline(LandiceMeshGen::Spline& spline) {
   const auto dim = spline.getDim();
   const auto numPts = spline.getNumPts();
   std::vector<double> pts(dim*numPts);
-  //FIXME this doesn't work - out of bounds access and wrong order
   for( int row = 0; row < dim; row++) {
     for( int col = 0; col < numPts; col++) {
-      pts[col*numPts + row] = sPts.at(row*dim + col);
+      pts[col*dim + row] = sPts.at(row*numPts + col);
     }
   }
   if (debug) {
-    for (auto val : sPts) std::cout << val << " "; std::cout << "\n";
-    for (auto val : pts) std::cout << val << " "; std::cout << "\n";
+    std::cout << "sPts: "; for (auto val : sPts) std::cout << val << " "; std::cout << "\n";
+    std::cout << "pts: "; for (auto val : pts) std::cout << val << " "; std::cout << "\n";
   }
   return SCurve_createBSpline(spline.getOrder(), spline.getNumPts(),
       spline.getPts().data(),spline.getKnots().data(),NULL);
@@ -83,10 +82,10 @@ LandiceMeshGen::Spline fit3dCubicSplineToPoints(std::vector<double> pts)
     }
   }
   const Eigen::Spline3d spline = Eigen::SplineFitting<Eigen::Spline3d>::Interpolate(points, degree);
-  const auto eKnots = spline.knots();
+  const Eigen::Spline3d::KnotVectorType eKnots = spline.knots(); //Array<scalar, 1, dynamic>
   std::vector<double> knots {eKnots.begin(), eKnots.end()};
   if(debug)
-    for (auto val : knots) std::cout << val << " "; std::cout << "\n";
+    std::cout << "knots: "; for (auto val : knots) std::cout << val << " "; std::cout << "\n";
   return LandiceMeshGen::Spline(pts, knots, dim, degree, numPts);
 }
 
