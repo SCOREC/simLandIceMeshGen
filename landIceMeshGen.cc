@@ -322,6 +322,14 @@ std::array<double, 3> getNormal(pGEdge first, pGEdge second) {
            u[0]*v[1] - u[1]*v[0] };
 }
 
+std::string getFileExtension(const std::string& filename) {
+  size_t dotPos = filename.rfind('.');
+  if (dotPos != std::string::npos) {
+      return filename.substr(dotPos);
+  }
+  return "";
+}
+
 int main(int argc, char **argv)
 {
   if(argc!=4) {
@@ -340,8 +348,21 @@ int main(int argc, char **argv)
   pGRegion region;      // pointer to returned model region
   pGModel model;        // pointer to the complete model
   
-  auto dirty = readVtkGeom(argv[1]);
-  //auto dirty = readJigGeom(argv[1]);
+  GeomInfo dirty;
+
+  std::string filename = argv[1];
+  std::string ext = getFileExtension(filename);
+
+  if(ext == ".vtk"){
+    dirty = readVtkGeom(argv[1]);
+  }
+  else if(ext == ".msh"){
+    dirty = readJigGeom(argv[1]);
+  }
+  else{
+    std:cerr << "Unsupported file extension: "<< ext << "\n";
+    return 1;
+  }
   auto geom = cleanJigGeom(dirty, std::stof(argv[3]), true);
   const auto prefix = std::string(argv[2]);
   std::string modelFileName = prefix + ".smd";
