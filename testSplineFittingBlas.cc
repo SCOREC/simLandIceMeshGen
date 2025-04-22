@@ -29,6 +29,30 @@ void messageHandler(int type, const char *msg);
 extern "C" void dgesv_( int* n, int* nrhs, double* a, int* lda, int* ipiv,
                  double* b, int* ldb, int* info );
 
+// Check the orientation of a curve. The method is applicable
+// to non-convex polygons too.
+// Returns true if the curve is clockwise, false if counter-clockwise.
+bool curveOrientation(std::vector <double> &curvePts)
+{
+  int numPts = curvePts.size()/3;
+  double sumEdges = 0.0;
+  for (int i = 1; i < numPts; ++i)
+  {
+    double x1 = curvePts[(i-1)*3];
+    double y1 = curvePts[(i-1)*3+1];
+    double x2 = curvePts[i*3];
+    double y2 = curvePts[i*3+1];	
+
+    double areaUnderEdge = (x2 - x1)* (y2 + y1);
+    sumEdges = sumEdges + areaUnderEdge;
+  }
+
+  if (sumEdges > 0)
+    return true;
+
+  return false;
+}
+
 // **********************************************
 void interpolateCubicBSpline( vector<double>& points,vector<double>& knots, vector<double> &ctrlPoints, int bc)
 // **********************************************
@@ -83,34 +107,39 @@ void interpolateCubicBSpline( vector<double>& points,vector<double>& knots, vect
     ctrlPoints.at(i)=rhs.at(i);  
 }
 
+class BSpline2d {
+  public:
+    M3DC1::BSpline x;
+    M3DC1::BSpline y;
+};
+
 // From Usman's m3dc1_model.cc code
 // use clamped b-spline as underlying representation
 // **********************************************
-void fitCubicSplineToPoints(int * numPts, double * points)
+BSpline2d fitCubicSplineToPoints(std::vector<double> xpts, std::vector<double> ypts)
 // **********************************************
 {
+  assert(xpts.size() == ypts.size());
+  const auto numPts = xpts.size();
   int order_p=4; 
-  int knotsize=2*order_p+*numPts-2;
+  int knotsize=2*order_p+numPts-2;
   vector<double> knots(knotsize,0.);
-  vector<double> ctrlPointsX(*numPts+2),ctrlPointsY(*numPts+2),weight;
+  vector<double> ctrlPointsX(numPts+2),ctrlPointsY(numPts+2),weight;
   for( int i=0; i<order_p; i++)
   {
     knots.at(knotsize-i-1)=1.0;
   }
-  double increment=1.0/(*numPts-1);
-  for (int i=0; i<*numPts-2; i++)
+  double increment=1.0/(numPts-1);
+  for (int i=0; i<numPts-2; i++)
   {
     //double increment=inter_len.at(i)/len;
     knots.at(order_p+i)=knots.at(order_p+i-1)+increment;
   }
-  vector<double> pointsX(*numPts),pointsY(*numPts);
-  for( int i=0; i<*numPts; i++)
-  {
-    pointsX.at(i)=points[2*i];
-    pointsY.at(i)=points[2*i+1];
-  }
-  interpolateCubicBSpline(pointsX,knots,ctrlPointsX,0);
-  interpolateCubicBSpline(pointsY,knots,ctrlPointsY,0);
+  interpolateCubicBSpline(xpts,knots,ctrlPointsX,0);
+  interpolateCubicBSpline(ypts,knots,ctrlPointsY,0);
+  M3DC1::BSpline xSpline(order_p,ctrlPointsX,knots, weight);
+  M3DC1::BSpline ySpline(order_p,ctrlPointsY,knots, weight);
+  return {xSpline, ySpline};
 }
 
 int main(int argc, char **argv)
@@ -147,9 +176,32 @@ int main(int argc, char **argv)
     importer = GImporter_new();
 
     const auto numPts = 4;
-    std::vector<double> pts = {0.,0.,0., 4.,1.,0., 8.,1.,0., 12.,0.,0.};
+    std::vector<double> xpts = {0, 4, 8, 12};
+    std::vector<double> ypts = {0, 1, 1,  0};
 
-    auto curve = SCurve_createPiecewiseLinear(numPts, pts.data());
+    BSpline2d bspline = fitCubicSplineToPoints(xpts,ypts);
+
+    vector<double> ctrlPtsX,ctrlPtsY, knots,weight;
+    int order;
+    bspline.x.getpara(order, ctrlPtsX, knots, weight);
+    bspline.y.getpara(order, ctrlPtsY, knots, weight);
+    const int numCtrlPts = ctrlPtsX.size();
+    vector<double> ctrlPts3D (3*(numCtrlPts));
+    for( int k=0; k<numCtrlPts; k++)
+    {
+      ctrlPts3D.at(3*k)=ctrlPtsX.at(k);
+      ctrlPts3D.at(3*k+1)=ctrlPtsY.at(k);
+      ctrlPts3D[3*k+2]=0.0;
+    }
+    // To make it consistent, we will define every edge in counter-clockwise direction.
+    // If curve is clockwise, set edge dir to 0, otherwise 1 to follow the above convention.
+    int edgeDir = 1;
+    bool clockwise = curveOrientation(ctrlPts3D);
+    if (clockwise)
+      edgeDir = 0;
+
+    // Define the curve
+    pCurve curve = SCurve_createBSpline(order,numCtrlPts,&ctrlPts3D[0],&knots[0],NULL);
 
     vertices = new pGVertex[2];
     double startVtx[3] = {0,0,0};
