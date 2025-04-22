@@ -7,10 +7,11 @@
   BSD license as described in the LICENSE file in the top-level directory.
  
 *******************************************************************************/
-#include "Expression.h"
+#include "BSpline.h"
 #include <iostream>
 #include <cmath>
 using namespace M3DC1;
+using std::vector;
 void M3DC1::dummyAnalyticExpression(double phi, double dummy, double *xyz, void* userdata){}
 void M3DC1::evalCoord(double para, double *xyz, void* userdata)
 {

@@ -7,12 +7,13 @@
   BSD license as described in the LICENSE file in the top-level directory.
  
 *******************************************************************************/
-#include "PolyNomial.h"
+#include "BSpline.h"
 #include <assert.h>
 #include <iostream>
 #include <cmath>
 using std::cout;
 using std::endl;
+using std::vector;
 using namespace M3DC1;
 PolyNomial::PolyNomial(int degree_p, vector <double> &coffs_p)
 {

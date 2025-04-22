@@ -13,6 +13,7 @@
 #include <cmath>
 using std::cout;
 using std::endl;
+using std::vector;
 using namespace M3DC1;
 BSpline :: BSpline(int order_p, vector<double> &ctrlPts_p, vector<double> & knots_p, vector<double> & weight_p)
 {
