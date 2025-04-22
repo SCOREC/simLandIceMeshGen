@@ -21,7 +21,9 @@ addTest(testCurveCreation)
 addTest(testSplineFitting)
 target_link_libraries(testSplineFitting PRIVATE Eigen3::Eigen)
 
+add_library(splineInterp splineInterpolation.cc BSpline.cc Expression.cc PolyNomial.cc)
+target_link_libraries(splineInterp PRIVATE BLAS::BLAS)
+
 addTest(testSplineFittingBlas)
-target_sources(testSplineFittingBlas PRIVATE splineInterpolation.cc BSpline.cc Expression.cc PolyNomial.cc)
-target_link_libraries(testSplineFittingBlas PRIVATE BLAS::BLAS)
+target_link_libraries(testSplineFittingBlas PRIVATE splineInterp)
 
