@@ -19,6 +19,8 @@
 #include <map>
 #include <limits> //std::numeric_limits
 
+#include "BSpline.h"
+
 using namespace std;
 
 void messageHandler(int type, const char *msg);
