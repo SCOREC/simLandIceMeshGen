@@ -5,7 +5,6 @@ project(simLandIceMeshGen VERSION 0.0.1 LANGUAGES CXX)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 find_package(SimModSuite MODULE REQUIRED)
-find_package(Eigen3 REQUIRED)
 find_package(BLAS REQUIRED)
 
 function(addTest name)
@@ -18,12 +17,9 @@ addTest(landIceMeshGen)
 
 addTest(testCurveCreation)
 
-addTest(testSplineFitting)
-target_link_libraries(testSplineFitting PRIVATE Eigen3::Eigen)
-
 add_library(splineInterp splineInterpolation.cc BSpline.cc Expression.cc PolyNomial.cc)
 target_link_libraries(splineInterp PRIVATE BLAS::BLAS)
 
-addTest(testSplineFittingBlas)
-target_link_libraries(testSplineFittingBlas PRIVATE splineInterp)
+addTest(testSplineFitting)
+target_link_libraries(testSplineFitting PRIVATE splineInterp)
 

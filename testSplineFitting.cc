@@ -19,89 +19,11 @@
 #include <tuple>
 #include <vector>
 
-#include <unsupported/Eigen/Splines>
+#include "splineInterpolation.h"
 
 using namespace std;
 
 void messageHandler(int type, const char *msg);
-
-namespace LandiceMeshGen {
-class Spline {
-public:
-  Spline(std::vector<double> pts_in, std::vector<double> knots_in, int dim_in,
-         int order_in, int numPts_in)
-      : pts(pts_in), knots(knots_in), dim(dim_in), order(order_in),
-        numPts(numPts_in) {}
-  std::vector<double> &getKnots() { return knots; }
-  std::vector<double> &getPts() { return pts; }
-  size_t getOrder() { return order; }
-  size_t getDim() { return dim; }
-  size_t getNumPts() { return numPts; }
-
-private:
-  std::vector<double> pts;
-  std::vector<double> knots;
-  size_t order;
-  size_t dim;
-  size_t numPts;
-};
-} // namespace LandiceMeshGen
-
-pCurve createPCurveFromSpline(LandiceMeshGen::Spline &spline) {
-  bool debug = true;
-  // transpose the points and knots vector for simmetrix
-  const auto &sPts = spline.getPts();
-  const auto dim = spline.getDim();
-  const auto numPts = spline.getNumPts();
-  std::vector<double> pts(dim * numPts);
-  for (int row = 0; row < dim; row++) {
-    for (int col = 0; col < numPts; col++) {
-      pts[col * dim + row] = sPts.at(row * numPts + col);
-    }
-  }
-  if (debug) {
-    std::cout << "sPts: ";
-    for (auto val : sPts)
-      std::cout << val << " ";
-    std::cout << "\n";
-    std::cout << "pts: ";
-    for (auto val : pts)
-      std::cout << val << " ";
-    std::cout << "\n";
-  }
-  return SCurve_createBSpline(spline.getOrder(), spline.getNumPts(),
-                              spline.getPts().data(), spline.getKnots().data(),
-                              NULL);
-}
-
-// assumption here is that all the x coordinates are listed first, then y, and
-// then z
-LandiceMeshGen::Spline fit3dCubicSplineToPoints(std::vector<double> pts) {
-  bool debug = true;
-  const auto dim = 3;
-  const auto degree = 3;
-  assert(pts.size() % dim == 0);
-  const auto numPts = pts.size() / dim;
-  Eigen::Array<double, dim, Eigen::Dynamic> points(dim, numPts);
-  int ptsIdx = 0;
-  for (int row = 0; row < dim; row++) {
-    for (int col = 0; col < numPts; col++) {
-      points(row, col) = pts.at(ptsIdx++);
-    }
-  }
-  const Eigen::Spline3d spline =
-      Eigen::SplineFitting<Eigen::Spline3d>::Interpolate(points, degree);
-  const Eigen::Spline3d::KnotVectorType eKnots =
-      spline.knots(); // Array<scalar, 1, dynamic>
-  std::vector<double> knots{eKnots.begin(), eKnots.end()};
-  if (debug)
-    std::cout << "knots: ";
-  for (auto val : knots)
-    std::cout << val << " ";
-  std::cout << "\n";
-  return LandiceMeshGen::Spline(pts, knots, dim, degree, numPts);
-}
-
 int main(int argc, char **argv) {
   pGImporter importer; // the importer object used to create the geometry
   pGVertex *vertices;  // array to store the returned model vertices
@@ -135,13 +57,33 @@ int main(int argc, char **argv) {
     importer = GImporter_new();
 
     const auto numPts = 4;
-    std::vector<double> pts = {0, 4, 8, 12, // x
-                               0, 1, 1, 0,  // y
-                               0, 0, 0, 0}; // z
+    std::vector<double> xpts = {0, 4, 8, 12};
+    std::vector<double> ypts = {0, 1, 1, 0};
 
-    auto spline = fit3dCubicSplineToPoints(pts);
+    auto bspline = SplineInterp::fitCubicSplineToPoints(xpts, ypts);
 
-    auto curve = createPCurveFromSpline(spline);
+    vector<double> ctrlPtsX, ctrlPtsY, knots, weight;
+    int order;
+    bspline.x.getpara(order, ctrlPtsX, knots, weight);
+    bspline.y.getpara(order, ctrlPtsY, knots, weight);
+    const int numCtrlPts = ctrlPtsX.size();
+    vector<double> ctrlPts3D(3 * (numCtrlPts));
+    for (int k = 0; k < numCtrlPts; k++) {
+      ctrlPts3D.at(3 * k) = ctrlPtsX.at(k);
+      ctrlPts3D.at(3 * k + 1) = ctrlPtsY.at(k);
+      ctrlPts3D[3 * k + 2] = 0.0;
+    }
+    // To make it consistent, we will define every edge in counter-clockwise
+    // direction. If curve is clockwise, set edge dir to 0, otherwise 1 to
+    // follow the above convention.
+    int edgeDir = 1;
+    bool clockwise = SplineInterp::curveOrientation(ctrlPts3D);
+    if (clockwise)
+      edgeDir = 0;
+
+    // Define the curve
+    pCurve curve =
+        SCurve_createBSpline(order, numCtrlPts, &ctrlPts3D[0], &knots[0], NULL);
 
     vertices = new pGVertex[2];
     double startVtx[3] = {0, 0, 0};
