@@ -10,7 +10,7 @@
 #ifndef BSPLINE_H
 #define BSPLINE_H
 #include <vector>
-namespace M3DC1 {
+namespace Spline {
 
 /**
 Base class of 2D parametric curve
@@ -80,5 +80,5 @@ private:
   std::vector<double> ctrlPts_1st;
   std::vector<double> ctrlPts_2nd;
 };
-}; // namespace M3DC1
+}; // namespace Spline
 #endif

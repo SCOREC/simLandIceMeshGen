@@ -5,8 +5,8 @@ namespace SplineInterp {
 
 class BSpline2d {
 public:
-  M3DC1::BSpline x;
-  M3DC1::BSpline y;
+  Spline::BSpline x;
+  Spline::BSpline y;
 };
 
 /**

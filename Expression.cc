@@ -10,11 +10,11 @@
 #include "BSpline.h"
 #include <cmath>
 #include <iostream>
-using namespace M3DC1;
+using namespace Spline;
 using std::vector;
-void M3DC1::dummyAnalyticExpression(double phi, double dummy, double *xyz,
+void Spline::dummyAnalyticExpression(double phi, double dummy, double *xyz,
                                     void *userdata) {}
-void M3DC1::evalCoord(double para, double *xyz, void *userdata) {
+void Spline::evalCoord(double para, double *xyz, void *userdata) {
   Expression *R_p = ((Expression **)userdata)[0];
   Expression *Z_p = ((Expression **)userdata)[1];
   xyz[0] = R_p->eval(para);
@@ -22,7 +22,7 @@ void M3DC1::evalCoord(double para, double *xyz, void *userdata) {
   // xyz[2]=0.0;
 }
 
-void M3DC1::evalNormalVector(Expression *xp, Expression *yp, double para,
+void Spline::evalNormalVector(Expression *xp, Expression *yp, double para,
                              double *normalvec) {
   double dx = xp->evalFirstDeriv(para);
   double dy = yp->evalFirstDeriv(para);
@@ -32,7 +32,7 @@ void M3DC1::evalNormalVector(Expression *xp, Expression *yp, double para,
   normalvec[1] = -1.0 * dx / arclen;
   // normalvec[2]=0.0;
 }
-void M3DC1::evalCurvature(Expression *xp, Expression *yp, double para,
+void Spline::evalCurvature(Expression *xp, Expression *yp, double para,
                           double *curv) {
   double dx = xp->evalFirstDeriv(para);
   double ddx = xp->evalSecondDeriv(para);
@@ -42,7 +42,7 @@ void M3DC1::evalCurvature(Expression *xp, Expression *yp, double para,
   *curv =
       (dx * ddy - dy * ddx) / ((dx * dx + dy * dy) * sqrt(dx * dx + dy * dy));
 }
-int M3DC1::calcuBinomial(int j, int i) {
+int Spline::calcuBinomial(int j, int i) {
   if (j < i)
     return 0;
   int res = 1;

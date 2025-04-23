@@ -43,7 +43,7 @@ void interpolateCubicBSpline(vector<double> &points, vector<double> &knots,
     vector<double> points_tmp(numPts + 2, 0.);
     points_tmp.at(i) = 1.0;
     vector<double> weight_p;
-    M3DC1::BSpline basis(order_p, points_tmp, knots, weight_p);
+    Spline::BSpline basis(order_p, points_tmp, knots, weight_p);
     for (int j = 0; j < numPts; j++) {
       double para = knots.at(order_p + j - 1);
       double res = basis.eval(para);
@@ -98,8 +98,8 @@ BSpline2d fitCubicSplineToPoints(std::vector<double> xpts,
   }
   interpolateCubicBSpline(xpts, knots, ctrlPointsX, 0);
   interpolateCubicBSpline(ypts, knots, ctrlPointsY, 0);
-  M3DC1::BSpline xSpline(order_p, ctrlPointsX, knots, weight);
-  M3DC1::BSpline ySpline(order_p, ctrlPointsY, knots, weight);
+  Spline::BSpline xSpline(order_p, ctrlPointsX, knots, weight);
+  Spline::BSpline ySpline(order_p, ctrlPointsY, knots, weight);
   return {xSpline, ySpline};
 }
 

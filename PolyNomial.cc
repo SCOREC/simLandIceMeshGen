@@ -14,7 +14,7 @@
 using std::cout;
 using std::endl;
 using std::vector;
-using namespace M3DC1;
+using namespace Spline;
 PolyNomial::PolyNomial(int degree_p, vector<double> &coffs_p) {
   degree = degree_p;
   coffs = coffs_p;
