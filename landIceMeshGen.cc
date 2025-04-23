@@ -437,7 +437,7 @@ int main(int argc, char **argv) {
       }
     }
 
-    const int stride = 1000;
+    const int stride = 2000;
     const int firstPt = 4;
     std::cout << "numPts " << geom.numVtx-4 << " lastPt " << geom.numVtx << "\n";
     double vtx[3] = {geom.vtx_x[firstPt], geom.vtx_y[firstPt], 0};
@@ -465,15 +465,7 @@ int main(int argc, char **argv) {
           double pt[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
           vtx = GR_createVertex(region, pt);
         }
-        std::cout << "range " << prevVtxIdx << " " << i << " numPts " << numPts << " isLastPt " << isLastPt << "\n";
         fitCurveToContour(region, prevVtx, vtx, numPts, pts);
-        { double first[3];
-          GV_point(prevVtx, first);
-          double last[3];
-          GV_point(vtx, last);
-          std::cout << "start " << first[0] << " " << first[1] << "\n";
-          std::cout << "end " << last[0] << " " << last[1] << "\n";
-        }
         prevVtx = vtx;
         prevVtxIdx = i;
       }
