@@ -6,19 +6,8 @@
 #include "SimUtil.h"
 #include <iostream>
 #include <math.h>
-
-#include <algorithm> //[min|max]element
-#include <array>
 #include <cassert>
-#include <fstream>
-#include <iostream>
-#include <limits> //std::numeric_limits
-#include <map>
-#include <sstream>
 #include <string>
-#include <tuple>
-#include <vector>
-
 #include "splineInterpolation.h"
 
 using namespace std;
@@ -35,25 +24,16 @@ int main(int argc, char **argv) {
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
 
-  const auto debug = false;
-
-  // You will want to place a try/catch around all SimModSuite calls,
-  // as errors are thrown.
   try {
     Sim_logOn("simMeshGen.log");
     SimModel_start(); // Call before Sim_readLicenseFile
-    // NOTE: Sim_readLicenseFile() is for internal testing only.  To use,
-    // pass in the location of a file containing your keys.  For a release
-    // product, use Sim_registerKey()
     Sim_readLicenseFile(0);
-    // Tessellation of GeomSim geometry requires Meshing to have started
     MS_init();
 
     Sim_setMessageHandler(messageHandler);
     pProgress progress = Progress_new();
     Progress_setDefaultCallback(progress);
 
-    // Create the pGImporter object
     importer = GImporter_new();
 
     const auto numPts = 4;
@@ -81,7 +61,6 @@ int main(int argc, char **argv) {
     if (clockwise)
       edgeDir = 0;
 
-    // Define the curve
     pCurve curve =
         SCurve_createBSpline(order, numCtrlPts, &ctrlPts3D[0], &knots[0], NULL);
 
