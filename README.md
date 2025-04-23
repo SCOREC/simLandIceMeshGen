@@ -37,3 +37,22 @@ cmake --build buildSimLandIceMeshGen
 ./buildSimLandIceMeshGen/landIceMeshGen simLandIceMeshGen/twoSquares.msh two 0.5
 ```
 
+
+## run clang formatting
+
+```
+#!/bin/bash 
+module use /opt/scorec/spack/rhel9/v0201_4/lmod/linux-rhel9-x86_64/Core/
+module load llvm/16.0.2-s2prjub 
+
+# run clang-format on hpp and cpp files
+for i in `ls $PWD/*.h`; do 
+  echo $i
+  clang-format -i $i
+done
+
+for i in `ls $PWD/*.cc`; do 
+  echo $i
+  clang-format -i $i
+done
+```
