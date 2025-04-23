@@ -336,19 +336,9 @@ std::string getFileExtension(const std::string &filename) {
   return "";
 }
 
-class Curve {
-  public:
-    pGVertex startVtx;
-    pGVertex endVtx;
-    pGEdge edge;
-};
-
-Curve fitCurveToContour(pGRegion region, const int numPts, std::vector<double>& pts) {
+void fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const int numPts, std::vector<double>& pts) {
   auto curve = SCurve_createPiecewiseLinear(numPts, pts.data());
-  pGVertex startVtx = GR_createVertex(region, &pts[0]);
-  pGVertex endVtx = GR_createVertex(region, &pts[(numPts-1)*3]);
-  pGEdge edge = GR_createEdge(region, startVtx, endVtx, curve, 1);
-  return {startVtx, endVtx, edge};
+  pGEdge edge = GR_createEdge(region, first, last, curve, 1);
 }
 
 int main(int argc, char **argv) {
@@ -447,17 +437,30 @@ int main(int argc, char **argv) {
       }
     }
 
+    const int stride = 1000;
     const int firstPt = 4;
-    const int lastPt = (geom.numVtx-4)/2;
-    const int numIceContourPts = lastPt-firstPt;
-    std::vector<double> iceContourPts(numIceContourPts*3);
-    int idx = 0;
-    for(i=firstPt; i<lastPt; i++) {
-      iceContourPts[idx++] = geom.vtx_x[i];
-      iceContourPts[idx++] = geom.vtx_y[i];
-      iceContourPts[idx++] = 0;
+    double vtx[3] = {geom.vtx_x[firstPt], geom.vtx_y[firstPt], 0};
+    pGVertex firstVtx = GR_createVertex(region, vtx);
+    pGVertex prevVtx = firstVtx;
+    int prevVtxIdx = 0;
+    for(i=4; i<geom.numVtx; i++) {
+      if(i%stride == 0 || i == geom.numVtx-1) {
+        double pt[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
+        pGVertex vtx = GR_createVertex(region, pt);
+        const int numPts = i-prevVtxIdx;
+        std::vector<double> pts(numPts*3);
+        int idx = 0;
+        for(int j=prevVtxIdx; j<i; j++) {
+          pts[idx++] = geom.vtx_x[j];
+          pts[idx++] = geom.vtx_y[j];
+          pts[idx++] = 0;
+        }
+        std::cout << "range " << prevVtxIdx << " " << i << " numPts " << numPts << "\n";
+        fitCurveToContour(region, prevVtx, vtx, numPts, pts);
+        prevVtx = vtx;
+        prevVtxIdx = i;
+      }
     }
-    Curve c = fitCurveToContour(region, numIceContourPts, iceContourPts);
 
     /*
     auto planeBounds = getBoundingPlane(geom);
