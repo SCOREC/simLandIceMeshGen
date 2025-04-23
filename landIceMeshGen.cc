@@ -336,6 +336,21 @@ std::string getFileExtension(const std::string &filename) {
   return "";
 }
 
+class Curve {
+  public:
+    pGVertex startVtx;
+    pGVertex endVtx;
+    pGEdge edge;
+};
+
+Curve fitCurveToContour(pGRegion region, const int numPts, std::vector<double>& pts) {
+  auto curve = SCurve_createPiecewiseLinear(numPts, pts.data());
+  pGVertex startVtx = GR_createVertex(region, &pts[0]);
+  pGVertex endVtx = GR_createVertex(region, &pts[(numPts-1)*3]);
+  pGEdge edge = GR_createEdge(region, startVtx, endVtx, curve, 1);
+  return {startVtx, endVtx, edge};
+}
+
 int main(int argc, char **argv) {
   if (argc != 4) {
     std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
@@ -394,8 +409,8 @@ int main(int argc, char **argv) {
     part = GM_rootPart(model);
     region = GIP_outerRegion(part);
 
-    vertices = new pGVertex[geom.numVtx];
-    edges = new pGEdge[geom.numEdges];
+    vertices = new pGVertex[4];
+    edges = new pGEdge[4];
 
     // TODO generalize face creation
     if (geom.numEdges > 4) {
@@ -406,7 +421,7 @@ int main(int argc, char **argv) {
 
     // First we'll add the vertices
     int i;
-    for (i = 0; i < geom.numVtx; i++) {
+    for (i = 0; i < 4; i++) {
       double vtx[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
       vertices[i] = GR_createVertex(region, vtx);
       if (debug)
@@ -416,8 +431,7 @@ int main(int argc, char **argv) {
     // Now we'll add the edges
     double point0[3], point1[3]; // xyz locations of the two vertices
     pCurve linearCurve;
-
-    for (i = 0; i < geom.numEdges; i++) {
+    for (i = 0; i < 4; i++) {
       const auto startVertIdx = geom.edges[i][0];
       const auto endVertIdx = geom.edges[i][1];
       auto startVert = vertices[startVertIdx];
@@ -425,8 +439,7 @@ int main(int argc, char **argv) {
       GV_point(startVert, point0);
       GV_point(endVert, point1);
       linearCurve = SCurve_createLine(point0, point1);
-      edges[i] = GR_createEdge(region, startVert, endVert, linearCurve,
-                               1); // FIXME - use curveOrientation(...)
+      edges[i] = GR_createEdge(region, startVert, endVert, linearCurve, 1);
       if (debug) {
         std::cout << "edge " << i << " (" << point0[0] << " , " << point0[1]
                   << ")"
@@ -434,6 +447,19 @@ int main(int argc, char **argv) {
       }
     }
 
+    const int firstPt = 4;
+    const int lastPt = (geom.numVtx-4)/2;
+    const int numIceContourPts = lastPt-firstPt;
+    std::vector<double> iceContourPts(numIceContourPts*3);
+    int idx = 0;
+    for(i=firstPt; i<lastPt; i++) {
+      iceContourPts[idx++] = geom.vtx_x[i];
+      iceContourPts[idx++] = geom.vtx_y[i];
+      iceContourPts[idx++] = 0;
+    }
+    Curve c = fitCurveToContour(region, numIceContourPts, iceContourPts);
+
+    /*
     auto planeBounds = getBoundingPlane(geom);
 
     // Now add the faces
@@ -523,6 +549,7 @@ int main(int argc, char **argv) {
       std::cout << "faces[1] area: " << GF_area(faces[1], 0.2) << "\n";
       assert(GF_area(faces[1], 0.2) > 0);
     }
+    */
 
     auto isValid = GM_isValid(model, 2, NULL);
     if (!isValid) {
@@ -542,6 +569,7 @@ int main(int argc, char **argv) {
               << std::endl;
     GM_write(model, modelFileName.c_str(), 0, 0);
 
+/*
     // This next section creates a surface mesh from the model.  You can comment
     // out this section if you don't want to mesh
     pMesh mesh = M_new(0, model);
@@ -590,12 +618,13 @@ int main(int argc, char **argv) {
     MS_deleteMeshCase(meshCase);
     M_release(mesh);
     // end of meshing section
+    delete[] faceEdges;
+    delete[] faceDirs;
+*/
 
     delete[] vertices;
     delete[] edges;
     delete[] faces;
-    delete[] faceEdges;
-    delete[] faceDirs;
     // cleanup
     GM_release(model);
     Progress_delete(progress);
