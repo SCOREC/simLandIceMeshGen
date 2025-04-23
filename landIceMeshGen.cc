@@ -336,9 +336,10 @@ std::string getFileExtension(const std::string &filename) {
   return "";
 }
 
-void fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const int numPts, std::vector<double>& pts) {
+pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const int numPts, std::vector<double>& pts) {
   auto curve = SCurve_createPiecewiseLinear(numPts, pts.data());
   pGEdge edge = GR_createEdge(region, first, last, curve, 1);
+  return edge;
 }
 
 int main(int argc, char **argv) {
@@ -355,7 +356,6 @@ int main(int argc, char **argv) {
 
   GeomInfo dirty;
   pGVertex *vertices; // array to store the returned model vertices
-  pGEdge *edges;      // array to store the returned model edges
   pGFace *faces;      // array to store the returned model faces
   pGRegion region;    // pointer to returned model region
   pGIPart part;
@@ -400,7 +400,6 @@ int main(int argc, char **argv) {
     region = GIP_outerRegion(part);
 
     vertices = new pGVertex[4];
-    edges = new pGEdge[4];
 
     // TODO generalize face creation
     if (geom.numEdges > 4) {
@@ -418,6 +417,7 @@ int main(int argc, char **argv) {
         std::cout << "vtx " << i << " (" << vtx[0] << " , " << vtx[1] << ")\n";
     }
 
+    std::vector<pGEdge> edges;
     // Now we'll add the edges
     double point0[3], point1[3]; // xyz locations of the two vertices
     pCurve linearCurve;
@@ -429,7 +429,8 @@ int main(int argc, char **argv) {
       GV_point(startVert, point0);
       GV_point(endVert, point1);
       linearCurve = SCurve_createLine(point0, point1);
-      edges[i] = GR_createEdge(region, startVert, endVert, linearCurve, 1);
+      auto edge = GR_createEdge(region, startVert, endVert, linearCurve, 1);
+      edges.push_back(edge);
       if (debug) {
         std::cout << "edge " << i << " (" << point0[0] << " , " << point0[1]
                   << ")"
@@ -465,13 +466,13 @@ int main(int argc, char **argv) {
           double pt[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
           vtx = GR_createVertex(region, pt);
         }
-        fitCurveToContour(region, prevVtx, vtx, numPts, pts);
+        auto edge = fitCurveToContour(region, prevVtx, vtx, numPts, pts);
+        edges.push_back(edge);
         prevVtx = vtx;
         prevVtxIdx = i;
       }
     }
 
-    /*
     auto planeBounds = getBoundingPlane(geom);
 
     // Now add the faces
@@ -505,28 +506,28 @@ int main(int argc, char **argv) {
     const int oppositeNormal = 0;
 
     // Create the face
-    faceEdges = new pGEdge[geom.numEdges];
-    faceDirs = new int[geom.numEdges];
+    faceEdges = new pGEdge[edges.size()];
+    faceDirs = new int[edges.size()];
     // the first four edges define the outer bounding rectangle
     for (i = 0; i < 4; i++) {
       faceDirs[i] = faceDirectionFwd; // clockwise
-      faceEdges[i] = edges[i];
+      faceEdges[i] = edges.at(i);
     }
-    if (geom.numEdges > 4) {
+    if (edges.size() > 4) {
       // the remaining edges define the grounding line
       // TODO generalize loop creation
-      int j = geom.numEdges - 1;
-      for (i = 4; i < geom.numEdges; i++) {
+      int j = edges.size() - 1;
+      for (i = 4; i < edges.size(); i++) {
         faceDirs[i] = faceDirectionRev; // counter clockwise
         // all edges are input in counter clockwise order,
         // reverse the order so the face is on the left (simmetrix requirement)
-        faceEdges[i] = edges[j--];
+        faceEdges[i] = edges.at(j--);
       }
 
       int numLoopsOuterFace = 2;
       int loopFirstEdgeIdx[2] = {0, 4};
       planarSurface = SSurface_createPlane(corner, xPt, yPt);
-      faces[0] = GR_createFace(region, geom.numEdges, faceEdges, faceDirs,
+      faces[0] = GR_createFace(region, edges.size(), faceEdges, faceDirs,
                                numLoopsOuterFace, loopFirstEdgeIdx,
                                planarSurface, sameNormal);
       std::cout << "faces[0] area: " << GF_area(faces[0], 0.2) << "\n";
@@ -535,25 +536,25 @@ int main(int argc, char **argv) {
       int numLoopsOuterFace = 1;
       int loopFirstEdgeIdx[1] = {0};
       planarSurface = SSurface_createPlane(corner, xPt, yPt);
-      faces[0] = GR_createFace(region, geom.numEdges, faceEdges, faceDirs,
+      faces[0] = GR_createFace(region, edges.size(), faceEdges, faceDirs,
                                numLoopsOuterFace, loopFirstEdgeIdx,
                                planarSurface, sameNormal);
       std::cout << "faces[0] area: " << GF_area(faces[0], 0.2) << "\n";
       assert(GF_area(faces[0], 0.2) > 0);
     }
 
-    if (geom.numEdges > 4) {
+    if (edges.size() > 4) {
       // **************
       // Create the 'ice' face bounded by the grounding line
       // **************
       planarSurface = SSurface_createPlane(corner, xPt, yPt);
-      const int numEdgesInnerFace = geom.numEdges - 4;
+      const int numEdgesInnerFace = edges.size() - 4;
       const int numLoopsInnerFace = 1;
       int loopFirstEdgeIdx[1] = {0};
       int j = 4;
       for (i = 0; i < numEdgesInnerFace; i++) {
         faceDirs[i] = faceDirectionFwd; // clockwise
-        faceEdges[i] = edges[j++];
+        faceEdges[i] = edges.at(j++);
       }
       faces[1] = GR_createFace(region, numEdgesInnerFace, faceEdges, faceDirs,
                                numLoopsInnerFace, loopFirstEdgeIdx,
@@ -561,7 +562,6 @@ int main(int argc, char **argv) {
       std::cout << "faces[1] area: " << GF_area(faces[1], 0.2) << "\n";
       assert(GF_area(faces[1], 0.2) > 0);
     }
-    */
 
     auto isValid = GM_isValid(model, 2, NULL);
     if (!isValid) {
@@ -581,7 +581,6 @@ int main(int argc, char **argv) {
               << std::endl;
     GM_write(model, modelFileName.c_str(), 0, 0);
 
-/*
     // This next section creates a surface mesh from the model.  You can comment
     // out this section if you don't want to mesh
     pMesh mesh = M_new(0, model);
@@ -590,7 +589,7 @@ int main(int argc, char **argv) {
     pModelItem domain = GM_domain(model);
     // find the smallest size of the geometric model edges
     auto minGEdgeLen = std::numeric_limits<double>::max();
-    for (i = 0; i < geom.numEdges; i++) {
+    for (i = 0; i < edges.size(); i++) {
       auto len = GE_length(faceEdges[i]);
       if (len < minGEdgeLen)
         minGEdgeLen = len;
@@ -604,7 +603,7 @@ int main(int argc, char **argv) {
     std::cout << "Global absolute mesh size target: " << globMeshSize
               << std::endl;
     MS_setMeshSize(meshCase, domain, 1, globMeshSize, NULL);
-    for (i = 4; i < geom.numEdges; i++)
+    for (i = 4; i < edges.size(); i++)
       MS_setMeshSize(meshCase, faceEdges[i], 1, contourMeshSize, NULL);
 
     {
@@ -630,12 +629,10 @@ int main(int argc, char **argv) {
     MS_deleteMeshCase(meshCase);
     M_release(mesh);
     // end of meshing section
+    
     delete[] faceEdges;
     delete[] faceDirs;
-*/
-
     delete[] vertices;
-    delete[] edges;
     delete[] faces;
     // cleanup
     GM_release(model);
