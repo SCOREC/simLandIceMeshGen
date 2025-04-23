@@ -73,8 +73,7 @@ int main(int argc, char **argv) {
     double endVtx[3] = {12, 0, 0};
     vertices[1] = GR_createVertex(outerRegion, endVtx);
 
-    edges = new pGEdge[1];
-    edges[0] = GR_createEdge(outerRegion, vertices[0], vertices[1], curve, edgeDir);
+    pGEdge edge = GR_createEdge(outerRegion, vertices[0], vertices[1], curve, edgeDir);
 
     auto isValid = GM_isValid(model, 2, NULL);
     if (!isValid) {
@@ -92,6 +91,7 @@ int main(int argc, char **argv) {
 
     // cleanup
     GM_release(model);
+    delete [] vertices;
     Progress_delete(progress);
     MS_exit();
     Sim_unregisterAllKeys();
