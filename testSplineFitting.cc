@@ -1,25 +1,25 @@
-#include "SimUtil.h"
-#include "SimModel.h"
-#include "SimInfo.h"
+#include "MeshSim.h"
 #include "SimAdvModel.h"
 #include "SimDisplay.h"
-#include "MeshSim.h"
+#include "SimInfo.h"
+#include "SimModel.h"
+#include "SimUtil.h"
+#include "splineInterpolation.h"
+#include <cassert>
 #include <iostream>
 #include <math.h>
-#include <cassert>
 #include <string>
-#include "splineInterpolation.h"
 
 using namespace std;
 
 void messageHandler(int type, const char *msg);
 int main(int argc, char **argv) {
-  pGVertex *vertices;  // array to store the returned model vertices
-  pGEdge *edges;       // array to store the returned model edges
-  pGFace *faces;       // array to store the returned model faces
+  pGVertex *vertices; // array to store the returned model vertices
+  pGEdge *edges;      // array to store the returned model edges
+  pGFace *faces;      // array to store the returned model faces
   pGRegion outerRegion;
   pGIPart part;
-  pGModel model;       // pointer to the complete model
+  pGModel model; // pointer to the complete model
 
   const auto prefix = std::string("foo");
   std::string modelFileName = prefix + ".smd";
@@ -73,7 +73,8 @@ int main(int argc, char **argv) {
     double endVtx[3] = {12, 0, 0};
     vertices[1] = GR_createVertex(outerRegion, endVtx);
 
-    pGEdge edge = GR_createEdge(outerRegion, vertices[0], vertices[1], curve, edgeDir);
+    pGEdge edge =
+        GR_createEdge(outerRegion, vertices[0], vertices[1], curve, edgeDir);
 
     auto isValid = GM_isValid(model, 2, NULL);
     if (!isValid) {
@@ -86,12 +87,12 @@ int main(int argc, char **argv) {
     assert(GM_numEdges(model) == 1);
     assert(GM_numFaces(model) == 0);
     assert(GM_numRegions(model) == 0);
-    assert(std::fabs(GE_length(edge)-12.2685) <= 1e-5);
+    assert(std::fabs(GE_length(edge) - 12.2685) <= 1e-5);
     GM_write(model, modelFileName.c_str(), 0, 0);
 
     // cleanup
     GM_release(model);
-    delete [] vertices;
+    delete[] vertices;
     Progress_delete(progress);
     MS_exit();
     Sim_unregisterAllKeys();

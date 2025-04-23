@@ -1,9 +1,9 @@
-#include "SimUtil.h"
-#include "SimModel.h"
-#include "SimInfo.h"
+#include "MeshSim.h"
 #include "SimAdvModel.h"
 #include "SimDisplay.h"
-#include "MeshSim.h"
+#include "SimInfo.h"
+#include "SimModel.h"
+#include "SimUtil.h"
 #include <iostream>
 #include <math.h>
 
@@ -35,7 +35,8 @@ struct GeomInfo {
   std::vector<std::array<int, 2>> edges;
 };
 
-std::tuple<std::string, int> readKeyValue(std::ifstream &in, bool debug = true) {
+std::tuple<std::string, int> readKeyValue(std::ifstream &in,
+                                          bool debug = true) {
   std::string key, value;
   std::getline(in, key, '=');
   std::getline(in, value);
@@ -85,16 +86,17 @@ std::array<int, 2> readEdge(std::ifstream &in, bool debug = true) {
 }
 
 /*
-Removed getline in the following functions to use for VTK files because of better whitespace handling
+Removed getline in the following functions to use for VTK files because of
+better whitespace handling
 */
-std::array<double, 3> readPointVtk(std::ifstream& in, bool debug=true) {
+std::array<double, 3> readPointVtk(std::ifstream &in, bool debug = true) {
   std::array<double, 3> pt;
-    in >> pt[0] >> pt[1] >> pt[2];
-    return pt;
+  in >> pt[0] >> pt[1] >> pt[2];
+  return pt;
 }
 
-std::array<int, 2> readEdgeVtk(std::ifstream& in, bool debug=true) {
-  int numPoints; 
+std::array<int, 2> readEdgeVtk(std::ifstream &in, bool debug = true) {
+  int numPoints;
   in >> numPoints;
   assert(numPoints == 2);
 
@@ -102,67 +104,69 @@ std::array<int, 2> readEdgeVtk(std::ifstream& in, bool debug=true) {
   in >> edge[0] >> edge[1];
 
   return edge;
-
 }
-GeomInfo readVtkGeom(std::string fname, bool debug=false) {
+GeomInfo readVtkGeom(std::string fname, bool debug = false) {
   std::ifstream vtkFile(fname);
-  if ( ! vtkFile.is_open() ) {
+  if (!vtkFile.is_open()) {
     fprintf(stderr, "failed to open VTK geom file %s\n", fname.c_str());
     exit(EXIT_FAILURE);
   }
 
   GeomInfo geom;
 
-  //Version
-  skipLine(vtkFile,debug);
-  //Title
-  skipLine(vtkFile,debug);
-  //Format of VTK
+  // Version
+  skipLine(vtkFile, debug);
+  // Title
+  skipLine(vtkFile, debug);
+  // Format of VTK
   std::string format;
   vtkFile >> format;
-  //Check for ASCII for now
-  assert(format =="ASCII");
-  //Skip to next line
-  skipLine(vtkFile,debug);
-  
-  //Dataset Type
+  // Check for ASCII for now
+  assert(format == "ASCII");
+  // Skip to next line
+  skipLine(vtkFile, debug);
+
+  // Dataset Type
   std::string keyword, datasetType;
   vtkFile >> keyword >> datasetType;
   assert(keyword == "DATASET");
-  //Check for Polydata for now
+  // Check for Polydata for now
   assert(datasetType == "POLYDATA");
 
-  //Read points
+  // Read points
   int numPoints;
   std::string dataType;
   vtkFile >> keyword >> numPoints >> dataType;
   assert(keyword == "POINTS");
   geom.numVtx = numPoints;
 
-  //DID not change
+  // DID not change
   geom.vtx_x.reserve(geom.numVtx);
   geom.vtx_y.reserve(geom.numVtx);
 
-  //point coordinates
-  for(int i=0; i<geom.numVtx; i++) {
-    auto pt = readPointVtk(vtkFile,debug);
+  // point coordinates
+  for (int i = 0; i < geom.numVtx; i++) {
+    auto pt = readPointVtk(vtkFile, debug);
     geom.vtx_x.push_back(pt[0]);
     geom.vtx_y.push_back(pt[1]);
-    if(debug) std::cout << "pt " << geom.vtx_x[i] << ", " << geom.vtx_y[i] << std::endl;
+    if (debug)
+      std::cout << "pt " << geom.vtx_x[i] << ", " << geom.vtx_y[i] << std::endl;
   }
 
-  //Read lines
+  // Read lines
   vtkFile >> keyword >> geom.numEdges;
-    int totalIndexCount;
-    vtkFile >> totalIndexCount;
-    assert(keyword == "LINES");
+  int totalIndexCount;
+  vtkFile >> totalIndexCount;
+  assert(keyword == "LINES");
 
   geom.edges.reserve(geom.numEdges);
 
-  //edge indices
-  for(int i=0; i<geom.numEdges; i++) {
-    geom.edges.push_back(readEdgeVtk(vtkFile,debug));
-    if(debug) std::cout << "edge " << geom.edges[i][0] << ", " << geom.edges[i][1] << std::endl;
+  // edge indices
+  for (int i = 0; i < geom.numEdges; i++) {
+    geom.edges.push_back(readEdgeVtk(vtkFile, debug));
+    if (debug)
+      std::cout << "edge " << geom.edges[i][0] << ", " << geom.edges[i][1]
+                << std::endl;
   }
 
   return geom;
@@ -324,16 +328,15 @@ std::array<double, 3> getNormal(pGEdge first, pGEdge second) {
           u[0] * v[1] - u[1] * v[0]};
 }
 
-std::string getFileExtension(const std::string& filename) {
+std::string getFileExtension(const std::string &filename) {
   size_t dotPos = filename.rfind('.');
   if (dotPos != std::string::npos) {
-      return filename.substr(dotPos);
+    return filename.substr(dotPos);
   }
   return "";
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
   if (argc != 4) {
     std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
                  "<coincidentVtxToleranceSquared>\n";
@@ -344,26 +347,24 @@ int main(int argc, char **argv)
     return 1;
   }
   assert(argc == 4);
- 
+
   GeomInfo dirty;
-  pGVertex *vertices;  // array to store the returned model vertices
-  pGEdge *edges;       // array to store the returned model edges
-  pGFace *faces;       // array to store the returned model faces
-  pGRegion region;     // pointer to returned model region
+  pGVertex *vertices; // array to store the returned model vertices
+  pGEdge *edges;      // array to store the returned model edges
+  pGFace *faces;      // array to store the returned model faces
+  pGRegion region;    // pointer to returned model region
   pGIPart part;
-  pGModel model;       // pointer to the complete model
+  pGModel model; // pointer to the complete model
 
   std::string filename = argv[1];
   std::string ext = getFileExtension(filename);
 
-  if(ext == ".vtk"){
+  if (ext == ".vtk") {
     dirty = readVtkGeom(argv[1]);
-  }
-  else if(ext == ".msh"){
+  } else if (ext == ".msh") {
     dirty = readJigGeom(argv[1]);
-  }
-  else{
-    std::cerr << "Unsupported file extension: "<< ext << "\n";
+  } else {
+    std::cerr << "Unsupported file extension: " << ext << "\n";
     return 1;
   }
   auto geom = cleanJigGeom(dirty, std::stof(argv[3]), true);
@@ -424,7 +425,8 @@ int main(int argc, char **argv)
       GV_point(startVert, point0);
       GV_point(endVert, point1);
       linearCurve = SCurve_createLine(point0, point1);
-      edges[i] = GR_createEdge(region, startVert, endVert, linearCurve, 1); //FIXME - use curveOrientation(...)
+      edges[i] = GR_createEdge(region, startVert, endVert, linearCurve,
+                               1); // FIXME - use curveOrientation(...)
       if (debug) {
         std::cout << "edge " << i << " (" << point0[0] << " , " << point0[1]
                   << ")"
@@ -486,18 +488,18 @@ int main(int argc, char **argv)
       int numLoopsOuterFace = 2;
       int loopFirstEdgeIdx[2] = {0, 4};
       planarSurface = SSurface_createPlane(corner, xPt, yPt);
-      faces[0] = GR_createFace(
-          region, geom.numEdges, faceEdges, faceDirs, numLoopsOuterFace,
-          loopFirstEdgeIdx, planarSurface, sameNormal);
+      faces[0] = GR_createFace(region, geom.numEdges, faceEdges, faceDirs,
+                               numLoopsOuterFace, loopFirstEdgeIdx,
+                               planarSurface, sameNormal);
       std::cout << "faces[0] area: " << GF_area(faces[0], 0.2) << "\n";
       assert(GF_area(faces[0], 0.2) > 0);
     } else {
       int numLoopsOuterFace = 1;
       int loopFirstEdgeIdx[1] = {0};
       planarSurface = SSurface_createPlane(corner, xPt, yPt);
-      faces[0] = GR_createFace(
-          region, geom.numEdges, faceEdges, faceDirs, numLoopsOuterFace,
-          loopFirstEdgeIdx, planarSurface, sameNormal);
+      faces[0] = GR_createFace(region, geom.numEdges, faceEdges, faceDirs,
+                               numLoopsOuterFace, loopFirstEdgeIdx,
+                               planarSurface, sameNormal);
       std::cout << "faces[0] area: " << GF_area(faces[0], 0.2) << "\n";
       assert(GF_area(faces[0], 0.2) > 0);
     }
@@ -515,9 +517,9 @@ int main(int argc, char **argv)
         faceDirs[i] = faceDirectionFwd; // clockwise
         faceEdges[i] = edges[j++];
       }
-      faces[1] = GR_createFace(
-          region, numEdgesInnerFace, faceEdges, faceDirs, numLoopsInnerFace,
-          loopFirstEdgeIdx, planarSurface, sameNormal);
+      faces[1] = GR_createFace(region, numEdgesInnerFace, faceEdges, faceDirs,
+                               numLoopsInnerFace, loopFirstEdgeIdx,
+                               planarSurface, sameNormal);
       std::cout << "faces[1] area: " << GF_area(faces[1], 0.2) << "\n";
       assert(GF_area(faces[1], 0.2) > 0);
     }
@@ -530,10 +532,14 @@ int main(int argc, char **argv)
       std::cout << "Model is valid.\n";
     }
 
-    std::cout << "Number of vertices in model: " << GM_numVertices(model) << std::endl;
-    std::cout << "Number of edges in model: " << GM_numEdges(model) << std::endl;
-    std::cout << "Number of faces in model: " << GM_numFaces(model) << std::endl;
-    std::cout << "Number of regions in model: " << GM_numRegions(model) << std::endl;
+    std::cout << "Number of vertices in model: " << GM_numVertices(model)
+              << std::endl;
+    std::cout << "Number of edges in model: " << GM_numEdges(model)
+              << std::endl;
+    std::cout << "Number of faces in model: " << GM_numFaces(model)
+              << std::endl;
+    std::cout << "Number of regions in model: " << GM_numRegions(model)
+              << std::endl;
     GM_write(model, modelFileName.c_str(), 0, 0);
 
     // This next section creates a surface mesh from the model.  You can comment
@@ -549,11 +555,14 @@ int main(int argc, char **argv)
       if (len < minGEdgeLen)
         minGEdgeLen = len;
     }
-    std::cout << "Min geometric model edge length: " << minGEdgeLen << std::endl;
+    std::cout << "Min geometric model edge length: " << minGEdgeLen
+              << std::endl;
     const auto contourMeshSize = minGEdgeLen * 32;
     const auto globMeshSize = contourMeshSize * 64;
-    std::cout << "Contour absolute mesh size target: " << contourMeshSize << std::endl;
-    std::cout << "Global absolute mesh size target: " << globMeshSize << std::endl;
+    std::cout << "Contour absolute mesh size target: " << contourMeshSize
+              << std::endl;
+    std::cout << "Global absolute mesh size target: " << globMeshSize
+              << std::endl;
     MS_setMeshSize(meshCase, domain, 1, globMeshSize, NULL);
     for (i = 4; i < geom.numEdges; i++)
       MS_setMeshSize(meshCase, faceEdges[i], 1, contourMeshSize, NULL);
@@ -572,10 +581,12 @@ int main(int argc, char **argv)
     pSurfaceMesher surfMesh = SurfaceMesher_new(meshCase, mesh);
     SurfaceMesher_execute(surfMesh, progress);
     SurfaceMesher_delete(surfMesh);
-    std::cout << "Number of mesh faces in surface: " << M_numFaces(mesh) << std::endl;
+    std::cout << "Number of mesh faces in surface: " << M_numFaces(mesh)
+              << std::endl;
 
     M_write(mesh, meshFileName.c_str(), 0, progress);
-    std::cout << "Number of mesh regions in volume: " << M_numRegions(mesh) << std::endl;
+    std::cout << "Number of mesh regions in volume: " << M_numRegions(mesh)
+              << std::endl;
     MS_deleteMeshCase(meshCase);
     M_release(mesh);
     // end of meshing section

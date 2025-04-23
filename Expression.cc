@@ -13,7 +13,7 @@
 using namespace Spline;
 using std::vector;
 void Spline::dummyAnalyticExpression(double phi, double dummy, double *xyz,
-                                    void *userdata) {}
+                                     void *userdata) {}
 void Spline::evalCoord(double para, double *xyz, void *userdata) {
   Expression *R_p = ((Expression **)userdata)[0];
   Expression *Z_p = ((Expression **)userdata)[1];
@@ -23,7 +23,7 @@ void Spline::evalCoord(double para, double *xyz, void *userdata) {
 }
 
 void Spline::evalNormalVector(Expression *xp, Expression *yp, double para,
-                             double *normalvec) {
+                              double *normalvec) {
   double dx = xp->evalFirstDeriv(para);
   double dy = yp->evalFirstDeriv(para);
   double arclen = sqrt(dx * dx + dy * dy);
@@ -33,7 +33,7 @@ void Spline::evalNormalVector(Expression *xp, Expression *yp, double para,
   // normalvec[2]=0.0;
 }
 void Spline::evalCurvature(Expression *xp, Expression *yp, double para,
-                          double *curv) {
+                           double *curv) {
   double dx = xp->evalFirstDeriv(para);
   double ddx = xp->evalSecondDeriv(para);
   double dy = yp->evalFirstDeriv(para);

@@ -16,7 +16,7 @@ using std::endl;
 using std::vector;
 using namespace Spline;
 BSpline::BSpline(int order_p, vector<double> &ctrlPts_p,
-                  vector<double> &knots_p, vector<double> &weight_p) {
+                 vector<double> &knots_p, vector<double> &weight_p) {
   assert(order_p > 1);
   order = order_p;
   ctrlPts = ctrlPts_p;
@@ -139,7 +139,7 @@ void BSpline::print() {
   cout << endl;
 }
 void BSpline::getpara(int &order_p, vector<double> &ctrlPts_p,
-                       vector<double> &knots_p, vector<double> &weight_p) {
+                      vector<double> &knots_p, vector<double> &weight_p) {
   order_p = order;
   ctrlPts_p = ctrlPts;
   knots_p = knots;
