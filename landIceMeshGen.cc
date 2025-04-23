@@ -339,10 +339,8 @@ std::string getFileExtension(const std::string &filename) {
 }
 
 pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const int numPts, std::vector<double>& pts) {
-  //edgeDir: 0 clockwise, 1 counter clockwise
-  const int edgeDir = SplineInterp::curveOrientation(pts) ? 0 : 1;
   auto curve = SCurve_createPiecewiseLinear(numPts, pts.data());
-  pGEdge edge = GR_createEdge(region, first, last, curve, edgeDir);
+  pGEdge edge = GR_createEdge(region, first, last, curve, 1);
   return edge;
 }
 
@@ -433,10 +431,7 @@ int main(int argc, char **argv) {
       GV_point(startVert, point0);
       GV_point(endVert, point1);
       linearCurve = SCurve_createLine(point0, point1);
-      std::vector<double> pts({point0[0],point0[1],point0[2], point1[0],point1[1],point1[2]});
-      //edgeDir: 0 clockwise, 1 counter clockwise
-      const int edgeDir = SplineInterp::curveOrientation(pts) ? 0 : 1;
-      auto edge = GR_createEdge(region, startVert, endVert, linearCurve, edgeDir);
+      auto edge = GR_createEdge(region, startVert, endVert, linearCurve, 1);
       edges.push_back(edge);
       if (debug) {
         std::cout << "edge " << i << " (" << point0[0] << " , " << point0[1]
