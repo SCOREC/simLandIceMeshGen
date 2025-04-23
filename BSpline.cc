@@ -15,7 +15,7 @@ using std::cout;
 using std::endl;
 using std::vector;
 using namespace Spline;
-BSpline ::BSpline(int order_p, vector<double> &ctrlPts_p,
+BSpline::BSpline(int order_p, vector<double> &ctrlPts_p,
                   vector<double> &knots_p, vector<double> &weight_p) {
   assert(order_p > 1);
   order = order_p;
@@ -25,7 +25,7 @@ BSpline ::BSpline(int order_p, vector<double> &ctrlPts_p,
   weight = weight_p;
   calcuDerivCoeff();
 }
-void BSpline ::calcuDerivCoeff() {
+void BSpline::calcuDerivCoeff() {
   // caculate coeffs of first deriv
   for (int i = 1; i < ctrlPts.size(); i++) {
     double delta =
@@ -42,7 +42,7 @@ void BSpline ::calcuDerivCoeff() {
   if (order > 1)
     assert(ctrlPts_2nd.size() == ctrlPts.size() - 2);
 }
-double BSpline ::eval(double x) const {
+double BSpline::eval(double x) const {
   // first find the interval of x in knots
   int leftKnot = order - 1;
   int leftPt = 0;
@@ -70,7 +70,7 @@ double BSpline ::eval(double x) const {
   }
   return pts.at(order - 1);
 }
-double BSpline ::evalFirstDeriv(double x) const {
+double BSpline::evalFirstDeriv(double x) const {
   // first find the interval of x in knots
   int leftKnot = order - 1;
   int leftPt = 0;
@@ -98,7 +98,7 @@ double BSpline ::evalFirstDeriv(double x) const {
   }
   return pts.at(order_t - 1);
 }
-double BSpline ::evalSecondDeriv(double x) const {
+double BSpline::evalSecondDeriv(double x) const {
   if (order == 2)
     return 0;
   // first find the interval of x in knots
@@ -128,7 +128,7 @@ double BSpline ::evalSecondDeriv(double x) const {
   }
   return pts.at(order_t - 1);
 }
-void BSpline ::print() {
+void BSpline::print() {
   cout << " ctrlPts " << ctrlPts.size() << endl;
   for (int i = 0; i < ctrlPts.size(); i++)
     cout << ctrlPts.at(i) << " ";
@@ -138,7 +138,7 @@ void BSpline ::print() {
     cout << knots.at(i) << " ";
   cout << endl;
 }
-void BSpline ::getpara(int &order_p, vector<double> &ctrlPts_p,
+void BSpline::getpara(int &order_p, vector<double> &ctrlPts_p,
                        vector<double> &knots_p, vector<double> &weight_p) {
   order_p = order;
   ctrlPts_p = ctrlPts;
@@ -146,7 +146,7 @@ void BSpline ::getpara(int &order_p, vector<double> &ctrlPts_p,
   weight_p = weight;
 }
 // H.Prautzsch Springer,2002
-BSpline &BSpline ::operator=(const PolyNomial &pn) {
+BSpline &BSpline::operator=(const PolyNomial &pn) {
   vector<double> coffs_p;
   pn.getcoeffs(coffs_p);
   order = coffs_p.size();
