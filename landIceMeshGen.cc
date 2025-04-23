@@ -1,9 +1,9 @@
-#include "MeshSim.h"
-#include "SimCreateModel.h"
-#include "SimDisplay.h"
-#include "SimInfo.h"
-#include "SimModel.h"
 #include "SimUtil.h"
+#include "SimModel.h"
+#include "SimInfo.h"
+#include "SimAdvModel.h"
+#include "SimDisplay.h"
+#include "MeshSim.h"
 #include <iostream>
 #include <math.h>
 
@@ -349,11 +349,11 @@ int main(int argc, char **argv)
   assert(argc == 4);
  
   GeomInfo dirty;
-  pGImporter importer; // the importer object used to create the geometry
   pGVertex *vertices;  // array to store the returned model vertices
   pGEdge *edges;       // array to store the returned model edges
   pGFace *faces;       // array to store the returned model faces
   pGRegion region;     // pointer to returned model region
+  pGIPart part;
   pGModel model;       // pointer to the complete model
 
   std::string filename = argv[1];
@@ -392,8 +392,9 @@ int main(int argc, char **argv)
     pProgress progress = Progress_new();
     Progress_setDefaultCallback(progress);
 
-    // Create the pGImporter object
-    importer = GImporter_new();
+    model = GM_new(1);
+    part = GM_rootPart(model);
+    region = GIP_outerRegion(part);
 
     vertices = new pGVertex[geom.numVtx];
     edges = new pGEdge[geom.numEdges];
@@ -409,7 +410,7 @@ int main(int argc, char **argv)
     int i;
     for (i = 0; i < geom.numVtx; i++) {
       double vtx[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
-      vertices[i] = GImporter_createVertex(importer, vtx);
+      vertices[i] = GR_createVertex(region, vtx);
       if (debug)
         std::cout << "vtx " << i << " (" << vtx[0] << " , " << vtx[1] << ")\n";
     }
@@ -426,8 +427,7 @@ int main(int argc, char **argv)
       GV_point(startVert, point0);
       GV_point(endVert, point1);
       linearCurve = SCurve_createLine(point0, point1);
-      edges[i] = GImporter_createEdge(importer, startVert, endVert, linearCurve,
-                                      0, 1, 1);
+      edges[i] = GR_createEdge(region, startVert, endVert, linearCurve, 1); //FIXME - use curveOrientation(...)
       if (debug) {
         std::cout << "edge " << i << " (" << point0[0] << " , " << point0[1]
                   << ")"
@@ -489,8 +489,8 @@ int main(int argc, char **argv)
       int numLoopsOuterFace = 2;
       int loopFirstEdgeIdx[2] = {0, 4};
       planarSurface = SSurface_createPlane(corner, xPt, yPt);
-      faces[0] = GImporter_createFace(
-          importer, geom.numEdges, faceEdges, faceDirs, numLoopsOuterFace,
+      faces[0] = GR_createFace(
+          region, geom.numEdges, faceEdges, faceDirs, numLoopsOuterFace,
           loopFirstEdgeIdx, planarSurface, sameNormal);
       std::cout << "faces[0] area: " << GF_area(faces[0], 0.2) << "\n";
       assert(GF_area(faces[0], 0.2) > 0);
@@ -498,8 +498,8 @@ int main(int argc, char **argv)
       int numLoopsOuterFace = 1;
       int loopFirstEdgeIdx[1] = {0};
       planarSurface = SSurface_createPlane(corner, xPt, yPt);
-      faces[0] = GImporter_createFace(
-          importer, geom.numEdges, faceEdges, faceDirs, numLoopsOuterFace,
+      faces[0] = GR_createFace(
+          region, geom.numEdges, faceEdges, faceDirs, numLoopsOuterFace,
           loopFirstEdgeIdx, planarSurface, sameNormal);
       std::cout << "faces[0] area: " << GF_area(faces[0], 0.2) << "\n";
       assert(GF_area(faces[0], 0.2) > 0);
@@ -518,15 +518,13 @@ int main(int argc, char **argv)
         faceDirs[i] = faceDirectionFwd; // clockwise
         faceEdges[i] = edges[j++];
       }
-      faces[1] = GImporter_createFace(
-          importer, numEdgesInnerFace, faceEdges, faceDirs, numLoopsInnerFace,
+      faces[1] = GR_createFace(
+          region, numEdgesInnerFace, faceEdges, faceDirs, numLoopsInnerFace,
           loopFirstEdgeIdx, planarSurface, sameNormal);
       std::cout << "faces[1] area: " << GF_area(faces[1], 0.2) << "\n";
       assert(GF_area(faces[1], 0.2) > 0);
     }
 
-    // Now complete the model and delete the importer
-    model = GImporter_complete(importer);
     auto isValid = GM_isValid(model, 2, NULL);
     if (!isValid) {
       fprintf(stderr, "ERROR: model is not valid... exiting\n");
@@ -534,7 +532,6 @@ int main(int argc, char **argv)
     } else {
       cout << "Model is valid.\n";
     }
-    GImporter_delete(importer);
 
     cout << "Number of vertices in model: " << GM_numVertices(model) << endl;
     cout << "Number of edges in model: " << GM_numEdges(model) << endl;
