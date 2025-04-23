@@ -86,6 +86,7 @@ int main(int argc, char **argv) {
     assert(GM_numEdges(model) == 1);
     assert(GM_numFaces(model) == 0);
     assert(GM_numRegions(model) == 0);
+    assert(std::fabs(GE_length(edge)-12.2685) <= 1e-5);
     GM_write(model, modelFileName.c_str(), 0, 0);
 
     // cleanup
