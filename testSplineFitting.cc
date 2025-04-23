@@ -82,11 +82,10 @@ int main(int argc, char **argv) {
     } else {
       cout << "Model is valid.\n";
     }
-
-    cout << "Number of vertices in model: " << GM_numVertices(model) << endl;
-    cout << "Number of edges in model: " << GM_numEdges(model) << endl;
-    cout << "Number of faces in model: " << GM_numFaces(model) << endl;
-    cout << "Number of regions in model: " << GM_numRegions(model) << endl;
+    assert(GM_numVertices(model) == 2);
+    assert(GM_numEdges(model) == 1);
+    assert(GM_numFaces(model) == 0);
+    assert(GM_numRegions(model) == 0);
     GM_write(model, modelFileName.c_str(), 0, 0);
 
     // cleanup
