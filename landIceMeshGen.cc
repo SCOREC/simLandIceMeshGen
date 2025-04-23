@@ -439,15 +439,15 @@ int main(int argc, char **argv) {
 
     const int stride = 1000;
     const int firstPt = 4;
+    std::cout << "numPts " << geom.numVtx-4 << " lastPt " << geom.numVtx << "\n";
     double vtx[3] = {geom.vtx_x[firstPt], geom.vtx_y[firstPt], 0};
     pGVertex firstVtx = GR_createVertex(region, vtx);
     pGVertex prevVtx = firstVtx;
-    int prevVtxIdx = 0;
+    int prevVtxIdx = firstPt;
     for(i=4; i<geom.numVtx; i++) {
       if(i%stride == 0 || i == geom.numVtx-1) {
-        double pt[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
-        pGVertex vtx = GR_createVertex(region, pt);
-        const int numPts = i-prevVtxIdx;
+        const int isLastPt = (i == geom.numVtx-1 ? 1 : 0);
+        const int numPts = i-prevVtxIdx + isLastPt;
         std::vector<double> pts(numPts*3);
         int idx = 0;
         for(int j=prevVtxIdx; j<i; j++) {
@@ -455,8 +455,25 @@ int main(int argc, char **argv) {
           pts[idx++] = geom.vtx_y[j];
           pts[idx++] = 0;
         }
-        std::cout << "range " << prevVtxIdx << " " << i << " numPts " << numPts << "\n";
+        pGVertex vtx;
+        if(isLastPt) {
+          pts[idx++] = geom.vtx_x[firstPt];
+          pts[idx++] = geom.vtx_y[firstPt];
+          pts[idx++] = 0;
+          vtx = firstVtx;
+        } else {
+          double pt[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
+          vtx = GR_createVertex(region, pt);
+        }
+        std::cout << "range " << prevVtxIdx << " " << i << " numPts " << numPts << " isLastPt " << isLastPt << "\n";
         fitCurveToContour(region, prevVtx, vtx, numPts, pts);
+        { double first[3];
+          GV_point(prevVtx, first);
+          double last[3];
+          GV_point(vtx, last);
+          std::cout << "start " << first[0] << " " << first[1] << "\n";
+          std::cout << "end " << last[0] << " " << last[1] << "\n";
+        }
         prevVtx = vtx;
         prevVtxIdx = i;
       }
