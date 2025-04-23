@@ -14,12 +14,9 @@
 #include <iostream>
 #include <limits> //std::numeric_limits
 #include <map>
-#include <sstream>
 #include <string>
 #include <tuple>
 #include <vector>
-
-using namespace std;
 
 void messageHandler(int type, const char *msg);
 
@@ -38,7 +35,7 @@ struct GeomInfo {
   std::vector<std::array<int, 2>> edges;
 };
 
-std::tuple<string, int> readKeyValue(std::ifstream &in, bool debug = true) {
+std::tuple<std::string, int> readKeyValue(std::ifstream &in, bool debug = true) {
   std::string key, value;
   std::getline(in, key, '=');
   std::getline(in, value);
@@ -121,7 +118,7 @@ GeomInfo readVtkGeom(std::string fname, bool debug=false) {
   //Title
   skipLine(vtkFile,debug);
   //Format of VTK
-  std:string format;
+  std::string format;
   vtkFile >> format;
   //Check for ASCII for now
   assert(format =="ASCII");
@@ -366,7 +363,7 @@ int main(int argc, char **argv)
     dirty = readJigGeom(argv[1]);
   }
   else{
-    std:cerr << "Unsupported file extension: "<< ext << "\n";
+    std::cerr << "Unsupported file extension: "<< ext << "\n";
     return 1;
   }
   auto geom = cleanJigGeom(dirty, std::stof(argv[3]), true);
@@ -530,13 +527,13 @@ int main(int argc, char **argv)
       fprintf(stderr, "ERROR: model is not valid... exiting\n");
       exit(EXIT_FAILURE);
     } else {
-      cout << "Model is valid.\n";
+      std::cout << "Model is valid.\n";
     }
 
-    cout << "Number of vertices in model: " << GM_numVertices(model) << endl;
-    cout << "Number of edges in model: " << GM_numEdges(model) << endl;
-    cout << "Number of faces in model: " << GM_numFaces(model) << endl;
-    cout << "Number of regions in model: " << GM_numRegions(model) << endl;
+    std::cout << "Number of vertices in model: " << GM_numVertices(model) << std::endl;
+    std::cout << "Number of edges in model: " << GM_numEdges(model) << std::endl;
+    std::cout << "Number of faces in model: " << GM_numFaces(model) << std::endl;
+    std::cout << "Number of regions in model: " << GM_numRegions(model) << std::endl;
     GM_write(model, modelFileName.c_str(), 0, 0);
 
     // This next section creates a surface mesh from the model.  You can comment
@@ -552,11 +549,11 @@ int main(int argc, char **argv)
       if (len < minGEdgeLen)
         minGEdgeLen = len;
     }
-    cout << "Min geometric model edge length: " << minGEdgeLen << endl;
+    std::cout << "Min geometric model edge length: " << minGEdgeLen << std::endl;
     const auto contourMeshSize = minGEdgeLen * 32;
     const auto globMeshSize = contourMeshSize * 64;
-    cout << "Contour absolute mesh size target: " << contourMeshSize << endl;
-    cout << "Global absolute mesh size target: " << globMeshSize << endl;
+    std::cout << "Contour absolute mesh size target: " << contourMeshSize << std::endl;
+    std::cout << "Global absolute mesh size target: " << globMeshSize << std::endl;
     MS_setMeshSize(meshCase, domain, 1, globMeshSize, NULL);
     for (i = 4; i < geom.numEdges; i++)
       MS_setMeshSize(meshCase, faceEdges[i], 1, contourMeshSize, NULL);
@@ -566,7 +563,7 @@ int main(int argc, char **argv)
       pGFace modelFace;
       while (modelFace = GFIter_next(fIter)) {
         const double area = GF_area(modelFace, 0.2);
-        cout << "face area: " << area << "\n";
+        std::cout << "face area: " << area << "\n";
         assert(area > 0);
       }
       GFIter_delete(fIter);
@@ -575,10 +572,10 @@ int main(int argc, char **argv)
     pSurfaceMesher surfMesh = SurfaceMesher_new(meshCase, mesh);
     SurfaceMesher_execute(surfMesh, progress);
     SurfaceMesher_delete(surfMesh);
-    cout << "Number of mesh faces in surface: " << M_numFaces(mesh) << endl;
+    std::cout << "Number of mesh faces in surface: " << M_numFaces(mesh) << std::endl;
 
     M_write(mesh, meshFileName.c_str(), 0, progress);
-    cout << "Number of mesh regions in volume: " << M_numRegions(mesh) << endl;
+    std::cout << "Number of mesh regions in volume: " << M_numRegions(mesh) << std::endl;
     MS_deleteMeshCase(meshCase);
     M_release(mesh);
     // end of meshing section
@@ -597,13 +594,13 @@ int main(int argc, char **argv)
     Sim_logOff();
 
   } catch (pSimInfo err) {
-    cerr << "SimModSuite error caught:" << endl;
-    cerr << "  Error code: " << SimInfo_code(err) << endl;
-    cerr << "  Error string: " << SimInfo_toString(err) << endl;
+    std::cerr << "SimModSuite error caught:" << std::endl;
+    std::cerr << "  Error code: " << SimInfo_code(err) << std::endl;
+    std::cerr << "  Error string: " << SimInfo_toString(err) << std::endl;
     SimInfo_delete(err);
     return 1;
   } catch (...) {
-    cerr << "Unhandled exception caught" << endl;
+    std::cerr << "Unhandled exception caught" << std::endl;
     return 1;
   }
   return 0;
@@ -612,16 +609,16 @@ int main(int argc, char **argv)
 void messageHandler(int type, const char *msg) {
   switch (type) {
   case Sim_InfoMsg:
-    cout << "Info: " << msg << endl;
+    std::cout << "Info: " << msg << std::endl;
     break;
   case Sim_DebugMsg:
-    cout << "Debug: " << msg << endl;
+    std::cout << "Debug: " << msg << std::endl;
     break;
   case Sim_WarningMsg:
-    cout << "Warning: " << msg << endl;
+    std::cout << "Warning: " << msg << std::endl;
     break;
   case Sim_ErrorMsg:
-    cout << "Error: " << msg << endl;
+    std::cout << "Error: " << msg << std::endl;
     break;
   }
   return;
