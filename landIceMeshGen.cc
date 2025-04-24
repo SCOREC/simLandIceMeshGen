@@ -345,16 +345,26 @@ pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const i
 }
 
 int main(int argc, char **argv) {
-  if (argc != 4) {
+  if (argc != 5) {
     std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
-                 "<coincidentVtxToleranceSquared>\n";
+                 "<coincidentVtxToleranceSquared> <stride>\n";
     std::cerr << "coincidentVtxToleranceSquared is the mininum allowed "
                  "distance (squared) between adjacent vertices in the "
                  "input.  Vertices within the specified distance will "
                  "be merged.\n";
+    std::cerr << "stride defines the maximum number of points to be "
+                 "used to define a single geometric model edge.\n"
+                 "  A stride less than 1 is invalid.\n"
+                 "  A stride of 1 will create one edge per point "
+                 "where edge i will be defined by points i-1 "
+                 "and i.\n"
+                 "  A stride of N will create one edge for sequences of "
+                 "N points.  It the number of points is not evenly "
+                 "divisible by N then the last edge will contain the "
+                 "remaining points.\n";
     return 1;
   }
-  assert(argc == 4);
+  assert(argc == 5);
 
   GeomInfo dirty;
   pGVertex *vertices; // array to store the returned model vertices
@@ -440,20 +450,22 @@ int main(int argc, char **argv) {
       }
     }
 
-    const int stride = 2000;
+    const int stride = std::stoi(argv[4]);
+    assert(stride > 0);
     const int firstPt = 4;
     std::cout << "numPts " << geom.numVtx-4 << " lastPt " << geom.numVtx << "\n";
-    double vtx[3] = {geom.vtx_x[firstPt], geom.vtx_y[firstPt], 0};
-    pGVertex firstVtx = GR_createVertex(region, vtx);
+    double pt[3] = {geom.vtx_x[firstPt], geom.vtx_y[firstPt], 0};
+    std::cout << "creatingVtx " << pt[0] << " " << pt[1] << "\n";
+    pGVertex firstVtx = GR_createVertex(region, pt);
     pGVertex prevVtx = firstVtx;
     int prevVtxIdx = firstPt;
-    for(i=4; i<geom.numVtx; i++) {
-      if(i%stride == 0 || i == geom.numVtx-1) {
-        const int isLastPt = (i == geom.numVtx-1 ? 1 : 0);
-        const int numPts = i-prevVtxIdx + isLastPt;
+    for(i=5; i<=geom.numVtx; i++) {
+      if(i%stride == 0 || i == geom.numVtx) {
+        const int isLastPt = (i == geom.numVtx ? 1 : 0);
+        const int numPts = i - prevVtxIdx + 1;
         std::vector<double> pts(numPts*3);
         int idx = 0;
-        for(int j=prevVtxIdx; j<i; j++) {
+        for(int j=prevVtxIdx; j<=i && j<geom.numVtx; j++) {
           pts[idx++] = geom.vtx_x[j];
           pts[idx++] = geom.vtx_y[j];
           pts[idx++] = 0;
@@ -466,7 +478,20 @@ int main(int argc, char **argv) {
           vtx = firstVtx;
         } else {
           double pt[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
+          std::cout << "creatingVtx " << pt[0] << " " << pt[1] << "\n";
           vtx = GR_createVertex(region, pt);
+        }
+        std::cout << "range " << prevVtxIdx << " " << i << " numPts " << numPts << " isLastPt " << isLastPt << "\n";
+        { double first[3];
+          GV_point(prevVtx, first);
+          double last[3];
+          GV_point(vtx, last);
+          std::cout << "start " << first[0] << " " << first[1] << "\n";
+          std::cout << "end " << last[0] << " " << last[1] << "\n";
+          std::cout << "pts: ";
+          for(int j=0; j<pts.size(); j++) {
+            std::cout << pts.at(j) << " ";
+          } std::cout << "\n";
         }
         auto edge = fitCurveToContour(region, prevVtx, vtx, numPts, pts);
         edges.push_back(edge);

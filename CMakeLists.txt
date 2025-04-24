@@ -21,15 +21,15 @@ endfunction()
 addExe(landIceMeshGen)
 set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
 add_test(NAME landIceMeshGen_gis
-  COMMAND ./landIceMeshGen ${testDataDir}/gis.msh gis 0.5)
+  COMMAND ./landIceMeshGen ${testDataDir}/gis.msh gis 0.5 1000)
 add_test(NAME landIceMeshGen_oneSquare_jig
-  COMMAND ./landIceMeshGen ${testDataDir}/oneSquare.msh one_jig 0.5)
+  COMMAND ./landIceMeshGen ${testDataDir}/oneSquare.msh one_jig 0.5 1)
 add_test(NAME landIceMeshGen_twoSquares_jig
-  COMMAND ./landIceMeshGen ${testDataDir}/twoSquares.msh two_jig 0.5)
+  COMMAND ./landIceMeshGen ${testDataDir}/twoSquares.msh two_jig 0.5 1)
 add_test(NAME landIceMeshGen_oneSquare_vtk
-  COMMAND ./landIceMeshGen ${testDataDir}/oneSquare.vtk one_vtk 0.5)
+  COMMAND ./landIceMeshGen ${testDataDir}/oneSquare.vtk one_vtk 0.5 1)
 add_test(NAME landIceMeshGen_twoSquares_vtk
-  COMMAND ./landIceMeshGen ${testDataDir}/twoSquares.vtk two_vtk 0.5)
+  COMMAND ./landIceMeshGen ${testDataDir}/twoSquares.vtk two_vtk 0.5 1)
 
 addExe(testCurveCreation)
 
