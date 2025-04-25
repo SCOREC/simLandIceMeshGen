@@ -455,7 +455,7 @@ int main(int argc, char **argv) {
     const int firstPt = 4;
     std::cout << "numPts " << geom.numVtx-4 << " lastPt " << geom.numVtx << "\n";
     double pt[3] = {geom.vtx_x[firstPt], geom.vtx_y[firstPt], 0};
-    std::cout << "creatingVtx " << pt[0] << " " << pt[1] << "\n";
+    if (debug) std::cout << "creatingVtx " << pt[0] << " " << pt[1] << "\n";
     pGVertex firstVtx = GR_createVertex(region, pt);
     pGVertex prevVtx = firstVtx;
     int prevVtxIdx = firstPt;
@@ -478,11 +478,11 @@ int main(int argc, char **argv) {
           vtx = firstVtx;
         } else {
           double pt[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
-          std::cout << "creatingVtx " << pt[0] << " " << pt[1] << "\n";
           vtx = GR_createVertex(region, pt);
         }
-        std::cout << "range " << prevVtxIdx << " " << i << " numPts " << numPts << " isLastPt " << isLastPt << "\n";
-        { double first[3];
+        if (debug) {
+          std::cout << "range " << prevVtxIdx << " " << i << " numPts " << numPts << " isLastPt " << isLastPt << "\n";
+          double first[3];
           GV_point(prevVtx, first);
           double last[3];
           GV_point(vtx, last);
