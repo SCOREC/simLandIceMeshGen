@@ -389,7 +389,28 @@ std::string getFileExtension(const std::string &filename) {
 }
 
 pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const int numPts, std::vector<double>& pts) {
-  auto curve = SCurve_createPiecewiseLinear(numPts, pts.data());
+  std::vector<double> xpts; 
+  xpts.reserve(numPts);
+  std::vector<double> ypts; 
+  ypts.reserve(numPts);
+  for(int i=0; i<numPts; i++) {
+    xpts.push_back(pts.at(i*3));
+    ypts.push_back(pts.at(i*3+1));
+  }
+  auto bspline = SplineInterp::fitCubicSplineToPoints(xpts, ypts);
+  std::vector<double> ctrlPtsX, ctrlPtsY, knots, weight;
+  int order;
+  bspline.x.getpara(order, ctrlPtsX, knots, weight);
+  bspline.y.getpara(order, ctrlPtsY, knots, weight);
+  const int numCtrlPts = ctrlPtsX.size();
+  std::vector<double> ctrlPts3D(3 * (numCtrlPts));
+  for (int k = 0; k < numCtrlPts; k++) {
+    ctrlPts3D.at(3 * k) = ctrlPtsX.at(k);
+    ctrlPts3D.at(3 * k + 1) = ctrlPtsY.at(k);
+    ctrlPts3D[3 * k + 2] = 0.0;
+  }
+  pCurve curve =
+      SCurve_createBSpline(order, numCtrlPts, &ctrlPts3D[0], &knots[0], NULL);
   pGEdge edge = GR_createEdge(region, first, last, curve, 1);
   return edge;
 }
