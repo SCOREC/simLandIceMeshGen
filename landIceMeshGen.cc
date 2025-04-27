@@ -22,6 +22,59 @@
 
 void messageHandler(int type, const char *msg);
 
+namespace TC {
+void normalize(double x, double y, double& nx, double& ny) {
+    double magnitude = std::fabs(x) + std::fabs(y); // taxicab "magnitude"
+    if (magnitude == 0) {
+        nx = ny = 0;
+    } else {
+        nx = x / magnitude;
+        ny = y / magnitude;
+    }
+}
+
+// Taxicab angle from positive x-axis (counterclockwise)
+// Mapping taxicab unit directions to "angles" in 0 to 4 range
+double angle(double x, double y) {
+    if (x >= 0 && y >= 0)
+        return y / (x + y); // First quadrant
+    else if (x < 0 && y >= 0)
+        return 1 + (-x) / ((-x) + y); // Second
+    else if (x < 0 && y < 0)
+        return 2 + (-y) / ((-x) + (-y)); // Third
+    else
+        return 3 + x / (x + (-y)); // Fourth
+}
+
+// Compute taxicab angle between two vectors
+double angleBetween(double x1, double y1, double x2, double y2) {
+    double nx1, ny1, nx2, ny2;
+    TC::normalize(x1, y1, nx1, ny1);
+    TC::normalize(x2, y2, nx2, ny2);
+
+    double angle1 = TC::angle(nx1, ny1);
+    double angle2 = TC::angle(nx2, ny2);
+    std::cout << angle1 << " " << angle2 << "\n";
+
+    double diff = std::abs(angle1 - angle2);
+    if (diff > 4.0)
+        diff = 8.0 - diff; // Ensure smallest angular distance
+    return diff;
+}
+
+double radiansTo(double rad) {
+    const double x = std::cos(rad);
+    const double y = std::sin(rad);
+    return TC::angle(x, y);
+}
+
+double degreesTo(double deg) {
+    const double rad = deg * (M_PI / 180);
+    return TC::radiansTo(rad);
+}
+
+} //end namespace TC
+
 struct PlaneBounds {
   double minX;
   double maxX;
@@ -450,6 +503,10 @@ int main(int argc, char **argv) {
       }
     }
 
+    const double tc_angle_lower = TC::degreesTo(135);
+    const double tc_angle_upper = TC::degreesTo(-135);
+    std::cout << "tc_angle_lower " << tc_angle_lower << "\n";
+    std::cout << "tc_angle_upper " << tc_angle_upper << "\n";
     const int stride = std::stoi(argv[4]);
     assert(stride > 0);
     const int firstPt = 4;
@@ -460,7 +517,22 @@ int main(int argc, char **argv) {
     pGVertex prevVtx = firstVtx;
     int prevVtxIdx = firstPt;
     for(i=5; i<=geom.numVtx; i++) {
-      if(i%stride == 0 || i == geom.numVtx) {
+      if( i+1 < geom.numVtx ) {
+        const double norm_prev_x = geom.vtx_x[i-1] - geom.vtx_x[i];
+        const double norm_prev_y = geom.vtx_y[i-1] - geom.vtx_y[i];
+        const double norm_next_x = geom.vtx_x[i+1] - geom.vtx_x[i];
+        const double norm_next_y = geom.vtx_y[i+1] - geom.vtx_y[i];
+        const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
+        std::cout << "i " << i
+                  << " prev " << geom.vtx_x[i-1] << " " << geom.vtx_y[i-1]
+                  << " cur " << geom.vtx_x[i] << " " << geom.vtx_y[i]
+                  << " next " << geom.vtx_x[i+1] << " " << geom.vtx_y[i+1]
+                  << " tc_angle " << tc_angle
+                  << " below_lower " << (tc_angle < tc_angle_lower)
+                  << " above_upper " << (tc_angle > tc_angle_upper)
+                  << "\n";
+      }
+      if(i%stride == 0 || i == geom.numVtx) { //REPLACE with check of angle between adjacent edges
         const int isLastPt = (i == geom.numVtx ? 1 : 0);
         const int numPts = i - prevVtxIdx + 1;
         std::vector<double> pts(numPts*3);
