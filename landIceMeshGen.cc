@@ -51,11 +51,8 @@ double angleBetween(double x1, double y1, double x2, double y2) {
     double nx1, ny1, nx2, ny2;
     TC::normalize(x1, y1, nx1, ny1);
     TC::normalize(x2, y2, nx2, ny2);
-
     double angle1 = TC::angle(nx1, ny1);
     double angle2 = TC::angle(nx2, ny2);
-    std::cout << angle1 << " " << angle2 << "\n";
-
     double diff = std::abs(angle1 - angle2);
     if (diff > 4.0)
         diff = 8.0 - diff; // Ensure smallest angular distance
@@ -516,23 +513,30 @@ int main(int argc, char **argv) {
     pGVertex firstVtx = GR_createVertex(region, pt);
     pGVertex prevVtx = firstVtx;
     int prevVtxIdx = firstPt;
+    int ptsSinceMdlVtx = 1;
     for(i=5; i<=geom.numVtx; i++) {
-      if( i+1 < geom.numVtx ) {
+      bool isMdlVtx = false;
+      if(i+1 < geom.numVtx ) {
         const double norm_prev_x = geom.vtx_x[i-1] - geom.vtx_x[i];
         const double norm_prev_y = geom.vtx_y[i-1] - geom.vtx_y[i];
         const double norm_next_x = geom.vtx_x[i+1] - geom.vtx_x[i];
         const double norm_next_y = geom.vtx_y[i+1] - geom.vtx_y[i];
         const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
-        std::cout << "i " << i
-                  << " prev " << geom.vtx_x[i-1] << " " << geom.vtx_y[i-1]
-                  << " cur " << geom.vtx_x[i] << " " << geom.vtx_y[i]
-                  << " next " << geom.vtx_x[i+1] << " " << geom.vtx_y[i+1]
-                  << " tc_angle " << tc_angle
-                  << " below_lower " << (tc_angle < tc_angle_lower)
-                  << " above_upper " << (tc_angle > tc_angle_upper)
-                  << "\n";
+        if( tc_angle < tc_angle_lower || tc_angle < tc_angle_lower ) {
+          isMdlVtx = true;
+        }
+        if(debug) {
+          std::cout << "i " << i
+                    << " prev " << geom.vtx_x[i-1] << " " << geom.vtx_y[i-1]
+                    << " cur " << geom.vtx_x[i] << " " << geom.vtx_y[i]
+                    << " next " << geom.vtx_x[i+1] << " " << geom.vtx_y[i+1]
+                    << " tc_angle " << tc_angle
+                    << " below_lower " << (tc_angle < tc_angle_lower)
+                    << " above_upper " << (tc_angle > tc_angle_upper)
+                    << "\n";
+        }
       }
-      if(i%stride == 0 || i == geom.numVtx) { //REPLACE with check of angle between adjacent edges
+      if(ptsSinceMdlVtx%stride == 0 || i == geom.numVtx || isMdlVtx) {
         const int isLastPt = (i == geom.numVtx ? 1 : 0);
         const int numPts = i - prevVtxIdx + 1;
         std::vector<double> pts(numPts*3);
@@ -552,7 +556,7 @@ int main(int argc, char **argv) {
           double pt[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
           vtx = GR_createVertex(region, pt);
         }
-        if (debug) {
+        if (true) {
           std::cout << "range " << prevVtxIdx << " " << i << " numPts " << numPts << " isLastPt " << isLastPt << "\n";
           double first[3];
           GV_point(prevVtx, first);
@@ -560,16 +564,18 @@ int main(int argc, char **argv) {
           GV_point(vtx, last);
           std::cout << "start " << first[0] << " " << first[1] << "\n";
           std::cout << "end " << last[0] << " " << last[1] << "\n";
-          std::cout << "pts: ";
-          for(int j=0; j<pts.size(); j++) {
-            std::cout << pts.at(j) << " ";
-          } std::cout << "\n";
+          //std::cout << "pts: ";
+          //for(int j=0; j<pts.size(); j++) {
+          //  std::cout << pts.at(j) << " ";
+          //} std::cout << "\n";
         }
         auto edge = fitCurveToContour(region, prevVtx, vtx, numPts, pts);
         edges.push_back(edge);
         prevVtx = vtx;
         prevVtxIdx = i;
+        ptsSinceMdlVtx=0;
       }
+      ptsSinceMdlVtx++;
     }
 
     auto planeBounds = getBoundingPlane(geom);
