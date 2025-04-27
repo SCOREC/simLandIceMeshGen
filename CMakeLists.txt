@@ -45,6 +45,12 @@ add_test(NAME landIceMeshGen_twoSquares_vtk
 set_tests_properties(landIceMeshGen_twoSquares_jig PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
 
+add_test(NAME landIceMeshGen_oval_vtk
+  COMMAND ./landIceMeshGen ${testDataDir}/oval_wBbox.vtk oval 0.0001 100)
+set_tests_properties(landIceMeshGen_oval_vtk PROPERTIES
+  PASS_REGULAR_EXPRESSION "Number of vertices in model: 5")
+
+
 addExe(testCurveCreation)
 
 addExe(testSplineFitting)
