@@ -413,9 +413,20 @@ pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const i
     ctrlPts3D[3 * k + 2] = 0.0;
   }
   assert(knots.size() == order+numCtrlPts);
-  if(debug) {
+  //check for clamped knots
+  for(int i=0; i<order; i++) {
+    assert(knots.at(i) == 0);
+  }
+  for(int i=knots.size()-1; i>=knots.size()-order; i--) {
+    assert(knots.at(i) == 1);
+  }
+  if(true) {
     std::cout << "numCtrlPts " << numCtrlPts << " numKnots "
               << knots.size() << " order " << order << "\n";
+    std::cout << "knots ";
+    for(int i=0; i<knots.size(); i++) {
+      std::cout << knots.at(i) << " ";
+    } std::cout << "\n";
   }
   pCurve curve =
       SCurve_createBSpline(order, numCtrlPts, &ctrlPts3D[0], &knots[0], NULL);
