@@ -390,48 +390,57 @@ std::string getFileExtension(const std::string &filename) {
 
 pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const int numPts,
                          std::vector<double>& pts, bool debug=false) {
-  std::vector<double> xpts;
-  xpts.reserve(numPts);
-  std::vector<double> ypts;
-  ypts.reserve(numPts);
-  for(int i=0; i<numPts; i++) {
-    xpts.push_back(pts.at(i*3));
-    ypts.push_back(pts.at(i*3+1));
-  }
-  auto bspline = SplineInterp::fitCubicSplineToPoints(xpts, ypts);
-  std::vector<double> ctrlPtsX, ctrlPtsY, knots, weight;
-  int order;
-  bspline.x.getpara(order, ctrlPtsX, knots, weight);
-  bspline.y.getpara(order, ctrlPtsY, knots, weight);
-  const int numCtrlPts = ctrlPtsX.size();
-  assert(order == 4);
-  assert(numCtrlPts >= numPts);
-  std::vector<double> ctrlPts3D(3 * (numCtrlPts));
-  for (int k = 0; k < numCtrlPts; k++) {
-    ctrlPts3D.at(3 * k) = ctrlPtsX.at(k);
-    ctrlPts3D.at(3 * k + 1) = ctrlPtsY.at(k);
-    ctrlPts3D[3 * k + 2] = 0.0;
-  }
-  assert(knots.size() == order+numCtrlPts);
-  //check for clamped knots
-  for(int i=0; i<order; i++) {
-    assert(knots.at(i) == 0);
-  }
-  for(int i=knots.size()-1; i>=knots.size()-order; i--) {
-    assert(knots.at(i) == 1);
-  }
-  if(true) {
-    std::cout << "numCtrlPts " << numCtrlPts << " numKnots "
-              << knots.size() << " order " << order << "\n";
-    std::cout << "knots ";
-    for(int i=0; i<knots.size(); i++) {
-      std::cout << knots.at(i) << " ";
-    } std::cout << "\n";
-  }
-  pCurve curve =
+  assert(numPts > 1);
+  if( numPts == 2 || numPts == 3) {
+    std::cout << "numPts=order " << numPts << "\n";
+    pCurve curve =
+      SCurve_createBSpline(numPts, numPts, &pts[0], NULL, NULL);
+    pGEdge edge = GR_createEdge(region, first, last, curve, 1);
+    return edge;
+  } else {
+    std::vector<double> xpts;
+    xpts.reserve(numPts);
+    std::vector<double> ypts;
+    ypts.reserve(numPts);
+    for(int i=0; i<numPts; i++) {
+      xpts.push_back(pts.at(i*3));
+      ypts.push_back(pts.at(i*3+1));
+    }
+    auto bspline = SplineInterp::fitCubicSplineToPoints(xpts, ypts);
+    std::vector<double> ctrlPtsX, ctrlPtsY, knots, weight;
+    int order;
+    bspline.x.getpara(order, ctrlPtsX, knots, weight);
+    bspline.y.getpara(order, ctrlPtsY, knots, weight);
+    const int numCtrlPts = ctrlPtsX.size();
+    assert(order == 4);
+    assert(numCtrlPts >= numPts);
+    std::vector<double> ctrlPts3D(3 * (numCtrlPts));
+    for (int k = 0; k < numCtrlPts; k++) {
+      ctrlPts3D.at(3 * k) = ctrlPtsX.at(k);
+      ctrlPts3D.at(3 * k + 1) = ctrlPtsY.at(k);
+      ctrlPts3D[3 * k + 2] = 0.0;
+    }
+    assert(knots.size() == order+numCtrlPts);
+    //check for clamped knots
+    for(int i=0; i<order; i++) {
+      assert(knots.at(i) == 0);
+    }
+    for(int i=knots.size()-1; i>=knots.size()-order; i--) {
+      assert(knots.at(i) == 1);
+    }
+    if(true) {
+      std::cout << "numCtrlPts " << numCtrlPts << " numKnots "
+        << knots.size() << " order " << order << "\n";
+      std::cout << "knots ";
+      for(int i=0; i<knots.size(); i++) {
+        std::cout << knots.at(i) << " ";
+      } std::cout << "\n";
+    }
+    pCurve curve =
       SCurve_createBSpline(order, numCtrlPts, &ctrlPts3D[0], &knots[0], NULL);
-  pGEdge edge = GR_createEdge(region, first, last, curve, 1);
-  return edge;
+    pGEdge edge = GR_createEdge(region, first, last, curve, 1);
+    return edge;
+  }
 }
 
 int main(int argc, char **argv) {
@@ -724,6 +733,7 @@ int main(int argc, char **argv) {
               << std::endl;
     GM_write(model, modelFileName.c_str(), 0, 0);
 
+    /*
     // This next section creates a surface mesh from the model.  You can comment
     // out this section if you don't want to mesh
     pMesh mesh = M_new(0, model);
@@ -772,6 +782,7 @@ int main(int argc, char **argv) {
     MS_deleteMeshCase(meshCase);
     M_release(mesh);
     // end of meshing section
+    */
 
     delete[] faceEdges;
     delete[] faceDirs;
