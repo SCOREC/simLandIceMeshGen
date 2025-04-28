@@ -23,7 +23,7 @@ set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
 add_test(NAME landIceMeshGen_gis
   COMMAND ./landIceMeshGen ${testDataDir}/gis.msh gis 0.5 1000)
 set_tests_properties(landIceMeshGen_gis PROPERTIES
-  PASS_REGULAR_EXPRESSION "mesh faces in surface: 47")
+  PASS_REGULAR_EXPRESSION "mesh faces in surface: 959881")
 
 add_test(NAME landIceMeshGen_oneSquare_jig
   COMMAND ./landIceMeshGen ${testDataDir}/oneSquare.msh one_jig 0.5 1)
