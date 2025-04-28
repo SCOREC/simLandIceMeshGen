@@ -403,12 +403,15 @@ pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const i
   bspline.x.getpara(order, ctrlPtsX, knots, weight);
   bspline.y.getpara(order, ctrlPtsY, knots, weight);
   const int numCtrlPts = ctrlPtsX.size();
+  assert(order >= 2);
+  assert(numCtrlPts == numPts);
   std::vector<double> ctrlPts3D(3 * (numCtrlPts));
   for (int k = 0; k < numCtrlPts; k++) {
     ctrlPts3D.at(3 * k) = ctrlPtsX.at(k);
     ctrlPts3D.at(3 * k + 1) = ctrlPtsY.at(k);
     ctrlPts3D[3 * k + 2] = 0.0;
   }
+  assert(knots.size() >= order+numPts);
   pCurve curve =
       SCurve_createBSpline(order, numCtrlPts, &ctrlPts3D[0], &knots[0], NULL);
   pGEdge edge = GR_createEdge(region, first, last, curve, 1);
