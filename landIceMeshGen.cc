@@ -389,9 +389,9 @@ std::string getFileExtension(const std::string &filename) {
 }
 
 pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const int numPts, std::vector<double>& pts) {
-  std::vector<double> xpts; 
+  std::vector<double> xpts;
   xpts.reserve(numPts);
-  std::vector<double> ypts; 
+  std::vector<double> ypts;
   ypts.reserve(numPts);
   for(int i=0; i<numPts; i++) {
     xpts.push_back(pts.at(i*3));
@@ -749,7 +749,7 @@ int main(int argc, char **argv) {
     MS_deleteMeshCase(meshCase);
     M_release(mesh);
     // end of meshing section
-    
+
     delete[] faceEdges;
     delete[] faceDirs;
     delete[] vertices;
