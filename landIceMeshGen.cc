@@ -527,9 +527,7 @@ int main(int argc, char **argv) {
         }
         if(debug) {
           std::cout << "i " << i
-                    << " prev " << geom.vtx_x[i-1] << " " << geom.vtx_y[i-1]
                     << " cur " << geom.vtx_x[i] << " " << geom.vtx_y[i]
-                    << " next " << geom.vtx_x[i+1] << " " << geom.vtx_y[i+1]
                     << " tc_angle " << tc_angle
                     << " below_lower " << (tc_angle < tc_angle_lower)
                     << " above_upper " << (tc_angle > tc_angle_upper)
