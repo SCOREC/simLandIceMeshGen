@@ -701,8 +701,8 @@ int main(int argc, char **argv) {
     }
     std::cout << "Min geometric model edge length: " << minGEdgeLen
               << std::endl;
-    const auto contourMeshSize = minGEdgeLen * 32;
-    const auto globMeshSize = contourMeshSize * 64;
+    const auto contourMeshSize = minGEdgeLen * 128;
+    const auto globMeshSize = contourMeshSize * 128;
     std::cout << "Contour absolute mesh size target: " << contourMeshSize
               << std::endl;
     std::cout << "Global absolute mesh size target: " << globMeshSize
