@@ -521,8 +521,8 @@ int main(int argc, char **argv) {
       }
     }
 
-    const double tc_angle_lower = TC::degreesTo(135);
-    const double tc_angle_upper = TC::degreesTo(-135);
+    const double tc_angle_lower = TC::degreesTo(150);
+    const double tc_angle_upper = TC::degreesTo(-150);
     std::cout << "tc_angle_lower " << tc_angle_lower << "\n";
     std::cout << "tc_angle_upper " << tc_angle_upper << "\n";
     const int stride = std::stoi(argv[4]);
@@ -575,7 +575,7 @@ int main(int argc, char **argv) {
           double pt[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
           vtx = GR_createVertex(region, pt);
         }
-        if (debug) {
+        if (true) {
           std::cout << "range " << prevVtxIdx << " " << i << " numPts " << numPts << " isLastPt " << isLastPt << " isMdlVtx " << isMdlVtx << "\n";
           double first[3];
           GV_point(prevVtx, first);
@@ -583,6 +583,10 @@ int main(int argc, char **argv) {
           GV_point(vtx, last);
           std::cout << "start " << first[0] << " " << first[1] << "\n";
           std::cout << "end " << last[0] << " " << last[1] << "\n";
+          std::cout << "pts: ";
+          for(int j=0; j<pts.size(); j++) {
+            std::cout << pts.at(j) << " ";
+          } std::cout << "\n";
         }
         auto edge = fitCurveToContour(region, prevVtx, vtx, numPts, pts);
         edges.push_back(edge);
