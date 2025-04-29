@@ -418,7 +418,7 @@ pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const i
     for (int k = 0; k < numCtrlPts; k++) {
       ctrlPts3D.at(3 * k) = ctrlPtsX.at(k);
       ctrlPts3D.at(3 * k + 1) = ctrlPtsY.at(k);
-      ctrlPts3D[3 * k + 2] = 0.0;
+      ctrlPts3D.at(3 * k + 2) = 0.0;
     }
     assert(knots.size() == order+numCtrlPts);
     //check for clamped knots
@@ -434,6 +434,10 @@ pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const i
       std::cout << "knots ";
       for(int i=0; i<knots.size(); i++) {
         std::cout << knots.at(i) << " ";
+      } std::cout << "\n";
+      std::cout << "ctrlPts ";
+      for(int i=0; i<ctrlPts3D.size(); i++) {
+        std::cout << ctrlPts3D.at(i) << " ";
       } std::cout << "\n";
     }
     pCurve curve =
