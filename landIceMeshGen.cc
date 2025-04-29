@@ -428,7 +428,7 @@ pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const i
     for(int i=knots.size()-1; i>=knots.size()-order; i--) {
       assert(knots.at(i) == 1);
     }
-    if(true) {
+    if(debug) {
       std::cout << "numCtrlPts " << numCtrlPts << " numKnots "
         << knots.size() << " order " << order << "\n";
       std::cout << "knots ";
@@ -608,7 +608,11 @@ int main(int argc, char **argv) {
           vtx = GR_createVertex(region, pt);
         }
         if (true) {
-          std::cout << "range " << prevVtxIdx << " " << i << " numPts " << numPts << " isLastPt " << isLastPt << " isMdlVtx " << isMdlVtx << "\n";
+          std::cout << "edge " << edges.size()
+                    << " range " << prevVtxIdx << " " << i
+                    << " numPts " << numPts
+                    << " isLastPt " << isLastPt
+                    << " isMdlVtx " << isMdlVtx << "\n";
           double first[3];
           GV_point(prevVtx, first);
           double last[3];
@@ -620,7 +624,7 @@ int main(int argc, char **argv) {
             std::cout << pts.at(j) << " ";
           } std::cout << "\n";
         }
-        auto edge = fitCurveToContour(region, prevVtx, vtx, numPts, pts);
+        auto edge = fitCurveToContour(region, prevVtx, vtx, numPts, pts, (edges.size() == 2966));
         edges.push_back(edge);
         prevVtx = vtx;
         prevVtxIdx = i;
