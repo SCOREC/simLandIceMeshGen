@@ -388,6 +388,51 @@ std::string getFileExtension(const std::string &filename) {
   return "";
 }
 
+template <typename T>
+double maxElm(T arr) {
+  return *std::max_element(arr.begin(), arr.end());
+}
+
+template <typename T>
+double minElm(T arr) {
+  return *std::min_element(arr.begin(), arr.end());
+}
+
+template <typename T>
+bool splineOK(T xpts, T ypts, T ctrlPtsX, T ctrlPtsY, T knots, int order) {
+  assert(xpts.size()==ypts.size());
+  assert(ctrlPtsX.size()==ctrlPtsY.size());
+
+  assert(order == 4);
+  assert(ctrlPtsX.size() >= xpts.size());
+
+  assert(knots.size() == order+ctrlPtsX.size());
+  //check for clamped knots
+  for(int i=0; i<order; i++) {
+    assert(knots.at(i) == 0);
+  }
+  for(int i=knots.size()-1; i>=knots.size()-order; i--) {
+    assert(knots.at(i) == 1);
+  }
+
+  const double maxPtX = maxElm(xpts);
+  const double maxPtY = maxElm(ypts);
+  const double maxCtrlPtX = maxElm(ctrlPtsX);
+  const double maxCtrlPtY = maxElm(ctrlPtsY);
+  const double minPtX = minElm(xpts);
+  const double minPtY = minElm(ypts);
+  const double minCtrlPtX = minElm(ctrlPtsX);
+  const double minCtrlPtY = minElm(ctrlPtsY);
+  if( maxCtrlPtX > maxPtX || maxCtrlPtY > maxPtY ||
+      minCtrlPtX < minPtX || minCtrlPtY < minPtY  ) {
+    std::cout << "Warning: control points outside the bounds of the input points!\n";
+    std::cout << "  pts bbox:" << minPtX << " " << minPtY << " " << maxPtX << " " << maxPtY << "\n";
+    std::cout << "  ctrlPts bbox:" << minCtrlPtX << " " << minCtrlPtY << " " << maxCtrlPtX << " " << maxCtrlPtY << "\n";
+    return false;
+  }
+  return true;
+}
+
 pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const int numPts,
                          std::vector<double>& pts, bool debug=false) {
   assert(numPts > 1);
@@ -412,23 +457,14 @@ pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const i
     bspline.x.getpara(order, ctrlPtsX, knots, weight);
     bspline.y.getpara(order, ctrlPtsY, knots, weight);
     const int numCtrlPts = ctrlPtsX.size();
-    assert(order == 4);
-    assert(numCtrlPts >= numPts);
     std::vector<double> ctrlPts3D(3 * (numCtrlPts));
     for (int k = 0; k < numCtrlPts; k++) {
       ctrlPts3D.at(3 * k) = ctrlPtsX.at(k);
       ctrlPts3D.at(3 * k + 1) = ctrlPtsY.at(k);
       ctrlPts3D.at(3 * k + 2) = 0.0;
     }
-    assert(knots.size() == order+numCtrlPts);
-    //check for clamped knots
-    for(int i=0; i<order; i++) {
-      assert(knots.at(i) == 0);
-    }
-    for(int i=knots.size()-1; i>=knots.size()-order; i--) {
-      assert(knots.at(i) == 1);
-    }
-    if(debug) {
+    auto isOK = splineOK(xpts, ypts, ctrlPtsX, ctrlPtsY, knots, order);
+    if(debug && ! isOK) {
       std::cout << "numCtrlPts " << numCtrlPts << " numKnots "
         << knots.size() << " order " << order << "\n";
       std::cout << "knots ";
@@ -624,7 +660,7 @@ int main(int argc, char **argv) {
             std::cout << pts.at(j) << " ";
           } std::cout << "\n";
         }
-        auto edge = fitCurveToContour(region, prevVtx, vtx, numPts, pts, (edges.size() == 2966));
+        auto edge = fitCurveToContour(region, prevVtx, vtx, numPts, pts, true);
         edges.push_back(edge);
         prevVtx = vtx;
         prevVtxIdx = i;
