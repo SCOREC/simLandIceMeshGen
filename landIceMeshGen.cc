@@ -433,6 +433,20 @@ bool splineOK(T xpts, T ypts, T ctrlPtsX, T ctrlPtsY, T knots, int order) {
   return true;
 }
 
+pGEdge fitCurveToContourSimInterp(pGRegion region, pGVertex first, pGVertex last, const int numPts,
+                         std::vector<double>& pts, bool debug=false) {
+  assert(numPts > 1);
+  pCurve curve;
+  if( numPts == 2 || numPts == 3) {
+    curve = SCurve_createPiecewiseLinear(numPts, &pts[0]);
+  } else {
+    const int order = 4;
+    curve = SCurve_createInterpolatedBSpline(order, numPts, &pts[0], NULL);
+  }
+  pGEdge edge = GR_createEdge(region, first, last, curve, 1);
+  return edge;
+}
+
 pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const int numPts,
                          std::vector<double>& pts, bool debug=false) {
   assert(numPts > 1);
@@ -660,7 +674,7 @@ int main(int argc, char **argv) {
             std::cout << pts.at(j) << " ";
           } std::cout << "\n";
         }
-        auto edge = fitCurveToContour(region, prevVtx, vtx, numPts, pts, true);
+        auto edge = fitCurveToContourSimInterp(region, prevVtx, vtx, numPts, pts, true);
         edges.push_back(edge);
         prevVtx = vtx;
         prevVtxIdx = i;
