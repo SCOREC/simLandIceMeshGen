@@ -388,51 +388,6 @@ std::string getFileExtension(const std::string &filename) {
   return "";
 }
 
-template <typename T>
-double maxElm(T arr) {
-  return *std::max_element(arr.begin(), arr.end());
-}
-
-template <typename T>
-double minElm(T arr) {
-  return *std::min_element(arr.begin(), arr.end());
-}
-
-template <typename T>
-bool splineOK(T xpts, T ypts, T ctrlPtsX, T ctrlPtsY, T knots, int order) {
-  assert(xpts.size()==ypts.size());
-  assert(ctrlPtsX.size()==ctrlPtsY.size());
-
-  assert(order == 4);
-  assert(ctrlPtsX.size() >= xpts.size());
-
-  assert(knots.size() == order+ctrlPtsX.size());
-  //check for clamped knots
-  for(int i=0; i<order; i++) {
-    assert(knots.at(i) == 0);
-  }
-  for(int i=knots.size()-1; i>=knots.size()-order; i--) {
-    assert(knots.at(i) == 1);
-  }
-
-  const double maxPtX = maxElm(xpts);
-  const double maxPtY = maxElm(ypts);
-  const double maxCtrlPtX = maxElm(ctrlPtsX);
-  const double maxCtrlPtY = maxElm(ctrlPtsY);
-  const double minPtX = minElm(xpts);
-  const double minPtY = minElm(ypts);
-  const double minCtrlPtX = minElm(ctrlPtsX);
-  const double minCtrlPtY = minElm(ctrlPtsY);
-  if( maxCtrlPtX > maxPtX || maxCtrlPtY > maxPtY ||
-      minCtrlPtX < minPtX || minCtrlPtY < minPtY  ) {
-    std::cout << "Warning: control points outside the bounds of the input points!\n";
-    std::cout << "  pts bbox:" << minPtX << " " << minPtY << " " << maxPtX << " " << maxPtY << "\n";
-    std::cout << "  ctrlPts bbox:" << minCtrlPtX << " " << minCtrlPtY << " " << maxCtrlPtX << " " << maxCtrlPtY << "\n";
-    return false;
-  }
-  return true;
-}
-
 pGEdge fitCurveToContourSimInterp(pGRegion region, pGVertex first, pGVertex last, const int numPts,
                          std::vector<double>& pts, bool debug=false) {
   assert(numPts > 1);
