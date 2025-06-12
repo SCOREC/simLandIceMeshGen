@@ -463,8 +463,8 @@ pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const i
       ctrlPts3D.at(3 * k + 1) = ctrlPtsY.at(k);
       ctrlPts3D.at(3 * k + 2) = 0.0;
     }
-    auto isOK = splineOK(xpts, ypts, ctrlPtsX, ctrlPtsY, knots, order);
-    if(debug && ! isOK) {
+    if(debug) {
+      auto isOK = splineOK(xpts, ypts, ctrlPtsX, ctrlPtsY, knots, order);
       std::cout << "numCtrlPts " << numCtrlPts << " numKnots "
         << knots.size() << " order " << order << "\n";
       std::cout << "knots ";
@@ -600,6 +600,7 @@ int main(int argc, char **argv) {
     double pt[3] = {geom.vtx_x[firstPt], geom.vtx_y[firstPt], 0};
     if (debug) std::cout << "creatingVtx " << pt[0] << " " << pt[1] << "\n";
     pGVertex firstVtx = GR_createVertex(region, pt);
+    std::cout << "isMdlVtx, " << firstPt << ", " << true << "\n";
     pGVertex prevVtx = firstVtx;
     int prevVtxIdx = firstPt;
     int ptsSinceMdlVtx = 1;
@@ -614,6 +615,7 @@ int main(int argc, char **argv) {
         if( tc_angle < tc_angle_lower || tc_angle < tc_angle_lower ) {
           isMdlVtx = true;
         }
+        std::cout << "isMdlVtx, " << i << ", " << isMdlVtx << "\n";
         if(debug) {
           std::cout << "i " << i
                     << " cur " << geom.vtx_x[i] << " " << geom.vtx_y[i]
@@ -660,7 +662,7 @@ int main(int argc, char **argv) {
             std::cout << pts.at(j) << " ";
           } std::cout << "\n";
         }
-        auto edge = fitCurveToContour(region, prevVtx, vtx, numPts, pts, true);
+        auto edge = fitCurveToContour(region, prevVtx, vtx, numPts, pts, edges.size()==35);
         edges.push_back(edge);
         prevVtx = vtx;
         prevVtxIdx = i;
