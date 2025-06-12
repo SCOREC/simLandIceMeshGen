@@ -447,6 +447,17 @@ pGEdge fitCurveToContourSimInterp(pGRegion region, pGVertex first, pGVertex last
   return edge;
 }
 
+void printModelInfo(pGModel model) {
+  std::cout << "Number of vertices in model: " << GM_numVertices(model)
+    << std::endl;
+  std::cout << "Number of edges in model: " << GM_numEdges(model)
+    << std::endl;
+  std::cout << "Number of faces in model: " << GM_numFaces(model)
+    << std::endl;
+  std::cout << "Number of regions in model: " << GM_numRegions(model)
+    << std::endl;
+}
+
 int main(int argc, char **argv) {
   if (argc != 5) {
     std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
@@ -619,10 +630,10 @@ int main(int argc, char **argv) {
           GV_point(vtx, last);
           std::cout << "start " << first[0] << " " << first[1] << "\n";
           std::cout << "end " << last[0] << " " << last[1] << "\n";
-          std::cout << "pts: ";
-          for(int j=0; j<pts.size(); j++) {
-            std::cout << pts.at(j) << " ";
-          } std::cout << "\n";
+          std::cout << "x,y,z\n";
+          for(int j=0; j<pts.size(); j+=3) {
+            std::cout << pts.at(j) << ", " << pts.at(j+1) << ", " << pts.at(j+2) << "\n";
+          }
         }
         auto edge = fitCurveToContourSimInterp(region, prevVtx, vtx, numPts, pts, true);
         edges.push_back(edge);
@@ -731,14 +742,16 @@ int main(int argc, char **argv) {
       std::cout << "Model is valid.\n";
     }
 
-    std::cout << "Number of vertices in model: " << GM_numVertices(model)
-              << std::endl;
-    std::cout << "Number of edges in model: " << GM_numEdges(model)
-              << std::endl;
-    std::cout << "Number of faces in model: " << GM_numFaces(model)
-              << std::endl;
-    std::cout << "Number of regions in model: " << GM_numRegions(model)
-              << std::endl;
+    printModelInfo(model);
+
+    // The face we want to suppress has a width of 0.000567
+    // so we use the value 0.00057 for suppression
+    pSmallFeatureInfo smallFeats = GM_detectSmallFeatures(model,1,50,2,10,progress);
+    GM_suppressSmallFeatures(smallFeats,progress);
+    GM_deleteSmallFeatureInfo(smallFeats);
+
+    printModelInfo(model);
+
     GM_write(model, modelFileName.c_str(), 0, 0);
 
     /*
