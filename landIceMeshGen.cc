@@ -388,8 +388,10 @@ std::string getFileExtension(const std::string &filename) {
   return "";
 }
 
-pGEdge fitCurveToContourSimInterp(pGRegion region, pGVertex first, pGVertex last, const int numPts,
+pGEdge fitCurveToContourSimInterp(pGRegion region, pGVertex first, pGVertex last,
                          std::vector<double>& pts, bool debug=false) {
+  assert(pts.size() % 3 == 0);
+  const int numPts = pts.size()/3;
   assert(numPts > 1);
   pCurve curve;
   if( numPts == 2 || numPts == 3) {
@@ -411,6 +413,52 @@ void printModelInfo(pGModel model) {
     << std::endl;
   std::cout << "Number of regions in model: " << GM_numRegions(model)
     << std::endl;
+}
+
+typedef std::array<double,3> Point;
+
+//from scorec/tomms @ 2f97d13 (simapis-mod branch)
+int isCorner(Point& pt1, Point& pt2, Point& pt3) {
+  const double parallel_cutoff = 0.999975;
+  const double vec1[] = {pt1[0]-pt2[0], pt1[1]-pt2[1]};
+  const double vec2[] = {pt3[0]-pt2[0], pt3[1]-pt2[1]};
+  const double len1=std::sqrt(vec1[0]*vec1[0]+vec1[1]*vec1[1]);
+  const double len2=std::sqrt(vec2[0]*vec2[0]+vec2[1]*vec2[1]);
+  if( std::fabs(vec1[0]*vec2[1]-vec1[1]*vec2[0])/(len1*len2) > 1.-parallel_cutoff ) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+//from scorec/tomms @ 2f97d13 (simapis-mod branch)
+int onCurve(Point& pt1, Point& pt2, Point& pt3, Point& pt4, Point& pt5) {
+  // Define the vector between two points by using the relation [x2-x1, y2-y1]
+  const double vec1[] = {pt1[0]-pt2[0], pt1[1]-pt2[1]}; // Vector between point 1 and 2
+  const double vec2[] = {pt3[0]-pt2[0], pt3[1]-pt2[1]}; // Vector between point 2 and 3
+  const double vec3[] = {pt4[0]-pt3[0], pt4[1]-pt3[1]}; // Vector between point 3 and 4
+  const double vec4[] = {pt5[0]-pt4[0], pt5[1]-pt4[1]}; // Vector between point 4 and 5
+  // Find the length of the vectors by using the relation [square root(x1*x1 + y1*y1)]
+  const double len1 = std::sqrt(vec1[0]*vec1[0]+vec1[1]*vec1[1]);  // Length of Edge 1
+  const double len2 = std::sqrt(vec2[0]*vec2[0]+vec2[1]*vec2[1]);  // Length of Edge 2
+  const double len3 = std::sqrt(vec3[0]*vec3[0]+vec3[1]*vec3[1]);  // Length of Edge 3
+  const double len4 = std::sqrt(vec4[0]*vec4[0]+vec4[1]*vec4[1]);  // Length of Edge 4
+  // Once the absolute lengths are calculated, the next step is to use the cross product to find the Sin of angles between two edges.
+  // vector1 x vector2 = |length1||length2| Sinθ
+  // Sinθ = (vector1 x vector2)/(|length1||length2|)
+  const double sin_angle1 = std::fabs(vec1[0]*vec2[1]-vec1[1]*vec2[0])/(len1*len2);   // Edge Angle between edge 1 and 2
+  const double sin_angle2 = std::fabs(vec2[0]*vec3[1]-vec2[1]*vec3[0])/(len2*len3);   // Edge Angle between edge 2 and 3
+  const double sin_angle3 = std::fabs(vec3[0]*vec4[1]-vec3[1]*vec4[0])/(len3*len4);   // Edge Angle between edge 3 and 4
+  // Convert sin_angles to angle theta
+  const double pi = 3.14159265;
+  const double theta1 = asin (sin_angle1)* 180.0/pi;
+  const double theta2 = asin (sin_angle2)* 180.0/pi;
+  const double theta3 = asin (sin_angle3)* 180.0/pi;
+  if ((theta1>0) && (theta1<30) && (theta2>0) && (theta2<30) && (theta3>0) && (theta3<30)) {
+    return 1;
+  } else {
+    return 0;
+  }
 }
 
 int main(int argc, char **argv) {
@@ -533,23 +581,71 @@ int main(int argc, char **argv) {
     pGVertex prevVtx = firstVtx;
     int prevVtxIdx = firstPt;
     int ptsSinceMdlVtx = 1;
+
+    std::cout << "x,y,z,isOnCurve\n";
+    std::vector<int> isPointOnCurve; //1: along a curve, 0: otherwise
+    isPointOnCurve.reserve(geom.numVtx-4);
+    int mycnt=0;
+    for (int j = 4;j < geom.numVtx; ++j) {
+      mycnt++;
+      if (j < (4+2) || j >= geom.numVtx-2) {
+        isPointOnCurve.push_back(0);
+        std::cout << geom.vtx_x[j] << ", " << geom.vtx_y[j] << ", " << 0 << ", " << 0 << "\n";
+        continue;
+      }
+
+      Point m2{geom.vtx_x.at(j-2), geom.vtx_y.at(j-2), 0.0};
+      Point m1{geom.vtx_x.at(j-1), geom.vtx_y.at(j-1), 0.0};
+      Point m0{geom.vtx_x.at(j),   geom.vtx_y.at(j),   0.0};
+      Point p1{geom.vtx_x.at(j+1), geom.vtx_y.at(j+1), 0.0};
+      Point p2{geom.vtx_x.at(j+2), geom.vtx_y.at(j+2), 0.0};
+      const auto on = onCurve(m2, m1, m0, p1, p2);
+      const auto corner = isCorner(m1, m0, p1);
+      isPointOnCurve.push_back(on && !corner);
+      std::cout << m0[0] << ", " << m0[1] << ", " << m0[2] << ", " << on << "\n";
+    }
+    std::cout << "done\n";
+
+    //find points marked as on a curve that have no
+    // adjacent points that are also marked as on the curve
+    //first point
+    if( isPointOnCurve.back() == 0 && 
+        isPointOnCurve.at(0) == 1 && 
+        isPointOnCurve.at(1) == 0 ) {
+      isPointOnCurve.at(0) = 0;
+    }
+    //interior
+    for (int j = 1;j < isPointOnCurve.size(); j++) {
+      if( isPointOnCurve.at(j-1) == 0 && 
+          isPointOnCurve.at(j) == 1 && 
+          isPointOnCurve.at(j+1) == 0 ) {
+        isPointOnCurve.at(j) = 0;
+      }
+    }
+    //last point
+    const int last = isPointOnCurve.size()-1;
+    if( isPointOnCurve.at(last-1) == 0 && 
+        isPointOnCurve.at(last) == 1 && 
+        isPointOnCurve.at(0) == 0 ) {
+      isPointOnCurve.at(last) = 0;
+    }
+
+    std::cout << "x,y,z,isOnCurveMod\n";
+    for (int j = 0;j < isPointOnCurve.size(); j++) {
+      std::cout << geom.vtx_x.at(j+4) << ", " << geom.vtx_y.at(j+4) << ", " << 0 << ", " << isPointOnCurve.at(j) << "\n";
+    }
+    std::cout << "doneMod\n";
+
     for(i=5; i<=geom.numVtx; i++) {
       bool isMdlVtx = false;
       if(i+1 < geom.numVtx ) {
-        const double norm_prev_x = geom.vtx_x[i-1] - geom.vtx_x[i];
-        const double norm_prev_y = geom.vtx_y[i-1] - geom.vtx_y[i];
-        const double norm_next_x = geom.vtx_x[i+1] - geom.vtx_x[i];
-        const double norm_next_y = geom.vtx_y[i+1] - geom.vtx_y[i];
-        const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
-        if( tc_angle < tc_angle_lower || tc_angle < tc_angle_lower ) {
+        if ((isPointOnCurve.at(i) == 0 && isPointOnCurve.at(i+1) == 1) || 
+            (isPointOnCurve.at(i) == 1 && isPointOnCurve.at(i+1) == 0) )   {
           isMdlVtx = true;
         }
         if(debug) {
           std::cout << "i " << i
                     << " cur " << geom.vtx_x[i] << " " << geom.vtx_y[i]
-                    << " tc_angle " << tc_angle
-                    << " below_lower " << (tc_angle < tc_angle_lower)
-                    << " above_upper " << (tc_angle > tc_angle_upper)
                     << "\n";
         }
       }
@@ -573,7 +669,7 @@ int main(int argc, char **argv) {
           double pt[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
           vtx = GR_createVertex(region, pt);
         }
-        if (true) {
+        if (false) {
           std::cout << "edge " << edges.size()
                     << " range " << prevVtxIdx << " " << i
                     << " numPts " << numPts
@@ -585,12 +681,12 @@ int main(int argc, char **argv) {
           GV_point(vtx, last);
           std::cout << "start " << first[0] << " " << first[1] << "\n";
           std::cout << "end " << last[0] << " " << last[1] << "\n";
-          std::cout << "x,y,z\n";
-          for(int j=0; j<pts.size(); j+=3) {
-            std::cout << pts.at(j) << ", " << pts.at(j+1) << ", " << pts.at(j+2) << "\n";
+          std::cout << "x,y,z,isOnCurve\n";
+          for(int j=0, ptIdx = 0; j<pts.size(); j+=3, ptIdx++) {
+            std::cout << pts.at(j) << ", " << pts.at(j+1) << ", " << pts.at(j+2) << ", " << isPointOnCurve.at(prevVtxIdx+ptIdx) << "\n";
           }
         }
-        auto edge = fitCurveToContourSimInterp(region, prevVtx, vtx, numPts, pts, true);
+        auto edge = fitCurveToContourSimInterp(region, prevVtx, vtx, pts, true);
         edges.push_back(edge);
         prevVtx = vtx;
         prevVtxIdx = i;
@@ -699,13 +795,13 @@ int main(int argc, char **argv) {
 
     printModelInfo(model);
 
-    // The face we want to suppress has a width of 0.000567
-    // so we use the value 0.00057 for suppression
-    pSmallFeatureInfo smallFeats = GM_detectSmallFeatures(model,1,50,2,10,progress);
-    GM_suppressSmallFeatures(smallFeats,progress);
-    GM_deleteSmallFeatureInfo(smallFeats);
-
-    printModelInfo(model);
+//    // The face we want to suppress has a width of 0.000567
+//    // so we use the value 0.00057 for suppression
+//    pSmallFeatureInfo smallFeats = GM_detectSmallFeatures(model,1,50,2,10,progress);
+//    GM_suppressSmallFeatures(smallFeats,progress);
+//    GM_deleteSmallFeatureInfo(smallFeats);
+//
+//    printModelInfo(model);
 
     GM_write(model, modelFileName.c_str(), 0, 0);
 
