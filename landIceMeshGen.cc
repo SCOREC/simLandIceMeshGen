@@ -447,56 +447,6 @@ pGEdge fitCurveToContourSimInterp(pGRegion region, pGVertex first, pGVertex last
   return edge;
 }
 
-pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const int numPts,
-                         std::vector<double>& pts, bool debug=false) {
-  assert(numPts > 1);
-  if( numPts == 2 || numPts == 3) {
-    std::cout << "numPts=order " << numPts << "\n";
-    pCurve curve =
-      SCurve_createBSpline(numPts, numPts, &pts[0], NULL, NULL);
-    pGEdge edge = GR_createEdge(region, first, last, curve, 1);
-    return edge;
-  } else {
-    std::vector<double> xpts;
-    xpts.reserve(numPts);
-    std::vector<double> ypts;
-    ypts.reserve(numPts);
-    for(int i=0; i<numPts; i++) {
-      xpts.push_back(pts.at(i*3));
-      ypts.push_back(pts.at(i*3+1));
-    }
-    auto bspline = SplineInterp::fitCubicSplineToPoints(xpts, ypts);
-    std::vector<double> ctrlPtsX, ctrlPtsY, knots, weight;
-    int order;
-    bspline.x.getpara(order, ctrlPtsX, knots, weight);
-    bspline.y.getpara(order, ctrlPtsY, knots, weight);
-    const int numCtrlPts = ctrlPtsX.size();
-    std::vector<double> ctrlPts3D(3 * (numCtrlPts));
-    for (int k = 0; k < numCtrlPts; k++) {
-      ctrlPts3D.at(3 * k) = ctrlPtsX.at(k);
-      ctrlPts3D.at(3 * k + 1) = ctrlPtsY.at(k);
-      ctrlPts3D.at(3 * k + 2) = 0.0;
-    }
-    auto isOK = splineOK(xpts, ypts, ctrlPtsX, ctrlPtsY, knots, order);
-    if(debug && ! isOK) {
-      std::cout << "numCtrlPts " << numCtrlPts << " numKnots "
-        << knots.size() << " order " << order << "\n";
-      std::cout << "knots ";
-      for(int i=0; i<knots.size(); i++) {
-        std::cout << knots.at(i) << " ";
-      } std::cout << "\n";
-      std::cout << "ctrlPts ";
-      for(int i=0; i<ctrlPts3D.size(); i++) {
-        std::cout << ctrlPts3D.at(i) << " ";
-      } std::cout << "\n";
-    }
-    pCurve curve =
-      SCurve_createBSpline(order, numCtrlPts, &ctrlPts3D[0], &knots[0], NULL);
-    pGEdge edge = GR_createEdge(region, first, last, curve, 1);
-    return edge;
-  }
-}
-
 int main(int argc, char **argv) {
   if (argc != 5) {
     std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
