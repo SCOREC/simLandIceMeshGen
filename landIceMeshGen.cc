@@ -424,7 +424,8 @@ int isCorner(Point& pt1, Point& pt2, Point& pt3) {
   const double vec2[] = {pt3[0]-pt2[0], pt3[1]-pt2[1]};
   const double len1=std::sqrt(vec1[0]*vec1[0]+vec1[1]*vec1[1]);
   const double len2=std::sqrt(vec2[0]*vec2[0]+vec2[1]*vec2[1]);
-  if( std::fabs(vec1[0]*vec2[1]-vec1[1]*vec2[0])/(len1*len2) > 1.-parallel_cutoff ) {
+  const double sin_angle = std::fabs(vec1[0]*vec2[1]-vec1[1]*vec2[0])/(len1*len2);
+  if( sin_angle > 1.-parallel_cutoff ) { // figure out what this means and move it into 'onCurve'
     return 1;
   } else {
     return 0;
