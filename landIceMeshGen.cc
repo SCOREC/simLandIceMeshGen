@@ -462,6 +462,16 @@ int onCurve(Point& pt1, Point& pt2, Point& pt3, Point& pt4, Point& pt5) {
   }
 }
 
+//0: mdlVtx, 1: start of, or along, curve, 2: end of curve, 3: start of, or along, pwl, 4: end of pwl
+int getSegmentState(int ptIdx, int state, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx) {
+  assert(ptIdx < isPtOnCurve.size());
+  assert(ptIdx < isMdlVtx.size());
+  if( isMdlVtx.at(ptIdx) == 1 ) return 0;
+  else if( isPtOnCurve.at(ptIdx) == 2 /*on curve*/ && state == 1 ) return 2; //along curve
+  else if( isPtOnCurve.at(ptIdx) == 0 /*not on curve*/ && state == 1 ) return 2; //end of curve
+  else if( isPtOnCurve.at(ptIdx) == 0 /*not on curve*/ && state == 3 ) return state; //along pwl
+}
+
 int main(int argc, char **argv) {
   if (argc != 5) {
     std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
@@ -568,22 +578,51 @@ int main(int argc, char **argv) {
       }
     }
 
-    const double tc_angle_lower = TC::degreesTo(150);
-    const double tc_angle_upper = TC::degreesTo(-150);
+    std::cout << "tc(30) " << TC::degreesTo(30) << "\n";
+    std::cout << "tc(60) " << TC::degreesTo(60) << "\n";
+    std::cout << "tc(90) " << TC::degreesTo(90) << "\n";
+    std::cout << "tc(120) " << TC::degreesTo(120) << "\n";
+    std::cout << "tc(150) " << TC::degreesTo(150) << "\n";
+    std::cout << "tc(180) " << TC::degreesTo(180) << "\n";
+    const double tc_angle_lower = TC::degreesTo(120);
     std::cout << "tc_angle_lower " << tc_angle_lower << "\n";
-    std::cout << "tc_angle_upper " << tc_angle_upper << "\n";
-    const int stride = std::stoi(argv[4]);
-    assert(stride > 0);
-    const int firstPt = 4;
     std::cout << "numPts " << geom.numVtx-4 << " lastPt " << geom.numVtx << "\n";
-    double pt[3] = {geom.vtx_x[firstPt], geom.vtx_y[firstPt], 0};
-    if (debug) std::cout << "creatingVtx " << pt[0] << " " << pt[1] << "\n";
-    pGVertex firstVtx = GR_createVertex(region, pt);
-    pGVertex prevVtx = firstVtx;
-    int prevVtxIdx = firstPt;
-    int ptsSinceMdlVtx = 1;
 
-    std::cout << "x,y,z,isOnCurve\n";
+    std::vector<double> angle;
+    std::vector<int> isMdlVtx;
+    angle.reserve(geom.numVtx-4);
+    isMdlVtx.reserve(geom.numVtx-4);
+    //first point
+    const double norm_prev_x = geom.vtx_x.back() - geom.vtx_x[0];
+    const double norm_prev_y = geom.vtx_y.back() - geom.vtx_y[0];
+    const double norm_next_x = geom.vtx_x[1] - geom.vtx_x[0];
+    const double norm_next_y = geom.vtx_y[1] - geom.vtx_y[0];
+    const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
+    angle.push_back(tc_angle); 
+    isMdlVtx.push_back(tc_angle < tc_angle_lower);
+    for(i=5; i<=geom.numVtx; i++) {
+      if(i+1 < geom.numVtx ) {
+        const double norm_prev_x = geom.vtx_x[i-1] - geom.vtx_x[i];
+        const double norm_prev_y = geom.vtx_y[i-1] - geom.vtx_y[i];
+        const double norm_next_x = geom.vtx_x[i+1] - geom.vtx_x[i];
+        const double norm_next_y = geom.vtx_y[i+1] - geom.vtx_y[i];
+        const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
+        angle.push_back(tc_angle); 
+        isMdlVtx.push_back(tc_angle < tc_angle_lower);
+      }
+    }
+    //last point
+    {
+    const int last = geom.numVtx-4-1;
+    const double norm_prev_x = geom.vtx_x[last-1] - geom.vtx_x[last];
+    const double norm_prev_y = geom.vtx_y[last-1] - geom.vtx_y[last];
+    const double norm_next_x = geom.vtx_x[0] - geom.vtx_x[last];
+    const double norm_next_y = geom.vtx_y[0] - geom.vtx_y[last];
+    const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
+    angle.push_back(tc_angle);
+    isMdlVtx.push_back(tc_angle < tc_angle_lower);
+    }
+
     std::vector<int> isPointOnCurve; //1: along a curve, 0: otherwise
     isPointOnCurve.reserve(geom.numVtx-4);
     int mycnt=0;
@@ -591,7 +630,6 @@ int main(int argc, char **argv) {
       mycnt++;
       if (j < (4+2) || j >= geom.numVtx-2) {
         isPointOnCurve.push_back(0);
-        std::cout << geom.vtx_x[j] << ", " << geom.vtx_y[j] << ", " << 0 << ", " << 0 << "\n";
         continue;
       }
 
@@ -601,9 +639,14 @@ int main(int argc, char **argv) {
       Point p1{geom.vtx_x.at(j+1), geom.vtx_y.at(j+1), 0.0};
       Point p2{geom.vtx_x.at(j+2), geom.vtx_y.at(j+2), 0.0};
       const auto on = onCurve(m2, m1, m0, p1, p2);
-      const auto corner = isCorner(m1, m0, p1);
-      isPointOnCurve.push_back(on && !corner);
-      std::cout << m0[0] << ", " << m0[1] << ", " << m0[2] << ", " << on << "\n";
+      isPointOnCurve.push_back(on);
+    }
+
+    std::cout << "x,y,z,isOnCurve,angle,isMdlVtx\n";
+    for (int j = 0;j < isPointOnCurve.size(); j++) {
+      std::cout << geom.vtx_x.at(j+4) << ", " << geom.vtx_y.at(j+4) << ", " << 0
+                << ", " << isPointOnCurve.at(j) << ", " << angle.at(j) 
+                << ", " << isMdlVtx.at(j) << "\n";
     }
     std::cout << "done\n";
 
@@ -631,26 +674,35 @@ int main(int argc, char **argv) {
       isPointOnCurve.at(last) = 0;
     }
 
-    std::cout << "x,y,z,isOnCurveMod\n";
+    std::cout << "x,y,z,isOnCurveMod,angle,isMdlVtx\n";
     for (int j = 0;j < isPointOnCurve.size(); j++) {
-      std::cout << geom.vtx_x.at(j+4) << ", " << geom.vtx_y.at(j+4) << ", " << 0 << ", " << isPointOnCurve.at(j) << "\n";
+      std::cout << geom.vtx_x.at(j+4) << ", " << geom.vtx_y.at(j+4) << ", " << 0
+                << ", " << isPointOnCurve.at(j) << ", " << angle.at(j) 
+                << ", " << isMdlVtx.at(j) << "\n";
     }
     std::cout << "doneMod\n";
+    
+    //0: mdlVtx, 1: start of curve, 2: end of curve, 3: start of pwl, 4: end of pwl
+    std::vector<int> segmentState; 
+    curveState.reserve(geom.numVtx-4);
+    if(
+    for (int j = 1;j < isPointOnCurve.size(); j++) {
 
-    for(i=5; i<=geom.numVtx; i++) {
-      bool isMdlVtx = false;
-      if(i+1 < geom.numVtx ) {
-        if ((isPointOnCurve.at(i) == 0 && isPointOnCurve.at(i+1) == 1) || 
-            (isPointOnCurve.at(i) == 1 && isPointOnCurve.at(i+1) == 0) )   {
-          isMdlVtx = true;
-        }
-        if(debug) {
-          std::cout << "i " << i
-                    << " cur " << geom.vtx_x[i] << " " << geom.vtx_y[i]
-                    << "\n";
-        }
-      }
-      if(ptsSinceMdlVtx%stride == 0 || i == geom.numVtx || isMdlVtx) {
+      isPointOnCurve.at(j);
+      isMdlVtx.at(j);
+    }
+
+    const int stride = std::stoi(argv[4]);
+    assert(stride > 0);
+    const int firstPt = 4;
+    double pt[3] = {geom.vtx_x[firstPt], geom.vtx_y[firstPt], 0};
+    if (debug) std::cout << "creatingVtx " << pt[0] << " " << pt[1] << "\n";
+    pGVertex firstVtx = GR_createVertex(region, pt);
+    pGVertex prevVtx = firstVtx;
+    int prevVtxIdx = firstPt;
+    int ptsSinceMdlVtx = 1;
+    for(i=4; i<=geom.numVtx; i++) {
+      if(ptsSinceMdlVtx%stride == 0 || i == geom.numVtx /*last pt*/ || isMdlVtx) {
         const int isLastPt = (i == geom.numVtx ? 1 : 0);
         const int numPts = i - prevVtxIdx + 1;
         std::vector<double> pts(numPts*3);
