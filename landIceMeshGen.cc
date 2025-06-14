@@ -416,22 +416,6 @@ void printModelInfo(pGModel model) {
 }
 
 typedef std::array<double,3> Point;
-
-//from scorec/tomms @ 2f97d13 (simapis-mod branch)
-int isCorner(Point& pt1, Point& pt2, Point& pt3) {
-  const double parallel_cutoff = 0.999975;
-  const double vec1[] = {pt1[0]-pt2[0], pt1[1]-pt2[1]};
-  const double vec2[] = {pt3[0]-pt2[0], pt3[1]-pt2[1]};
-  const double len1=std::sqrt(vec1[0]*vec1[0]+vec1[1]*vec1[1]);
-  const double len2=std::sqrt(vec2[0]*vec2[0]+vec2[1]*vec2[1]);
-  const double sin_angle = std::fabs(vec1[0]*vec2[1]-vec1[1]*vec2[0])/(len1*len2);
-  if( sin_angle > 1.-parallel_cutoff ) { // figure out what this means and move it into 'onCurve'
-    return 1;
-  } else {
-    return 0;
-  }
-}
-
 //from scorec/tomms @ 2f97d13 (simapis-mod branch)
 int onCurve(Point& pt1, Point& pt2, Point& pt3, Point& pt4, Point& pt5) {
   // Define the vector between two points by using the relation [x2-x1, y2-y1]
@@ -462,14 +446,33 @@ int onCurve(Point& pt1, Point& pt2, Point& pt3, Point& pt4, Point& pt5) {
   }
 }
 
-//0: mdlVtx, 1: start of, or along, curve, 2: end of curve, 3: start of, or along, pwl, 4: end of pwl
+enum class State { MdlVtx = 0, OnCurve = 1, EndCurve = 2, OnPWL = 3, EndPWL = 4 };
+// 0: mdlVtx, 1: start of, or along, curve, 2: end of curve, 3: start of, or along, pwl, 4: end of pwl
 int getSegmentState(int ptIdx, int state, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx) {
   assert(ptIdx < isPtOnCurve.size());
   assert(ptIdx < isMdlVtx.size());
-  if( isMdlVtx.at(ptIdx) == 1 ) return 0;
-  else if( isPtOnCurve.at(ptIdx) == 2 /*on curve*/ && state == 1 ) return 2; //along curve
-  else if( isPtOnCurve.at(ptIdx) == 0 /*not on curve*/ && state == 1 ) return 2; //end of curve
-  else if( isPtOnCurve.at(ptIdx) == 0 /*not on curve*/ && state == 3 ) return state; //along pwl
+  typedef std::pair<State,State> pii; // Current State, Next State
+  std::map<pii, State> states;
+  states[{State::MdlVtx,State::MdlVtx}] = State::MdlVtx;
+  states[{State::MdlVtx,State::OnCurve}] = State::MdlVtx;
+  states[{State::MdlVtx,State::OnPWL}] = State::MdlVtx;
+
+  states[{State::OnCurve,State::MdlVtx}] = State::MdlVtx;
+  states[{State::OnCurve,State::OnCurve}] = State::MdlVtx;
+  states[{State::OnCurve,State::OnPWL}] = State::MdlVtx;
+
+  states[{State::EndCurve,State::MdlVtx}] = State::MdlVtx;
+  states[{State::EndCurve,State::OnCurve}] = State::MdlVtx;
+  states[{State::EndCurve,State::OnPWL}] = State::MdlVtx;
+
+  states[{State::OnPWL,State::MdlVtx}] = State::MdlVtx;
+  states[{State::OnPWL,State::OnCurve}] = State::MdlVtx;
+  states[{State::OnPWL,State::OnPWL}] = State::MdlVtx;
+
+  states[{State::EndPWL,State::MdlVtx}] = State::MdlVtx;
+  states[{State::EndPWL,State::OnCurve}] = State::MdlVtx;
+  states[{State::EndPWL,State::OnPWL}] = State::MdlVtx;
+  return 0;
 }
 
 int main(int argc, char **argv) {
@@ -682,16 +685,12 @@ int main(int argc, char **argv) {
     }
     std::cout << "doneMod\n";
     
-    //0: mdlVtx, 1: start of curve, 2: end of curve, 3: start of pwl, 4: end of pwl
-    std::vector<int> segmentState; 
-    curveState.reserve(geom.numVtx-4);
-    if(
     for (int j = 1;j < isPointOnCurve.size(); j++) {
-
       isPointOnCurve.at(j);
       isMdlVtx.at(j);
     }
 
+    /*
     const int stride = std::stoi(argv[4]);
     assert(stride > 0);
     const int firstPt = 4;
@@ -702,7 +701,7 @@ int main(int argc, char **argv) {
     int prevVtxIdx = firstPt;
     int ptsSinceMdlVtx = 1;
     for(i=4; i<=geom.numVtx; i++) {
-      if(ptsSinceMdlVtx%stride == 0 || i == geom.numVtx /*last pt*/ || isMdlVtx) {
+      if(ptsSinceMdlVtx%stride == 0 || i == geom.numVtx || isMdlVtx) {
         const int isLastPt = (i == geom.numVtx ? 1 : 0);
         const int numPts = i - prevVtxIdx + 1;
         std::vector<double> pts(numPts*3);
@@ -747,6 +746,7 @@ int main(int argc, char **argv) {
       }
       ptsSinceMdlVtx++;
     }
+  */
 
     auto planeBounds = getBoundingPlane(geom);
 
