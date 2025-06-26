@@ -17,6 +17,7 @@
 #include <string>
 #include <tuple>
 #include <vector>
+#include <functional> //std::function
 
 #include "splineInterpolation.h"
 
@@ -395,7 +396,7 @@ pGEdge fitCurveToContourSimInterp(pGRegion region, pGVertex first, pGVertex last
   assert(numPts > 1);
   pCurve curve;
   if( numPts == 2 || numPts == 3) {
-    curve = SCurve_createPiecewiseLinear(numPts, &pts[0]);
+    curve = SCurve_createPiecewiseLinear(numPts, &pts[0]); //FIXME
   } else {
     const int order = 4;
     curve = SCurve_createInterpolatedBSpline(order, numPts, &pts[0], NULL);
@@ -457,34 +458,32 @@ int findStartingMdlVtx(std::vector<int>& isMdlVtx) {
   }
 }
 
-void createModel(pGModel model, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx) {
+void createModel(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx) {
   enum class State {MdlVtx = 0, OnCurve = 1, NotOnCurve = 2};
   enum class Action {Init, Advance, Line, Curve};
   typedef std::pair<State,Action> psa; // next state, action
   using func=std::function<psa(int pt)>;
 
   int startingCurvePtIdx;
-  pGVertex startingMdlVtx;;
-  func createLine = [&](int pt) { 
-    double vtx[3] = {geom.vtx_x[pt], geom.vtx_y[pt], 0};
-    endMdlVtx = GR_createVertex(model, vtx);
-    //FIXME - create curve from two pts
-    int numPts = pt-startingCurvePtIdx;
-    std::vector<double> pts(numPts*3);
-    for(int j=0, ptIdx = 0; j<pts.size(); j+=3, ptIdx++) {
-      pts[j] = geom.vtx_x[ptIdx+startingCurvePtIdx],
-       geom.vtx_x[ptIdx+startingCurvePtIdx], //HERE
-      pts[j] = geom.vtx_x[ptIdx+startingCurvePtIdx],
-      std::cout << pts.at(j) << ", " << pts.at(j+1) << ", " << pts.at(j+2) << ", " << isPointOnCurve.at(prevVtxIdx+ptIdx) << "\n";
-    }
-    return psa{State::MdlVtx,Action::Line};
-  };
+  pGVertex startingMdlVtx;
   func createCurve = [&](int pt) { 
     double vtx[3] = {geom.vtx_x[pt], geom.vtx_y[pt], 0};
-    endMdlVtx = GR_createVertex(model, vtx);
-    //FIXME - create curve with series of points
-    fitCurveToContourSimInterp(model, startingMdlVtx, endMdlVtx, 
+    auto endMdlVtx = GR_createVertex(region, vtx);
+    int numPts = pt-startingCurvePtIdx;
+    std::vector<double> pts(numPts*3);
+    for(int i=0, ptIdx = 0; i<pts.size(); ptIdx++, i+=3) {
+      pts[i]   = geom.vtx_x[startingCurvePtIdx+ptIdx];
+      pts[i+1] = geom.vtx_y[startingCurvePtIdx+ptIdx];
+      pts[i+2] = 0;
+    }
+    fitCurveToContourSimInterp(region, startingMdlVtx, endMdlVtx, pts, true);
+    startingMdlVtx = endMdlVtx;
     return psa{State::MdlVtx,Action::Curve};
+  };
+  func createLine = [&](int pt) { 
+    assert(pt-startingCurvePtIdx == 1);
+    auto ignored = createCurve(pt);
+    return psa{State::MdlVtx,Action::Line};
   };
   func advance = [&](int pt) {
     return psa{State::OnCurve,Action::Advance};
@@ -508,8 +507,8 @@ void createModel(pGModel model, GeomInfo& geom, std::vector<int>& isPtOnCurve, s
   };
 
   startingCurvePtIdx = findStartingMdlVtx(isMdlVtx);
-  double vtx[3] = {geom.vtx_x[firstPt], geom.vtx_y[firstPt], 0};
-  startingMdlVtx = GR_createVertex(model, vtx);
+  double vtx[3] = {geom.vtx_x[startingCurvePtIdx], geom.vtx_y[startingCurvePtIdx], 0};
+  startingMdlVtx = GR_createVertex(region, vtx);
 
   std::vector<Action> actions;
   actions.push_back(Action::Line);
@@ -518,9 +517,9 @@ void createModel(pGModel model, GeomInfo& geom, std::vector<int>& isPtOnCurve, s
     State nextState;
     if(isMdlVtx[ptIdx] == 1) {
       nextState = State::MdlVtx;
-    } else if (isOnCurve[ptIdx] == 1) {
+    } else if (isPtOnCurve[ptIdx] == 1) {
       nextState = State::OnCurve;
-    } else if (isOnCurve[ptIdx] == 0) {
+    } else if (isPtOnCurve[ptIdx] == 0) {
       nextState = State::NotOnCurve;
     } else {
       exit(EXIT_FAILURE);
@@ -529,15 +528,6 @@ void createModel(pGModel model, GeomInfo& geom, std::vector<int>& isPtOnCurve, s
     actions.push_back(res.second);
     state = res.first;
   }
-  std::cerr << actions.size() << " " << expectedActions.size() << "\n";
-  //assert(actions.size() == expectedActions.size());
-  for(int i=0; i<actions.size(); i++) {
-    if(actions[i] != expectedActions[i]) {
-      std::cerr << "failing " << i << " \n";
-    }
-    assert(actions[i] == expectedActions[i]);
-  }
-
 }
 
 int main(int argc, char **argv) {
@@ -755,65 +745,7 @@ int main(int argc, char **argv) {
       isMdlVtx.at(j);
     }
 
-    auto model = createModel(geom, isPointOnCurve, isMdlVtx);
-
-    /*
-    const int stride = std::stoi(argv[4]);
-    assert(stride > 0);
-    const int firstPt = 4;
-    double pt[3] = {geom.vtx_x[firstPt], geom.vtx_y[firstPt], 0};
-    if (debug) std::cout << "creatingVtx " << pt[0] << " " << pt[1] << "\n";
-    pGVertex firstVtx = GR_createVertex(region, pt);
-    pGVertex prevVtx = firstVtx;
-    int prevVtxIdx = firstPt;
-    int ptsSinceMdlVtx = 1;
-    for(i=4; i<=geom.numVtx; i++) {
-      if(ptsSinceMdlVtx%stride == 0 || i == geom.numVtx || isMdlVtx) {
-        const int isLastPt = (i == geom.numVtx ? 1 : 0);
-        const int numPts = i - prevVtxIdx + 1;
-        std::vector<double> pts(numPts*3);
-        int idx = 0;
-        for(int j=prevVtxIdx; j<=i && j<geom.numVtx; j++) {
-          pts[idx++] = geom.vtx_x[j];
-          pts[idx++] = geom.vtx_y[j];
-          pts[idx++] = 0;
-        }
-        pGVertex vtx;
-        if(isLastPt) {
-          pts[idx++] = geom.vtx_x[firstPt];
-          pts[idx++] = geom.vtx_y[firstPt];
-          pts[idx++] = 0;
-          vtx = firstVtx;
-        } else {
-          double pt[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
-          vtx = GR_createVertex(region, pt);
-        }
-        if (false) {
-          std::cout << "edge " << edges.size()
-                    << " range " << prevVtxIdx << " " << i
-                    << " numPts " << numPts
-                    << " isLastPt " << isLastPt
-                    << " isMdlVtx " << isMdlVtx << "\n";
-          double first[3];
-          GV_point(prevVtx, first);
-          double last[3];
-          GV_point(vtx, last);
-          std::cout << "start " << first[0] << " " << first[1] << "\n";
-          std::cout << "end " << last[0] << " " << last[1] << "\n";
-          std::cout << "x,y,z,isOnCurve\n";
-          for(int j=0, ptIdx = 0; j<pts.size(); j+=3, ptIdx++) {
-            std::cout << pts.at(j) << ", " << pts.at(j+1) << ", " << pts.at(j+2) << ", " << isPointOnCurve.at(prevVtxIdx+ptIdx) << "\n";
-          }
-        }
-        auto edge = fitCurveToContourSimInterp(region, prevVtx, vtx, pts, true);
-        edges.push_back(edge);
-        prevVtx = vtx;
-        prevVtxIdx = i;
-        ptsSinceMdlVtx=0;
-      }
-      ptsSinceMdlVtx++;
-    }
-  */
+    createModel(region, geom, isPointOnCurve, isMdlVtx);
 
     auto planeBounds = getBoundingPlane(geom);
 
