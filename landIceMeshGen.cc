@@ -396,7 +396,7 @@ pGEdge fitCurveToContourSimInterp(pGRegion region, pGVertex first, pGVertex last
   assert(numPts > 1);
   pCurve curve;
   if( numPts == 2 || numPts == 3) {
-    curve = SCurve_createPiecewiseLinear(numPts, &pts[0]); //FIXME
+    curve = SCurve_createPiecewiseLinear(numPts, &pts[0]); //TODO - replace withe bspline?
   } else {
     const int order = 4;
     curve = SCurve_createInterpolatedBSpline(order, numPts, &pts[0], NULL);
@@ -462,6 +462,8 @@ struct ModelTopo {
   std::vector<pGVertex> vertices;
   std::vector<pGEdge> edges;
   std::vector<pGFace> faces;
+  std::vector<pGEdge> faceEdges; // the array of edges connected to the face
+  std::vector<int> faceDirs; // the direction of the edge with respect to the face
   pGRegion region;
   pGIPart part;
   pGModel model;
@@ -476,7 +478,7 @@ void createModel(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve,
 
   int startingCurvePtIdx;
   pGVertex startingMdlVtx;
-  func createCurve = [&](int pt) { 
+  func createCurve = [&](int pt) {
     double vtx[3] = {geom.vtx_x[pt], geom.vtx_y[pt], 0};
     auto endMdlVtx = GR_createVertex(region, vtx);
     int numPts = pt-startingCurvePtIdx;
@@ -490,7 +492,7 @@ void createModel(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve,
     startingMdlVtx = endMdlVtx;
     return psa{State::MdlVtx,Action::Curve};
   };
-  func createLine = [&](int pt) { 
+  func createLine = [&](int pt) {
     assert(pt-startingCurvePtIdx == 1);
     auto ignored = createCurve(pt);
     return psa{State::MdlVtx,Action::Line};
@@ -504,7 +506,7 @@ void createModel(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve,
     return psa{State::OnCurve,Action::Advance};
   };
   typedef std::pair<State,State> pss; // current state, next state
-  std::map<pss,func> machine = { 
+  std::map<pss,func> machine = {
     {{State::MdlVtx,State::MdlVtx}, createLine},
     {{State::MdlVtx,State::OnCurve}, advance},
     {{State::MdlVtx,State::NotOnCurve}, createLine},
@@ -580,6 +582,162 @@ void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, bool debug=false)
 
 }
 
+void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress) {
+  pMesh mesh = M_new(0, mdlTopo.model);
+  pACase meshCase = MS_newMeshCase(mdlTopo.model);
+
+  pModelItem domain = GM_domain(mdlTopo.model);
+  // find the smallest size of the geometric model edges
+  auto minGEdgeLen = std::numeric_limits<double>::max();
+  for (int i = 0; i < mdlTopo.edges.size(); i++) {
+    auto len = GE_length(mdlTopo.faceEdges.at(i));
+    if (len < minGEdgeLen)
+      minGEdgeLen = len;
+  }
+  std::cout << "Min geometric model edge length: " << minGEdgeLen
+    << std::endl;
+  const auto contourMeshSize = minGEdgeLen * 128;
+  const auto globMeshSize = contourMeshSize * 128;
+  std::cout << "Contour absolute mesh size target: " << contourMeshSize
+    << std::endl;
+  std::cout << "Global absolute mesh size target: " << globMeshSize
+    << std::endl;
+  MS_setMeshSize(meshCase, domain, 1, globMeshSize, NULL);
+  for (int i = 4; i < mdlTopo.edges.size(); i++)
+    MS_setMeshSize(meshCase, mdlTopo.faceEdges.at(i), 1, contourMeshSize, NULL);
+
+  {
+    GFIter fIter = GM_faceIter(mdlTopo.model);
+    pGFace modelFace;
+    while (modelFace = GFIter_next(fIter)) {
+      const double area = GF_area(modelFace, 0.2);
+      std::cout << "face area: " << area << "\n";
+      assert(area > 0);
+    }
+    GFIter_delete(fIter);
+  }
+
+  pSurfaceMesher surfMesh = SurfaceMesher_new(meshCase, mesh);
+  SurfaceMesher_execute(surfMesh, progress);
+  SurfaceMesher_delete(surfMesh);
+  std::cout << "Number of mesh faces in surface: " << M_numFaces(mesh)
+    << std::endl;
+
+  M_write(mesh, meshFileName.c_str(), 0, progress);
+  std::cout << "Number of mesh regions in volume: " << M_numRegions(mesh)
+    << std::endl;
+  MS_deleteMeshCase(meshCase);
+  M_release(mesh);
+}
+
+std::tuple<std::vector<int>,std::vector<int>>
+discoverTopology(GeomInfo& geom) {
+  const double tc_angle_lower = TC::degreesTo(120);
+  std::cout << "tc_angle_lower " << tc_angle_lower << "\n";
+  std::cout << "numPts " << geom.numVtx-4 << " lastPt " << geom.numVtx << "\n";
+
+  std::vector<double> angle;
+  std::vector<int> isMdlVtx;
+  angle.reserve(geom.numVtx-4);
+  isMdlVtx.reserve(geom.numVtx-4);
+  //first point
+  const double norm_prev_x = geom.vtx_x.back() - geom.vtx_x[0];
+  const double norm_prev_y = geom.vtx_y.back() - geom.vtx_y[0];
+  const double norm_next_x = geom.vtx_x[1] - geom.vtx_x[0];
+  const double norm_next_y = geom.vtx_y[1] - geom.vtx_y[0];
+  const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
+  angle.push_back(tc_angle);
+  isMdlVtx.push_back(tc_angle < tc_angle_lower);
+  for(int i=5; i<=geom.numVtx; i++) {
+    if(i+1 < geom.numVtx ) {
+      const double norm_prev_x = geom.vtx_x[i-1] - geom.vtx_x[i];
+      const double norm_prev_y = geom.vtx_y[i-1] - geom.vtx_y[i];
+      const double norm_next_x = geom.vtx_x[i+1] - geom.vtx_x[i];
+      const double norm_next_y = geom.vtx_y[i+1] - geom.vtx_y[i];
+      const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
+      angle.push_back(tc_angle);
+      isMdlVtx.push_back(tc_angle < tc_angle_lower);
+    }
+  }
+  //last point
+  {
+    const int last = geom.numVtx-4-1;
+    const double norm_prev_x = geom.vtx_x[last-1] - geom.vtx_x[last];
+    const double norm_prev_y = geom.vtx_y[last-1] - geom.vtx_y[last];
+    const double norm_next_x = geom.vtx_x[0] - geom.vtx_x[last];
+    const double norm_next_y = geom.vtx_y[0] - geom.vtx_y[last];
+    const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
+    angle.push_back(tc_angle);
+    isMdlVtx.push_back(tc_angle < tc_angle_lower);
+  }
+
+  std::vector<int> isPointOnCurve; //1: along a curve, 0: otherwise
+  isPointOnCurve.reserve(geom.numVtx-4);
+  int mycnt=0;
+  for (int j = 4;j < geom.numVtx; ++j) {
+    mycnt++;
+    if (j < (4+2) || j >= geom.numVtx-2) {
+      isPointOnCurve.push_back(0);
+      continue;
+    }
+
+    Point m2{geom.vtx_x.at(j-2), geom.vtx_y.at(j-2), 0.0};
+    Point m1{geom.vtx_x.at(j-1), geom.vtx_y.at(j-1), 0.0};
+    Point m0{geom.vtx_x.at(j),   geom.vtx_y.at(j),   0.0};
+    Point p1{geom.vtx_x.at(j+1), geom.vtx_y.at(j+1), 0.0};
+    Point p2{geom.vtx_x.at(j+2), geom.vtx_y.at(j+2), 0.0};
+    const auto on = onCurve(m2, m1, m0, p1, p2);
+    isPointOnCurve.push_back(on);
+  }
+
+  std::cout << "x,y,z,isOnCurve,angle,isMdlVtx\n";
+  for (int j = 0;j < isPointOnCurve.size(); j++) {
+    std::cout << geom.vtx_x.at(j+4) << ", " << geom.vtx_y.at(j+4) << ", " << 0
+      << ", " << isPointOnCurve.at(j) << ", " << angle.at(j)
+      << ", " << isMdlVtx.at(j) << "\n";
+  }
+  std::cout << "done\n";
+
+  //find points marked as on a curve that have no
+  // adjacent points that are also marked as on the curve
+  //first point
+  if( isPointOnCurve.back() == 0 &&
+      isPointOnCurve.at(0) == 1 &&
+      isPointOnCurve.at(1) == 0 ) {
+    isPointOnCurve.at(0) = 0;
+  }
+  //interior
+  for (int j = 1;j < isPointOnCurve.size(); j++) {
+    if( isPointOnCurve.at(j-1) == 0 &&
+        isPointOnCurve.at(j) == 1 &&
+        isPointOnCurve.at(j+1) == 0 ) {
+      isPointOnCurve.at(j) = 0;
+    }
+  }
+  //last point
+  const int last = isPointOnCurve.size()-1;
+  if( isPointOnCurve.at(last-1) == 0 &&
+      isPointOnCurve.at(last) == 1 &&
+      isPointOnCurve.at(0) == 0 ) {
+    isPointOnCurve.at(last) = 0;
+  }
+
+  std::cout << "x,y,z,isOnCurveMod,angle,isMdlVtx\n";
+  for (int j = 0;j < isPointOnCurve.size(); j++) {
+    std::cout << geom.vtx_x.at(j+4) << ", " << geom.vtx_y.at(j+4) << ", " << 0
+      << ", " << isPointOnCurve.at(j) << ", " << angle.at(j)
+      << ", " << isMdlVtx.at(j) << "\n";
+  }
+  std::cout << "doneMod\n";
+
+  for (int j = 1;j < isPointOnCurve.size(); j++) {
+    isPointOnCurve.at(j);
+    isMdlVtx.at(j);
+  }
+
+  return {isPointOnCurve,isMdlVtx};
+}
+
 int main(int argc, char **argv) {
   if (argc != 5) {
     std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
@@ -645,108 +803,7 @@ int main(int argc, char **argv) {
 
     createBoundingBoxGeom(mdlTopo,geom);
 
-    const double tc_angle_lower = TC::degreesTo(120);
-    std::cout << "tc_angle_lower " << tc_angle_lower << "\n";
-    std::cout << "numPts " << geom.numVtx-4 << " lastPt " << geom.numVtx << "\n";
-
-    std::vector<double> angle;
-    std::vector<int> isMdlVtx;
-    angle.reserve(geom.numVtx-4);
-    isMdlVtx.reserve(geom.numVtx-4);
-    //first point
-    const double norm_prev_x = geom.vtx_x.back() - geom.vtx_x[0];
-    const double norm_prev_y = geom.vtx_y.back() - geom.vtx_y[0];
-    const double norm_next_x = geom.vtx_x[1] - geom.vtx_x[0];
-    const double norm_next_y = geom.vtx_y[1] - geom.vtx_y[0];
-    const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
-    angle.push_back(tc_angle); 
-    isMdlVtx.push_back(tc_angle < tc_angle_lower);
-    for(int i=5; i<=geom.numVtx; i++) {
-      if(i+1 < geom.numVtx ) {
-        const double norm_prev_x = geom.vtx_x[i-1] - geom.vtx_x[i];
-        const double norm_prev_y = geom.vtx_y[i-1] - geom.vtx_y[i];
-        const double norm_next_x = geom.vtx_x[i+1] - geom.vtx_x[i];
-        const double norm_next_y = geom.vtx_y[i+1] - geom.vtx_y[i];
-        const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
-        angle.push_back(tc_angle); 
-        isMdlVtx.push_back(tc_angle < tc_angle_lower);
-      }
-    }
-    //last point
-    {
-    const int last = geom.numVtx-4-1;
-    const double norm_prev_x = geom.vtx_x[last-1] - geom.vtx_x[last];
-    const double norm_prev_y = geom.vtx_y[last-1] - geom.vtx_y[last];
-    const double norm_next_x = geom.vtx_x[0] - geom.vtx_x[last];
-    const double norm_next_y = geom.vtx_y[0] - geom.vtx_y[last];
-    const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
-    angle.push_back(tc_angle);
-    isMdlVtx.push_back(tc_angle < tc_angle_lower);
-    }
-
-    std::vector<int> isPointOnCurve; //1: along a curve, 0: otherwise
-    isPointOnCurve.reserve(geom.numVtx-4);
-    int mycnt=0;
-    for (int j = 4;j < geom.numVtx; ++j) {
-      mycnt++;
-      if (j < (4+2) || j >= geom.numVtx-2) {
-        isPointOnCurve.push_back(0);
-        continue;
-      }
-
-      Point m2{geom.vtx_x.at(j-2), geom.vtx_y.at(j-2), 0.0};
-      Point m1{geom.vtx_x.at(j-1), geom.vtx_y.at(j-1), 0.0};
-      Point m0{geom.vtx_x.at(j),   geom.vtx_y.at(j),   0.0};
-      Point p1{geom.vtx_x.at(j+1), geom.vtx_y.at(j+1), 0.0};
-      Point p2{geom.vtx_x.at(j+2), geom.vtx_y.at(j+2), 0.0};
-      const auto on = onCurve(m2, m1, m0, p1, p2);
-      isPointOnCurve.push_back(on);
-    }
-
-    std::cout << "x,y,z,isOnCurve,angle,isMdlVtx\n";
-    for (int j = 0;j < isPointOnCurve.size(); j++) {
-      std::cout << geom.vtx_x.at(j+4) << ", " << geom.vtx_y.at(j+4) << ", " << 0
-                << ", " << isPointOnCurve.at(j) << ", " << angle.at(j) 
-                << ", " << isMdlVtx.at(j) << "\n";
-    }
-    std::cout << "done\n";
-
-    //find points marked as on a curve that have no
-    // adjacent points that are also marked as on the curve
-    //first point
-    if( isPointOnCurve.back() == 0 && 
-        isPointOnCurve.at(0) == 1 && 
-        isPointOnCurve.at(1) == 0 ) {
-      isPointOnCurve.at(0) = 0;
-    }
-    //interior
-    for (int j = 1;j < isPointOnCurve.size(); j++) {
-      if( isPointOnCurve.at(j-1) == 0 && 
-          isPointOnCurve.at(j) == 1 && 
-          isPointOnCurve.at(j+1) == 0 ) {
-        isPointOnCurve.at(j) = 0;
-      }
-    }
-    //last point
-    const int last = isPointOnCurve.size()-1;
-    if( isPointOnCurve.at(last-1) == 0 && 
-        isPointOnCurve.at(last) == 1 && 
-        isPointOnCurve.at(0) == 0 ) {
-      isPointOnCurve.at(last) = 0;
-    }
-
-    std::cout << "x,y,z,isOnCurveMod,angle,isMdlVtx\n";
-    for (int j = 0;j < isPointOnCurve.size(); j++) {
-      std::cout << geom.vtx_x.at(j+4) << ", " << geom.vtx_y.at(j+4) << ", " << 0
-                << ", " << isPointOnCurve.at(j) << ", " << angle.at(j) 
-                << ", " << isMdlVtx.at(j) << "\n";
-    }
-    std::cout << "doneMod\n";
-    
-    for (int j = 1;j < isPointOnCurve.size(); j++) {
-      isPointOnCurve.at(j);
-      isMdlVtx.at(j);
-    }
+    auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom);
 
     createModel(mdlTopo.region, geom, isPointOnCurve, isMdlVtx); //FIXME - pass mdlTopo
 
@@ -755,8 +812,6 @@ int main(int argc, char **argv) {
     // Now add the faces
     double corner[3], xPt[3],
         yPt[3];        // the points defining the surface of the face
-    pGEdge *faceEdges; // the array of edges connected to the face
-    int *faceDirs;     // the direction of the edge with respect to the face
 
     // When defining the loop, will always start with the first edge in the
     // faceEdges array
@@ -783,28 +838,28 @@ int main(int argc, char **argv) {
     const int oppositeNormal = 0;
 
     // Create the face
-    faceEdges = new pGEdge[mdlTopo.edges.size()];
-    faceDirs = new int[mdlTopo.edges.size()];
     // the first four edges define the outer bounding rectangle
     for (int i = 0; i < 4; i++) {
-      faceDirs[i] = faceDirectionFwd; // clockwise
-      faceEdges[i] = mdlTopo.edges.at(i);
+      mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
+      mdlTopo.faceEdges.push_back(mdlTopo.edges.at(i));
     }
     if (mdlTopo.edges.size() > 4) {
       // the remaining edges define the grounding line
       // TODO generalize loop creation
       int j = mdlTopo.edges.size() - 1;
       for (int i = 4; i < mdlTopo.edges.size(); i++) {
-        faceDirs[i] = faceDirectionRev; // counter clockwise
+        mdlTopo.faceDirs.push_back(faceDirectionRev); // counter clockwise
         // all edges are input in counter clockwise order,
         // reverse the order so the face is on the left (simmetrix requirement)
-        faceEdges[i] = mdlTopo.edges.at(j--);
+        mdlTopo.faceEdges.push_back(mdlTopo.edges.at(j--));
       }
 
       int numLoopsOuterFace = 2;
       int loopFirstEdgeIdx[2] = {0, 4};
       planarSurface = SSurface_createPlane(corner, xPt, yPt);
-      mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, mdlTopo.edges.size(), faceEdges, faceDirs,
+      mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, mdlTopo.edges.size(),
+                                            mdlTopo.faceEdges.data(),
+                                            mdlTopo.faceDirs.data(),
                                numLoopsOuterFace, loopFirstEdgeIdx,
                                planarSurface, sameNormal));
       std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
@@ -813,7 +868,9 @@ int main(int argc, char **argv) {
       int numLoopsOuterFace = 1;
       int loopFirstEdgeIdx[1] = {0};
       planarSurface = SSurface_createPlane(corner, xPt, yPt);
-      mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, mdlTopo.edges.size(), faceEdges, faceDirs,
+      mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, mdlTopo.edges.size(),
+                                            mdlTopo.faceEdges.data(),
+                                            mdlTopo.faceDirs.data(),
                                numLoopsOuterFace, loopFirstEdgeIdx,
                                planarSurface, sameNormal));
       std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
@@ -830,10 +887,12 @@ int main(int argc, char **argv) {
       int loopFirstEdgeIdx[1] = {0};
       int j = 4;
       for (int i = 0; i < numEdgesInnerFace; i++) {
-        faceDirs[i] = faceDirectionFwd; // clockwise
-        faceEdges[i] = mdlTopo.edges.at(j++);
+        mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
+        mdlTopo.faceEdges.push_back(mdlTopo.edges.at(j++));
       }
-      mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, numEdgesInnerFace, faceEdges, faceDirs,
+      mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, numEdgesInnerFace,
+                                            mdlTopo.faceEdges.data(),
+                                            mdlTopo.faceDirs.data(),
                                numLoopsInnerFace, loopFirstEdgeIdx,
                                planarSurface, sameNormal));
       std::cout << "faces[1] area: " << GF_area(mdlTopo.faces[1], 0.2) << "\n";
@@ -860,59 +919,8 @@ int main(int argc, char **argv) {
 
     GM_write(mdlTopo.model, modelFileName.c_str(), 0, 0);
 
-    /*
-    // This next section creates a surface mesh from the model.  You can comment
-    // out this section if you don't want to mesh
-    pMesh mesh = M_new(0, model);
-    pACase meshCase = MS_newMeshCase(model);
+    createMesh(mdlTopo, meshFileName, progress);
 
-    pModelItem domain = GM_domain(model);
-    // find the smallest size of the geometric model edges
-    auto minGEdgeLen = std::numeric_limits<double>::max();
-    for (i = 0; i < edges.size(); i++) {
-      auto len = GE_length(faceEdges[i]);
-      if (len < minGEdgeLen)
-        minGEdgeLen = len;
-    }
-    std::cout << "Min geometric model edge length: " << minGEdgeLen
-              << std::endl;
-    const auto contourMeshSize = minGEdgeLen * 128;
-    const auto globMeshSize = contourMeshSize * 128;
-    std::cout << "Contour absolute mesh size target: " << contourMeshSize
-              << std::endl;
-    std::cout << "Global absolute mesh size target: " << globMeshSize
-              << std::endl;
-    MS_setMeshSize(meshCase, domain, 1, globMeshSize, NULL);
-    for (i = 4; i < edges.size(); i++)
-      MS_setMeshSize(meshCase, faceEdges[i], 1, contourMeshSize, NULL);
-
-    {
-      GFIter fIter = GM_faceIter(model);
-      pGFace modelFace;
-      while (modelFace = GFIter_next(fIter)) {
-        const double area = GF_area(modelFace, 0.2);
-        std::cout << "face area: " << area << "\n";
-        assert(area > 0);
-      }
-      GFIter_delete(fIter);
-    }
-
-    pSurfaceMesher surfMesh = SurfaceMesher_new(meshCase, mesh);
-    SurfaceMesher_execute(surfMesh, progress);
-    SurfaceMesher_delete(surfMesh);
-    std::cout << "Number of mesh faces in surface: " << M_numFaces(mesh)
-              << std::endl;
-
-    M_write(mesh, meshFileName.c_str(), 0, progress);
-    std::cout << "Number of mesh regions in volume: " << M_numRegions(mesh)
-              << std::endl;
-    MS_deleteMeshCase(meshCase);
-    M_release(mesh);
-    // end of meshing section
-    */
-
-    delete[] faceEdges;
-    delete[] faceDirs;
     // cleanup
     GM_release(mdlTopo.model);
     Progress_delete(progress);
