@@ -446,33 +446,98 @@ int onCurve(Point& pt1, Point& pt2, Point& pt3, Point& pt4, Point& pt5) {
   }
 }
 
-enum class State { MdlVtx = 0, OnCurve = 1, EndCurve = 2, OnPWL = 3, EndPWL = 4 };
-// 0: mdlVtx, 1: start of, or along, curve, 2: end of curve, 3: start of, or along, pwl, 4: end of pwl
-int getSegmentState(int ptIdx, int state, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx) {
-  assert(ptIdx < isPtOnCurve.size());
-  assert(ptIdx < isMdlVtx.size());
-  typedef std::pair<State,State> pii; // Current State, Next State
-  std::map<pii, State> states;
-  states[{State::MdlVtx,State::MdlVtx}] = State::MdlVtx;
-  states[{State::MdlVtx,State::OnCurve}] = State::MdlVtx;
-  states[{State::MdlVtx,State::OnPWL}] = State::MdlVtx;
+int findStartingMdlVtx(std::vector<int>& isMdlVtx) {
+  const int mdlVtx = 1;
+  auto it = std::find(isMdlVtx.begin(), isMdlVtx.end(), mdlVtx);
+  if( it == isMdlVtx.end()) {
+    exit(EXIT_FAILURE);
+    return -1;
+  } else {
+    return it - isMdlVtx.begin();
+  }
+}
 
-  states[{State::OnCurve,State::MdlVtx}] = State::MdlVtx;
-  states[{State::OnCurve,State::OnCurve}] = State::MdlVtx;
-  states[{State::OnCurve,State::OnPWL}] = State::MdlVtx;
+void createModel(pGModel model, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx) {
+  enum class State {MdlVtx = 0, OnCurve = 1, NotOnCurve = 2};
+  enum class Action {Init, Advance, Line, Curve};
+  typedef std::pair<State,Action> psa; // next state, action
+  using func=std::function<psa(int pt)>;
 
-  states[{State::EndCurve,State::MdlVtx}] = State::MdlVtx;
-  states[{State::EndCurve,State::OnCurve}] = State::MdlVtx;
-  states[{State::EndCurve,State::OnPWL}] = State::MdlVtx;
+  int startingCurvePtIdx;
+  pGVertex startingMdlVtx;;
+  func createLine = [&](int pt) { 
+    double vtx[3] = {geom.vtx_x[pt], geom.vtx_y[pt], 0};
+    endMdlVtx = GR_createVertex(model, vtx);
+    //FIXME - create curve from two pts
+    int numPts = pt-startingCurvePtIdx;
+    std::vector<double> pts(numPts*3);
+    for(int j=0, ptIdx = 0; j<pts.size(); j+=3, ptIdx++) {
+      pts[j] = geom.vtx_x[ptIdx+startingCurvePtIdx],
+       geom.vtx_x[ptIdx+startingCurvePtIdx], //HERE
+      pts[j] = geom.vtx_x[ptIdx+startingCurvePtIdx],
+      std::cout << pts.at(j) << ", " << pts.at(j+1) << ", " << pts.at(j+2) << ", " << isPointOnCurve.at(prevVtxIdx+ptIdx) << "\n";
+    }
+    return psa{State::MdlVtx,Action::Line};
+  };
+  func createCurve = [&](int pt) { 
+    double vtx[3] = {geom.vtx_x[pt], geom.vtx_y[pt], 0};
+    endMdlVtx = GR_createVertex(model, vtx);
+    //FIXME - create curve with series of points
+    fitCurveToContourSimInterp(model, startingMdlVtx, endMdlVtx, 
+    return psa{State::MdlVtx,Action::Curve};
+  };
+  func advance = [&](int pt) {
+    return psa{State::OnCurve,Action::Advance};
+  };
+  func fail = [&](int pt) {
+    std::cerr << "bad state.... exiting\n";
+    exit(EXIT_FAILURE);
+    return psa{State::OnCurve,Action::Advance};
+  };
+  typedef std::pair<State,State> pss; // current state, next state
+  std::map<pss,func> machine = { 
+    {{State::MdlVtx,State::MdlVtx}, createLine},
+    {{State::MdlVtx,State::OnCurve}, advance},
+    {{State::MdlVtx,State::NotOnCurve}, createLine},
+    {{State::OnCurve,State::MdlVtx}, createCurve},
+    {{State::OnCurve,State::OnCurve}, advance},
+    {{State::OnCurve,State::NotOnCurve}, createCurve},
+    {{State::NotOnCurve,State::MdlVtx}, fail},
+    {{State::NotOnCurve,State::OnCurve}, fail},
+    {{State::NotOnCurve,State::NotOnCurve}, fail}
+  };
 
-  states[{State::OnPWL,State::MdlVtx}] = State::MdlVtx;
-  states[{State::OnPWL,State::OnCurve}] = State::MdlVtx;
-  states[{State::OnPWL,State::OnPWL}] = State::MdlVtx;
+  startingCurvePtIdx = findStartingMdlVtx(isMdlVtx);
+  double vtx[3] = {geom.vtx_x[firstPt], geom.vtx_y[firstPt], 0};
+  startingMdlVtx = GR_createVertex(model, vtx);
 
-  states[{State::EndPWL,State::MdlVtx}] = State::MdlVtx;
-  states[{State::EndPWL,State::OnCurve}] = State::MdlVtx;
-  states[{State::EndPWL,State::OnPWL}] = State::MdlVtx;
-  return 0;
+  std::vector<Action> actions;
+  actions.push_back(Action::Line);
+  State state = State::MdlVtx;
+  for(int ptIdx = 0; ptIdx < isMdlVtx.size(); ptIdx++) {
+    State nextState;
+    if(isMdlVtx[ptIdx] == 1) {
+      nextState = State::MdlVtx;
+    } else if (isOnCurve[ptIdx] == 1) {
+      nextState = State::OnCurve;
+    } else if (isOnCurve[ptIdx] == 0) {
+      nextState = State::NotOnCurve;
+    } else {
+      exit(EXIT_FAILURE);
+    }
+    psa res = machine[{state,nextState}](ptIdx);
+    actions.push_back(res.second);
+    state = res.first;
+  }
+  std::cerr << actions.size() << " " << expectedActions.size() << "\n";
+  //assert(actions.size() == expectedActions.size());
+  for(int i=0; i<actions.size(); i++) {
+    if(actions[i] != expectedActions[i]) {
+      std::cerr << "failing " << i << " \n";
+    }
+    assert(actions[i] == expectedActions[i]);
+  }
+
 }
 
 int main(int argc, char **argv) {
@@ -689,6 +754,8 @@ int main(int argc, char **argv) {
       isPointOnCurve.at(j);
       isMdlVtx.at(j);
     }
+
+    auto model = createModel(geom, isPointOnCurve, isMdlVtx);
 
     /*
     const int stride = std::stoi(argv[4]);
