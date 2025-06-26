@@ -738,6 +738,98 @@ discoverTopology(GeomInfo& geom) {
   return {isPointOnCurve,isMdlVtx};
 }
 
+void createFaces(ModelTopo& mdlTopo, GeomInfo& geom) {
+  auto planeBounds = getBoundingPlane(geom);
+  // Now add the faces
+  double corner[3], xPt[3], yPt[3]; // the points defining the surface of the face
+
+  // When defining the loop, will always start with the first edge in the
+  // faceEdges array
+  pSurface planarSurface;
+
+  // **************
+  // Create the face between the bounding rectangle and the grounding line
+  // (water)
+  // **************
+  // Define the surface
+  corner[0] = planeBounds.minX;
+  corner[1] = planeBounds.minY;
+  corner[2] = 0;
+  xPt[0] = planeBounds.maxX;
+  xPt[1] = planeBounds.minY;
+  xPt[2] = 0;
+  yPt[0] = planeBounds.minX;
+  yPt[1] = planeBounds.maxY;
+  yPt[2] = 0;
+
+  const int faceDirectionFwd = 1;
+  const int faceDirectionRev = 0;
+  const int sameNormal = 1;
+  const int oppositeNormal = 0;
+
+  // Create the face
+  // the first four edges define the outer bounding rectangle
+  for (int i = 0; i < 4; i++) {
+    mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
+    mdlTopo.faceEdges.push_back(mdlTopo.edges.at(i));
+  }
+  if (mdlTopo.edges.size() > 4) {
+    // the remaining edges define the grounding line
+    // TODO generalize loop creation
+    int j = mdlTopo.edges.size() - 1;
+    for (int i = 4; i < mdlTopo.edges.size(); i++) {
+      mdlTopo.faceDirs.push_back(faceDirectionRev); // counter clockwise
+      // all edges are input in counter clockwise order,
+      // reverse the order so the face is on the left (simmetrix requirement)
+      mdlTopo.faceEdges.push_back(mdlTopo.edges.at(j--));
+    }
+
+    int numLoopsOuterFace = 2;
+    int loopFirstEdgeIdx[2] = {0, 4};
+    planarSurface = SSurface_createPlane(corner, xPt, yPt);
+    mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, mdlTopo.edges.size(),
+          mdlTopo.faceEdges.data(),
+          mdlTopo.faceDirs.data(),
+          numLoopsOuterFace, loopFirstEdgeIdx,
+          planarSurface, sameNormal));
+    std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
+    assert(GF_area(mdlTopo.faces[0], 0.2) > 0);
+  } else {
+    int numLoopsOuterFace = 1;
+    int loopFirstEdgeIdx[1] = {0};
+    planarSurface = SSurface_createPlane(corner, xPt, yPt);
+    mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, mdlTopo.edges.size(),
+          mdlTopo.faceEdges.data(),
+          mdlTopo.faceDirs.data(),
+          numLoopsOuterFace, loopFirstEdgeIdx,
+          planarSurface, sameNormal));
+    std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
+    assert(GF_area(mdlTopo.faces[0], 0.2) > 0);
+  }
+
+  if (mdlTopo.edges.size() > 4) {
+    // **************
+    // Create the 'ice' face bounded by the grounding line
+    // **************
+    planarSurface = SSurface_createPlane(corner, xPt, yPt);
+    const int numEdgesInnerFace = mdlTopo.edges.size() - 4;
+    const int numLoopsInnerFace = 1;
+    int loopFirstEdgeIdx[1] = {0};
+    int j = 4;
+    for (int i = 0; i < numEdgesInnerFace; i++) {
+      mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
+      mdlTopo.faceEdges.push_back(mdlTopo.edges.at(j++));
+    }
+    mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, numEdgesInnerFace,
+          mdlTopo.faceEdges.data(),
+          mdlTopo.faceDirs.data(),
+          numLoopsInnerFace, loopFirstEdgeIdx,
+          planarSurface, sameNormal));
+    std::cout << "faces[1] area: " << GF_area(mdlTopo.faces[1], 0.2) << "\n";
+    assert(GF_area(mdlTopo.faces[1], 0.2) > 0);
+  }
+}
+
 int main(int argc, char **argv) {
   if (argc != 5) {
     std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
@@ -807,97 +899,7 @@ int main(int argc, char **argv) {
 
     createModel(mdlTopo.region, geom, isPointOnCurve, isMdlVtx); //FIXME - pass mdlTopo
 
-    auto planeBounds = getBoundingPlane(geom);
-
-    // Now add the faces
-    double corner[3], xPt[3],
-        yPt[3];        // the points defining the surface of the face
-
-    // When defining the loop, will always start with the first edge in the
-    // faceEdges array
-    pSurface planarSurface;
-
-    // **************
-    // Create the face between the bounding rectangle and the grounding line
-    // (water)
-    // **************
-    // Define the surface
-    corner[0] = planeBounds.minX;
-    corner[1] = planeBounds.minY;
-    corner[2] = 0;
-    xPt[0] = planeBounds.maxX;
-    xPt[1] = planeBounds.minY;
-    xPt[2] = 0;
-    yPt[0] = planeBounds.minX;
-    yPt[1] = planeBounds.maxY;
-    yPt[2] = 0;
-
-    const int faceDirectionFwd = 1;
-    const int faceDirectionRev = 0;
-    const int sameNormal = 1;
-    const int oppositeNormal = 0;
-
-    // Create the face
-    // the first four edges define the outer bounding rectangle
-    for (int i = 0; i < 4; i++) {
-      mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
-      mdlTopo.faceEdges.push_back(mdlTopo.edges.at(i));
-    }
-    if (mdlTopo.edges.size() > 4) {
-      // the remaining edges define the grounding line
-      // TODO generalize loop creation
-      int j = mdlTopo.edges.size() - 1;
-      for (int i = 4; i < mdlTopo.edges.size(); i++) {
-        mdlTopo.faceDirs.push_back(faceDirectionRev); // counter clockwise
-        // all edges are input in counter clockwise order,
-        // reverse the order so the face is on the left (simmetrix requirement)
-        mdlTopo.faceEdges.push_back(mdlTopo.edges.at(j--));
-      }
-
-      int numLoopsOuterFace = 2;
-      int loopFirstEdgeIdx[2] = {0, 4};
-      planarSurface = SSurface_createPlane(corner, xPt, yPt);
-      mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, mdlTopo.edges.size(),
-                                            mdlTopo.faceEdges.data(),
-                                            mdlTopo.faceDirs.data(),
-                               numLoopsOuterFace, loopFirstEdgeIdx,
-                               planarSurface, sameNormal));
-      std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
-      assert(GF_area(mdlTopo.faces[0], 0.2) > 0);
-    } else {
-      int numLoopsOuterFace = 1;
-      int loopFirstEdgeIdx[1] = {0};
-      planarSurface = SSurface_createPlane(corner, xPt, yPt);
-      mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, mdlTopo.edges.size(),
-                                            mdlTopo.faceEdges.data(),
-                                            mdlTopo.faceDirs.data(),
-                               numLoopsOuterFace, loopFirstEdgeIdx,
-                               planarSurface, sameNormal));
-      std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
-      assert(GF_area(mdlTopo.faces[0], 0.2) > 0);
-    }
-
-    if (mdlTopo.edges.size() > 4) {
-      // **************
-      // Create the 'ice' face bounded by the grounding line
-      // **************
-      planarSurface = SSurface_createPlane(corner, xPt, yPt);
-      const int numEdgesInnerFace = mdlTopo.edges.size() - 4;
-      const int numLoopsInnerFace = 1;
-      int loopFirstEdgeIdx[1] = {0};
-      int j = 4;
-      for (int i = 0; i < numEdgesInnerFace; i++) {
-        mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
-        mdlTopo.faceEdges.push_back(mdlTopo.edges.at(j++));
-      }
-      mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, numEdgesInnerFace,
-                                            mdlTopo.faceEdges.data(),
-                                            mdlTopo.faceDirs.data(),
-                               numLoopsInnerFace, loopFirstEdgeIdx,
-                               planarSurface, sameNormal));
-      std::cout << "faces[1] area: " << GF_area(mdlTopo.faces[1], 0.2) << "\n";
-      assert(GF_area(mdlTopo.faces[1], 0.2) > 0);
-    }
+    createFaces(mdlTopo, geom);
 
     auto isValid = GM_isValid(mdlTopo.model, 2, NULL);
     if (!isValid) {
@@ -919,7 +921,7 @@ int main(int argc, char **argv) {
 
     GM_write(mdlTopo.model, modelFileName.c_str(), 0, 0);
 
-    createMesh(mdlTopo, meshFileName, progress);
+    //createMesh(mdlTopo, meshFileName, progress);
 
     // cleanup
     GM_release(mdlTopo.model);
