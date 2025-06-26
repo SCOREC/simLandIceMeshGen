@@ -471,6 +471,9 @@ struct ModelTopo {
 };
 
 void createModel(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx) {
+  if(geom.numVtx <= 4) { // no internal contour
+    return;
+  }
   enum class State {MdlVtx = 0, OnCurve = 1, NotOnCurve = 2};
   enum class Action {Init, Advance, Line, Curve};
   typedef std::pair<State,Action> psa; // next state, action
@@ -632,6 +635,9 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
 
 std::tuple<std::vector<int>,std::vector<int>>
 discoverTopology(GeomInfo& geom) {
+  if(geom.numVtx <= 4) { // no internal contour
+    return {std::vector<int>(), std::vector<int>()};
+  }
   const double tc_angle_lower = TC::degreesTo(120);
   std::cout << "tc_angle_lower " << tc_angle_lower << "\n";
   std::cout << "numPts " << geom.numVtx-4 << " lastPt " << geom.numVtx << "\n";
@@ -921,7 +927,7 @@ int main(int argc, char **argv) {
 
     GM_write(mdlTopo.model, modelFileName.c_str(), 0, 0);
 
-    //createMesh(mdlTopo, meshFileName, progress);
+    createMesh(mdlTopo, meshFileName, progress);
 
     // cleanup
     GM_release(mdlTopo.model);
