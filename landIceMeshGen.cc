@@ -458,6 +458,16 @@ int findStartingMdlVtx(std::vector<int>& isMdlVtx) {
   }
 }
 
+struct ModelTopo {
+  std::vector<pGVertex> vertices;
+  std::vector<pGEdge> edges;
+  std::vector<pGFace> faces;
+  pGRegion region;
+  pGIPart part;
+  pGModel model;
+
+};
+
 void createModel(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx) {
   enum class State {MdlVtx = 0, OnCurve = 1, NotOnCurve = 2};
   enum class Action {Init, Advance, Line, Curve};
@@ -530,6 +540,46 @@ void createModel(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve,
   }
 }
 
+void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, bool debug=false) {
+  // TODO generalize face creation
+  if (geom.numEdges > 4) {
+    mdlTopo.faces.reserve(2);
+  } else {
+    mdlTopo.faces.reserve(1);
+  }
+
+  // First we'll add the vertices
+  int i;
+  for (i = 0; i < 4; i++) {
+    double vtx[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
+    mdlTopo.vertices.push_back(GR_createVertex(mdlTopo.region, vtx));
+    if (debug)
+      std::cout << "vtx " << i << " (" << vtx[0] << " , " << vtx[1] << ")\n";
+  }
+
+  std::vector<pGEdge> edges;
+  // Now we'll add the edges
+  double point0[3], point1[3]; // xyz locations of the two vertices
+  pCurve linearCurve;
+  for (i = 0; i < 4; i++) {
+    const auto startVertIdx = geom.edges[i][0];
+    const auto endVertIdx = geom.edges[i][1];
+    auto startVert = mdlTopo.vertices.at(startVertIdx);
+    auto endVert = mdlTopo.vertices.at(endVertIdx);
+    GV_point(startVert, point0);
+    GV_point(endVert, point1);
+    linearCurve = SCurve_createLine(point0, point1);
+    auto edge = GR_createEdge(mdlTopo.region, startVert, endVert, linearCurve, 1);
+    mdlTopo.edges.push_back(edge);
+    if (debug) {
+      std::cout << "edge " << i << " (" << point0[0] << " , " << point0[1]
+        << ")"
+        << ",(" << point1[0] << " , " << point1[1] << ")\n";
+    }
+  }
+
+}
+
 int main(int argc, char **argv) {
   if (argc != 5) {
     std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
@@ -553,11 +603,6 @@ int main(int argc, char **argv) {
   assert(argc == 5);
 
   GeomInfo dirty;
-  pGVertex *vertices; // array to store the returned model vertices
-  pGFace *faces;      // array to store the returned model faces
-  pGRegion region;    // pointer to returned model region
-  pGIPart part;
-  pGModel model; // pointer to the complete model
 
   std::string filename = argv[1];
   std::string ext = getFileExtension(filename);
@@ -593,55 +638,13 @@ int main(int argc, char **argv) {
     pProgress progress = Progress_new();
     Progress_setDefaultCallback(progress);
 
-    model = GM_new(1);
-    part = GM_rootPart(model);
-    region = GIP_outerRegion(part);
+    ModelTopo mdlTopo;
+    mdlTopo.model = GM_new(1);
+    mdlTopo.part = GM_rootPart(mdlTopo.model);
+    mdlTopo.region = GIP_outerRegion(mdlTopo.part);
 
-    vertices = new pGVertex[4];
+    createBoundingBoxGeom(mdlTopo,geom);
 
-    // TODO generalize face creation
-    if (geom.numEdges > 4) {
-      faces = new pGFace[2];
-    } else {
-      faces = new pGFace[1];
-    }
-
-    // First we'll add the vertices
-    int i;
-    for (i = 0; i < 4; i++) {
-      double vtx[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
-      vertices[i] = GR_createVertex(region, vtx);
-      if (debug)
-        std::cout << "vtx " << i << " (" << vtx[0] << " , " << vtx[1] << ")\n";
-    }
-
-    std::vector<pGEdge> edges;
-    // Now we'll add the edges
-    double point0[3], point1[3]; // xyz locations of the two vertices
-    pCurve linearCurve;
-    for (i = 0; i < 4; i++) {
-      const auto startVertIdx = geom.edges[i][0];
-      const auto endVertIdx = geom.edges[i][1];
-      auto startVert = vertices[startVertIdx];
-      auto endVert = vertices[endVertIdx];
-      GV_point(startVert, point0);
-      GV_point(endVert, point1);
-      linearCurve = SCurve_createLine(point0, point1);
-      auto edge = GR_createEdge(region, startVert, endVert, linearCurve, 1);
-      edges.push_back(edge);
-      if (debug) {
-        std::cout << "edge " << i << " (" << point0[0] << " , " << point0[1]
-                  << ")"
-                  << ",(" << point1[0] << " , " << point1[1] << ")\n";
-      }
-    }
-
-    std::cout << "tc(30) " << TC::degreesTo(30) << "\n";
-    std::cout << "tc(60) " << TC::degreesTo(60) << "\n";
-    std::cout << "tc(90) " << TC::degreesTo(90) << "\n";
-    std::cout << "tc(120) " << TC::degreesTo(120) << "\n";
-    std::cout << "tc(150) " << TC::degreesTo(150) << "\n";
-    std::cout << "tc(180) " << TC::degreesTo(180) << "\n";
     const double tc_angle_lower = TC::degreesTo(120);
     std::cout << "tc_angle_lower " << tc_angle_lower << "\n";
     std::cout << "numPts " << geom.numVtx-4 << " lastPt " << geom.numVtx << "\n";
@@ -658,7 +661,7 @@ int main(int argc, char **argv) {
     const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
     angle.push_back(tc_angle); 
     isMdlVtx.push_back(tc_angle < tc_angle_lower);
-    for(i=5; i<=geom.numVtx; i++) {
+    for(int i=5; i<=geom.numVtx; i++) {
       if(i+1 < geom.numVtx ) {
         const double norm_prev_x = geom.vtx_x[i-1] - geom.vtx_x[i];
         const double norm_prev_y = geom.vtx_y[i-1] - geom.vtx_y[i];
@@ -745,7 +748,7 @@ int main(int argc, char **argv) {
       isMdlVtx.at(j);
     }
 
-    createModel(region, geom, isPointOnCurve, isMdlVtx);
+    createModel(mdlTopo.region, geom, isPointOnCurve, isMdlVtx); //FIXME - pass mdlTopo
 
     auto planeBounds = getBoundingPlane(geom);
 
@@ -780,64 +783,64 @@ int main(int argc, char **argv) {
     const int oppositeNormal = 0;
 
     // Create the face
-    faceEdges = new pGEdge[edges.size()];
-    faceDirs = new int[edges.size()];
+    faceEdges = new pGEdge[mdlTopo.edges.size()];
+    faceDirs = new int[mdlTopo.edges.size()];
     // the first four edges define the outer bounding rectangle
-    for (i = 0; i < 4; i++) {
+    for (int i = 0; i < 4; i++) {
       faceDirs[i] = faceDirectionFwd; // clockwise
-      faceEdges[i] = edges.at(i);
+      faceEdges[i] = mdlTopo.edges.at(i);
     }
-    if (edges.size() > 4) {
+    if (mdlTopo.edges.size() > 4) {
       // the remaining edges define the grounding line
       // TODO generalize loop creation
-      int j = edges.size() - 1;
-      for (i = 4; i < edges.size(); i++) {
+      int j = mdlTopo.edges.size() - 1;
+      for (int i = 4; i < mdlTopo.edges.size(); i++) {
         faceDirs[i] = faceDirectionRev; // counter clockwise
         // all edges are input in counter clockwise order,
         // reverse the order so the face is on the left (simmetrix requirement)
-        faceEdges[i] = edges.at(j--);
+        faceEdges[i] = mdlTopo.edges.at(j--);
       }
 
       int numLoopsOuterFace = 2;
       int loopFirstEdgeIdx[2] = {0, 4};
       planarSurface = SSurface_createPlane(corner, xPt, yPt);
-      faces[0] = GR_createFace(region, edges.size(), faceEdges, faceDirs,
+      mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, mdlTopo.edges.size(), faceEdges, faceDirs,
                                numLoopsOuterFace, loopFirstEdgeIdx,
-                               planarSurface, sameNormal);
-      std::cout << "faces[0] area: " << GF_area(faces[0], 0.2) << "\n";
-      assert(GF_area(faces[0], 0.2) > 0);
+                               planarSurface, sameNormal));
+      std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
+      assert(GF_area(mdlTopo.faces[0], 0.2) > 0);
     } else {
       int numLoopsOuterFace = 1;
       int loopFirstEdgeIdx[1] = {0};
       planarSurface = SSurface_createPlane(corner, xPt, yPt);
-      faces[0] = GR_createFace(region, edges.size(), faceEdges, faceDirs,
+      mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, mdlTopo.edges.size(), faceEdges, faceDirs,
                                numLoopsOuterFace, loopFirstEdgeIdx,
-                               planarSurface, sameNormal);
-      std::cout << "faces[0] area: " << GF_area(faces[0], 0.2) << "\n";
-      assert(GF_area(faces[0], 0.2) > 0);
+                               planarSurface, sameNormal));
+      std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
+      assert(GF_area(mdlTopo.faces[0], 0.2) > 0);
     }
 
-    if (edges.size() > 4) {
+    if (mdlTopo.edges.size() > 4) {
       // **************
       // Create the 'ice' face bounded by the grounding line
       // **************
       planarSurface = SSurface_createPlane(corner, xPt, yPt);
-      const int numEdgesInnerFace = edges.size() - 4;
+      const int numEdgesInnerFace = mdlTopo.edges.size() - 4;
       const int numLoopsInnerFace = 1;
       int loopFirstEdgeIdx[1] = {0};
       int j = 4;
-      for (i = 0; i < numEdgesInnerFace; i++) {
+      for (int i = 0; i < numEdgesInnerFace; i++) {
         faceDirs[i] = faceDirectionFwd; // clockwise
-        faceEdges[i] = edges.at(j++);
+        faceEdges[i] = mdlTopo.edges.at(j++);
       }
-      faces[1] = GR_createFace(region, numEdgesInnerFace, faceEdges, faceDirs,
+      mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, numEdgesInnerFace, faceEdges, faceDirs,
                                numLoopsInnerFace, loopFirstEdgeIdx,
-                               planarSurface, sameNormal);
-      std::cout << "faces[1] area: " << GF_area(faces[1], 0.2) << "\n";
-      assert(GF_area(faces[1], 0.2) > 0);
+                               planarSurface, sameNormal));
+      std::cout << "faces[1] area: " << GF_area(mdlTopo.faces[1], 0.2) << "\n";
+      assert(GF_area(mdlTopo.faces[1], 0.2) > 0);
     }
 
-    auto isValid = GM_isValid(model, 2, NULL);
+    auto isValid = GM_isValid(mdlTopo.model, 2, NULL);
     if (!isValid) {
       fprintf(stderr, "ERROR: model is not valid... exiting\n");
       exit(EXIT_FAILURE);
@@ -845,7 +848,7 @@ int main(int argc, char **argv) {
       std::cout << "Model is valid.\n";
     }
 
-    printModelInfo(model);
+    printModelInfo(mdlTopo.model);
 
 //    // The face we want to suppress has a width of 0.000567
 //    // so we use the value 0.00057 for suppression
@@ -855,7 +858,7 @@ int main(int argc, char **argv) {
 //
 //    printModelInfo(model);
 
-    GM_write(model, modelFileName.c_str(), 0, 0);
+    GM_write(mdlTopo.model, modelFileName.c_str(), 0, 0);
 
     /*
     // This next section creates a surface mesh from the model.  You can comment
@@ -910,10 +913,8 @@ int main(int argc, char **argv) {
 
     delete[] faceEdges;
     delete[] faceDirs;
-    delete[] vertices;
-    delete[] faces;
     // cleanup
-    GM_release(model);
+    GM_release(mdlTopo.model);
     Progress_delete(progress);
     MS_exit();
     Sim_unregisterAllKeys();
