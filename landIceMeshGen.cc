@@ -830,30 +830,28 @@ void createFaces(ModelTopo& mdlTopo, GeomInfo& geom) {
   const int oppositeNormal = 0;
 
   // Create the face
-  pGEdge* faceEdges = new pGEdge[mdlTopo.edges.size()];
-  int* faceDirs = new int[mdlTopo.edges.size()];
   // the first four edges define the outer bounding rectangle
   for (int i = 0; i < 4; i++) {
-    faceDirs[i] = faceDirectionFwd; // clockwise
-    faceEdges[i] = mdlTopo.edges.at(i);
+    mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
+    mdlTopo.faceEdges.push_back(mdlTopo.edges.at(i));
   }
   if (mdlTopo.edges.size() > 4) {
     // the remaining edges define the grounding line
     // TODO generalize loop creation
     int j = mdlTopo.edges.size() - 1;
     for (int i = 4; i < mdlTopo.edges.size(); i++) {
-      faceDirs[i] = faceDirectionRev; // counter clockwise
+      mdlTopo.faceDirs.push_back(faceDirectionRev); // counter clockwise
       // all edges are input in counter clockwise order,
       // reverse the order so the face is on the left (simmetrix requirement)
-      faceEdges[i] = mdlTopo.edges.at(j--);
+      mdlTopo.faceEdges.push_back(mdlTopo.edges.at(j--));
     }
 
     int numLoopsOuterFace = 2;
     int loopFirstEdgeIdx[2] = {0, 4};
     planarSurface = SSurface_createPlane(corner, xPt, yPt);
     mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, mdlTopo.edges.size(),
-          faceEdges,
-          faceDirs,
+          mdlTopo.faceEdges.data(),
+          mdlTopo.faceDirs.data(),
           numLoopsOuterFace, loopFirstEdgeIdx,
           planarSurface, sameNormal));
     std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
@@ -892,8 +890,6 @@ void createFaces(ModelTopo& mdlTopo, GeomInfo& geom) {
     std::cout << "faces[1] area: " << GF_area(mdlTopo.faces[1], 0.2) << "\n";
     assert(GF_area(mdlTopo.faces[1], 0.2) > 0);
   }
-  delete[] faceEdges;
-  delete[] faceDirs;
 }
 
 int main(int argc, char **argv) {
