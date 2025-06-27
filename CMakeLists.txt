@@ -37,12 +37,12 @@ set_tests_properties(landIceMeshGen_twoSquares_jig PROPERTIES
 
 add_test(NAME landIceMeshGen_oneSquare_vtk
   COMMAND ./landIceMeshGen ${testDataDir}/oneSquare.vtk one_vtk 0.5 1)
-set_tests_properties(landIceMeshGen_oneSquare_jig PROPERTIES
+set_tests_properties(landIceMeshGen_oneSquare_vtk PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 4")
 
 add_test(NAME landIceMeshGen_twoSquares_vtk
   COMMAND ./landIceMeshGen ${testDataDir}/twoSquares.vtk two_vtk 0.5 1)
-set_tests_properties(landIceMeshGen_twoSquares_jig PROPERTIES
+set_tests_properties(landIceMeshGen_twoSquares_vtk PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
 
 add_test(NAME landIceMeshGen_oval_vtk
