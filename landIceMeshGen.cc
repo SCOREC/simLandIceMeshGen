@@ -633,7 +633,7 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
   // find the smallest size of the geometric model edges
   auto minGEdgeLen = std::numeric_limits<double>::max();
   for (int i = 0; i < mdlTopo.edges.size(); i++) {
-    auto len = GE_length(mdlTopo.faceEdges.at(i));
+    auto len = GE_length(mdlTopo.edges.at(i));
     if (len < minGEdgeLen)
       minGEdgeLen = len;
   }
@@ -647,7 +647,7 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
     << std::endl;
   MS_setMeshSize(meshCase, domain, 1, globMeshSize, NULL);
   for (int i = 4; i < mdlTopo.edges.size(); i++)
-    MS_setMeshSize(meshCase, mdlTopo.faceEdges.at(i), 1, contourMeshSize, NULL);
+    MS_setMeshSize(meshCase, mdlTopo.edges.at(i), 1, contourMeshSize, NULL);
 
   {
     GFIter fIter = GM_faceIter(mdlTopo.model);
