@@ -470,7 +470,7 @@ struct ModelTopo {
 
 };
 
-void createEdges(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx) {
+void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx) {
   if(geom.numVtx <= 4) { // no internal contour
     return;
   }
@@ -489,7 +489,7 @@ void createEdges(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve,
     if(startingCurvePtIdx > pt) { //wrap around
       endMdlVtx = firstMdlVtx;
     } else {
-      endMdlVtx = GR_createVertex(region, vtx);
+      endMdlVtx = GR_createVertex(mdlTopo.region, vtx);
     }
     ptsOnCurve.push_back(pt);
     std::vector<double> pts(ptsOnCurve.size()*3);
@@ -499,7 +499,7 @@ void createEdges(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve,
       pts[i+1] = geom.vtx_y[ptIdx];
       pts[i+2] = 0;
     }
-    fitCurveToContourSimInterp(region, startingMdlVtx, endMdlVtx, pts, true);
+    fitCurveToContourSimInterp(mdlTopo.region, startingMdlVtx, endMdlVtx, pts, true);
     startingMdlVtx = endMdlVtx;
     startingCurvePtIdx = pt;
     ptsOnCurve.clear();  //FIXME - find a cheaper way
@@ -535,7 +535,7 @@ void createEdges(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve,
 
   startingCurvePtIdx = findStartingMdlVtx(isMdlVtx);
   double vtx[3] = {geom.vtx_x[startingCurvePtIdx], geom.vtx_y[startingCurvePtIdx], 0};
-  firstMdlVtx = startingMdlVtx = GR_createVertex(region, vtx);
+  firstMdlVtx = startingMdlVtx = GR_createVertex(mdlTopo.region, vtx);
   ptsOnCurve.push_back(startingCurvePtIdx);
 
   State state = State::MdlVtx;
@@ -935,7 +935,7 @@ int main(int argc, char **argv) {
 
     auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom);
 
-    createEdges(mdlTopo.region, geom, isPointOnCurve, isMdlVtx); //FIXME - pass mdlTopo
+    createEdges(mdlTopo, geom, isPointOnCurve, isMdlVtx);
 
     createFaces(mdlTopo, geom);
 
