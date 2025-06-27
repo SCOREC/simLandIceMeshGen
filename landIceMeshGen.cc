@@ -470,7 +470,7 @@ struct ModelTopo {
 
 };
 
-void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx) {
+void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, bool debug=false) {
   if(geom.numVtx <= 4) { // no internal contour
     return;
   }
@@ -504,7 +504,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     auto edge = fitCurveToContourSimInterp(mdlTopo.region, startingMdlVtx, endMdlVtx, pts, true);
     mdlTopo.edges.push_back(edge);
 
-    if (true) {
+    if (debug) {
       std::cerr << "edge " << mdlTopo.edges.size()
         << " range " << startingCurvePtIdx << " " << pt
         << " numPts " << ptsOnCurve.size() << "\n";
@@ -674,7 +674,7 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
 }
 
 std::tuple<std::vector<int>,std::vector<int>>
-discoverTopology(GeomInfo& geom) {
+discoverTopology(GeomInfo& geom, bool debug = false) {
   std::cout << "tc(30) " << TC::degreesTo(30) << "\n";
   std::cout << "tc(60) " << TC::degreesTo(60) << "\n";
   std::cout << "tc(90) " << TC::degreesTo(90) << "\n";
@@ -757,13 +757,15 @@ discoverTopology(GeomInfo& geom) {
     isPointOnCurve.push_back(on);
   }
 
-  std::cout << "x,y,z,isOnCurve,angle,isMdlVtx\n";
-  for (int j = 0;j < isPointOnCurve.size(); j++) {
-    std::cout << geom.vtx_x.at(j) << ", " << geom.vtx_y.at(j) << ", " << 0
-      << ", " << isPointOnCurve.at(j) << ", " << angle.at(j)
-      << ", " << isMdlVtx.at(j) << "\n";
+  if(debug) {
+    std::cout << "x,y,z,isOnCurve,angle,isMdlVtx\n";
+    for (int j = 0;j < isPointOnCurve.size(); j++) {
+      std::cout << geom.vtx_x.at(j) << ", " << geom.vtx_y.at(j) << ", " << 0
+        << ", " << isPointOnCurve.at(j) << ", " << angle.at(j)
+        << ", " << isMdlVtx.at(j) << "\n";
+    }
+    std::cout << "done\n";
   }
-  std::cout << "done\n";
 
   //find points marked as on a curve that have no
   // adjacent points that are also marked as on the curve
@@ -790,13 +792,15 @@ discoverTopology(GeomInfo& geom) {
     isPointOnCurve.at(last) = 0;
   }
 
-  std::cout << "x,y,z,isOnCurveMod,angle,isMdlVtx\n";
-  for (int j = 0;j < isPointOnCurve.size(); j++) {
-    std::cout << geom.vtx_x.at(j) << ", " << geom.vtx_y.at(j) << ", " << 0
-      << ", " << isPointOnCurve.at(j) << ", " << angle.at(j)
-      << ", " << isMdlVtx.at(j) << "\n";
+  if(debug) {
+    std::cout << "x,y,z,isOnCurveMod,angle,isMdlVtx\n";
+    for (int j = 0;j < isPointOnCurve.size(); j++) {
+      std::cout << geom.vtx_x.at(j) << ", " << geom.vtx_y.at(j) << ", " << 0
+        << ", " << isPointOnCurve.at(j) << ", " << angle.at(j)
+        << ", " << isMdlVtx.at(j) << "\n";
+    }
+    std::cout << "doneMod\n";
   }
-  std::cout << "doneMod\n";
   return {isPointOnCurve,isMdlVtx};
 }
 
@@ -960,9 +964,9 @@ int main(int argc, char **argv) {
 
     createBoundingBoxGeom(mdlTopo,geom);
 
-    auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom);
+    auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom, debug);
 
-    createEdges(mdlTopo, geom, isPointOnCurve, isMdlVtx);
+    createEdges(mdlTopo, geom, isPointOnCurve, isMdlVtx, debug);
 
     createFaces(mdlTopo, geom);
 
