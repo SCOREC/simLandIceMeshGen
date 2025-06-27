@@ -675,16 +675,18 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
 
 std::tuple<std::vector<int>,std::vector<int>>
 discoverTopology(GeomInfo& geom, bool debug = false) {
-  std::cout << "tc(30) " << TC::degreesTo(30) << "\n";
-  std::cout << "tc(60) " << TC::degreesTo(60) << "\n";
-  std::cout << "tc(90) " << TC::degreesTo(90) << "\n";
-  std::cout << "tc(120) " << TC::degreesTo(120) << "\n";
-  std::cout << "tc(150) " << TC::degreesTo(150) << "\n";
-  std::cout << "tc(180) " << TC::degreesTo(180) << "\n";
-  std::cout << "tc(270) " << TC::degreesTo(270) << "\n";
-  std::cout << "tc(-120) " << TC::degreesTo(-120) << "\n";
   if(geom.numVtx <= 4) { // no internal contour
     return {std::vector<int>(), std::vector<int>()};
+  }
+  if(debug) {
+    std::cout << "tc(30) " << TC::degreesTo(30) << "\n";
+    std::cout << "tc(60) " << TC::degreesTo(60) << "\n";
+    std::cout << "tc(90) " << TC::degreesTo(90) << "\n";
+    std::cout << "tc(120) " << TC::degreesTo(120) << "\n";
+    std::cout << "tc(150) " << TC::degreesTo(150) << "\n";
+    std::cout << "tc(180) " << TC::degreesTo(180) << "\n";
+    std::cout << "tc(270) " << TC::degreesTo(270) << "\n";
+    std::cout << "tc(-120) " << TC::degreesTo(-120) << "\n";
   }
   const double deg_angle_lower = 120;
   const double deg_angle_upper = -deg_angle_lower;
@@ -900,26 +902,16 @@ void createFaces(ModelTopo& mdlTopo, GeomInfo& geom) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 5) {
+  if (argc != 4) {
     std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
-                 "<coincidentVtxToleranceSquared> <stride>\n";
+                 "<coincidentVtxToleranceSquared>\n";
     std::cerr << "coincidentVtxToleranceSquared is the mininum allowed "
                  "distance (squared) between adjacent vertices in the "
                  "input.  Vertices within the specified distance will "
                  "be merged.\n";
-    std::cerr << "stride defines the maximum number of points to be "
-                 "used to define a single geometric model edge.\n"
-                 "  A stride less than 1 is invalid.\n"
-                 "  A stride of 1 will create one edge per point "
-                 "where edge i will be defined by points i-1 "
-                 "and i.\n"
-                 "  A stride of N will create one edge for sequences of "
-                 "N points.  It the number of points is not evenly "
-                 "divisible by N then the last edge will contain the "
-                 "remaining points.\n";
     return 1;
   }
-  assert(argc == 5);
+  assert(argc == 4);
 
   GeomInfo dirty;
 
