@@ -490,6 +490,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
       endMdlVtx = firstMdlVtx;
     } else {
       endMdlVtx = GR_createVertex(mdlTopo.region, vtx);
+      mdlTopo.vertices.push_back(endMdlVtx);
     }
     ptsOnCurve.push_back(pt);
     std::vector<double> pts(ptsOnCurve.size()*3);
@@ -499,7 +500,8 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
       pts[i+1] = geom.vtx_y[ptIdx];
       pts[i+2] = 0;
     }
-    fitCurveToContourSimInterp(mdlTopo.region, startingMdlVtx, endMdlVtx, pts, true);
+    auto edge = fitCurveToContourSimInterp(mdlTopo.region, startingMdlVtx, endMdlVtx, pts, true);
+    mdlTopo.edges.push_back(edge);
     startingMdlVtx = endMdlVtx;
     startingCurvePtIdx = pt;
     ptsOnCurve.clear();  //FIXME - find a cheaper way
@@ -536,6 +538,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   startingCurvePtIdx = findStartingMdlVtx(isMdlVtx);
   double vtx[3] = {geom.vtx_x[startingCurvePtIdx], geom.vtx_y[startingCurvePtIdx], 0};
   firstMdlVtx = startingMdlVtx = GR_createVertex(mdlTopo.region, vtx);
+  mdlTopo.vertices.push_back(firstMdlVtx);
   ptsOnCurve.push_back(startingCurvePtIdx);
 
   State state = State::MdlVtx;
@@ -806,32 +809,34 @@ void createFaces(ModelTopo& mdlTopo, GeomInfo& geom) {
   const int oppositeNormal = 0;
 
   // Create the face
+  pGEdge* faceEdges = new pGEdge[mdlTopo.edges.size()];
+  int* faceDirs = new int[mdlTopo.edges.size()];
   // the first four edges define the outer bounding rectangle
   for (int i = 0; i < 4; i++) {
-    mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
-    mdlTopo.faceEdges.push_back(mdlTopo.edges.at(i));
+    faceDirs[i] = faceDirectionFwd; // clockwise
+    faceEdges[i] = mdlTopo.edges.at(i);
   }
   if (mdlTopo.edges.size() > 4) {
     // the remaining edges define the grounding line
     // TODO generalize loop creation
     int j = mdlTopo.edges.size() - 1;
     for (int i = 4; i < mdlTopo.edges.size(); i++) {
-      mdlTopo.faceDirs.push_back(faceDirectionRev); // counter clockwise
+      faceDirs[i] = faceDirectionRev; // counter clockwise
       // all edges are input in counter clockwise order,
       // reverse the order so the face is on the left (simmetrix requirement)
-      mdlTopo.faceEdges.push_back(mdlTopo.edges.at(j--));
+      faceEdges[i] = mdlTopo.edges.at(j--);
     }
 
     int numLoopsOuterFace = 2;
     int loopFirstEdgeIdx[2] = {0, 4};
     planarSurface = SSurface_createPlane(corner, xPt, yPt);
     mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, mdlTopo.edges.size(),
-          mdlTopo.faceEdges.data(),
-          mdlTopo.faceDirs.data(),
+          faceEdges,
+          faceDirs,
           numLoopsOuterFace, loopFirstEdgeIdx,
           planarSurface, sameNormal));
     std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
-    assert(GF_area(mdlTopo.faces[0], 0.2) > 0);
+    assert(GF_area(mdlTopo.faces[0], 0.2) > 0); //FIXME - fails here
   } else {
     int numLoopsOuterFace = 1;
     int loopFirstEdgeIdx[1] = {0};
@@ -866,6 +871,8 @@ void createFaces(ModelTopo& mdlTopo, GeomInfo& geom) {
     std::cout << "faces[1] area: " << GF_area(mdlTopo.faces[1], 0.2) << "\n";
     assert(GF_area(mdlTopo.faces[1], 0.2) > 0);
   }
+  delete[] faceEdges;
+  delete[] faceDirs;
 }
 
 int main(int argc, char **argv) {
