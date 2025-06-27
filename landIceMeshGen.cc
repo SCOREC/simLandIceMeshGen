@@ -447,9 +447,9 @@ int onCurve(Point& pt1, Point& pt2, Point& pt3, Point& pt4, Point& pt5) {
   }
 }
 
-int findStartingMdlVtx(std::vector<int>& isMdlVtx) {
+int findStartingMdlVtx(std::vector<int>& isMdlVtx, const int offset) {
   const int mdlVtx = 1;
-  auto it = std::find(isMdlVtx.begin(), isMdlVtx.end(), mdlVtx);
+  auto it = std::find(isMdlVtx.begin()+offset, isMdlVtx.end(), mdlVtx);
   if( it == isMdlVtx.end()) {
     exit(EXIT_FAILURE);
     return -1;
@@ -492,6 +492,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
       endMdlVtx = GR_createVertex(mdlTopo.region, vtx);
       mdlTopo.vertices.push_back(endMdlVtx);
     }
+
     ptsOnCurve.push_back(pt);
     std::vector<double> pts(ptsOnCurve.size()*3);
     for(int i=0, j = 0; j<ptsOnCurve.size(); j++, i+=3) {
@@ -502,6 +503,23 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     }
     auto edge = fitCurveToContourSimInterp(mdlTopo.region, startingMdlVtx, endMdlVtx, pts, true);
     mdlTopo.edges.push_back(edge);
+
+    if (true) {
+      std::cerr << "edge " << mdlTopo.edges.size()
+        << " range " << startingCurvePtIdx << " " << pt
+        << " numPts " << ptsOnCurve.size() << "\n";
+      double first[3];
+      GV_point(startingMdlVtx, first);
+      double last[3];
+      GV_point(endMdlVtx, last);
+      std::cout << "start " << first[0] << " " << first[1] << "\n";
+      std::cout << "end " << last[0] << " " << last[1] << "\n";
+      std::cout << "x,y,z\n";
+      for(int j=0; j<pts.size(); j+=3) {
+        std::cerr << pts.at(j) << ", " << pts.at(j+1) << ", " << pts.at(j+2) << "\n";
+      }
+    }
+
     startingMdlVtx = endMdlVtx;
     startingCurvePtIdx = pt;
     ptsOnCurve.clear();  //FIXME - find a cheaper way
@@ -535,7 +553,8 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     {{State::NotOnCurve,State::NotOnCurve}, fail}
   };
 
-  startingCurvePtIdx = findStartingMdlVtx(isMdlVtx);
+  const int firstContourPt = 4;
+  startingCurvePtIdx = findStartingMdlVtx(isMdlVtx, firstContourPt);
   double vtx[3] = {geom.vtx_x[startingCurvePtIdx], geom.vtx_y[startingCurvePtIdx], 0};
   firstMdlVtx = startingMdlVtx = GR_createVertex(mdlTopo.region, vtx);
   mdlTopo.vertices.push_back(firstMdlVtx);
@@ -544,7 +563,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   State state = State::MdlVtx;
   int ptsVisited = 0; //don't count the first vertex until we close the loop
   int ptIdx = startingCurvePtIdx+1;
-  while(ptsVisited < isMdlVtx.size()) {
+  while(ptsVisited < isMdlVtx.size()-firstContourPt) {
     State nextState;
     if(isMdlVtx[ptIdx] == 1) {
       nextState = State::MdlVtx;
@@ -559,7 +578,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     state = res.first;
     ptsVisited++;
     if(ptIdx == isMdlVtx.size()-1) {
-      ptIdx = 0; //wrap around
+      ptIdx = firstContourPt; //wrap around
     } else {
       ptIdx++;
     }
@@ -679,8 +698,17 @@ discoverTopology(GeomInfo& geom) {
 
   std::vector<double> angle;
   std::vector<int> isMdlVtx;
-  angle.reserve(geom.numVtx-4);
-  isMdlVtx.reserve(geom.numVtx-4);
+  std::vector<int> isPointOnCurve; //1: along a curve, 0: otherwise
+  angle.reserve(geom.numVtx);
+  isMdlVtx.reserve(geom.numVtx);
+  isPointOnCurve.reserve(geom.numVtx);
+  //hack: add data for the first four boundary verts so 'createEdges' indexing
+  //matches the GeomInfo struct indexing
+  for(int i=0; i<4; i++){
+    angle.push_back(TC::degreesTo(90)); //hack - 90deg corners
+    isMdlVtx.push_back(1); //hack - all model verts
+    isPointOnCurve.push_back(0); //hack - not on curve
+  }
   //first point
   const double norm_prev_x = geom.vtx_x.back() - geom.vtx_x[0];
   const double norm_prev_y = geom.vtx_y.back() - geom.vtx_y[0];
@@ -712,8 +740,6 @@ discoverTopology(GeomInfo& geom) {
     isMdlVtx.push_back(tc_angle < tc_angle_lower || tc_angle > tc_angle_upper);
   }
 
-  std::vector<int> isPointOnCurve; //1: along a curve, 0: otherwise
-  isPointOnCurve.reserve(geom.numVtx-4);
   int mycnt=0;
   for (int j = 4;j < geom.numVtx; ++j) {
     mycnt++;
@@ -733,7 +759,7 @@ discoverTopology(GeomInfo& geom) {
 
   std::cout << "x,y,z,isOnCurve,angle,isMdlVtx\n";
   for (int j = 0;j < isPointOnCurve.size(); j++) {
-    std::cout << geom.vtx_x.at(j+4) << ", " << geom.vtx_y.at(j+4) << ", " << 0
+    std::cout << geom.vtx_x.at(j) << ", " << geom.vtx_y.at(j) << ", " << 0
       << ", " << isPointOnCurve.at(j) << ", " << angle.at(j)
       << ", " << isMdlVtx.at(j) << "\n";
   }
@@ -742,13 +768,14 @@ discoverTopology(GeomInfo& geom) {
   //find points marked as on a curve that have no
   // adjacent points that are also marked as on the curve
   //first point
+  const int firstContourPt = 4;
   if( isPointOnCurve.back() == 0 &&
-      isPointOnCurve.at(0) == 1 &&
-      isPointOnCurve.at(1) == 0 ) {
-    isPointOnCurve.at(0) = 0;
+      isPointOnCurve.at(firstContourPt) == 1 &&
+      isPointOnCurve.at(firstContourPt+1) == 0 ) {
+    isPointOnCurve.at(firstContourPt) = 0;
   }
   //interior
-  for (int j = 1;j < isPointOnCurve.size(); j++) {
+  for (int j = firstContourPt+1;j < isPointOnCurve.size(); j++) {
     if( isPointOnCurve.at(j-1) == 0 &&
         isPointOnCurve.at(j) == 1 &&
         isPointOnCurve.at(j+1) == 0 ) {
@@ -759,23 +786,17 @@ discoverTopology(GeomInfo& geom) {
   const int last = isPointOnCurve.size()-1;
   if( isPointOnCurve.at(last-1) == 0 &&
       isPointOnCurve.at(last) == 1 &&
-      isPointOnCurve.at(0) == 0 ) {
+      isPointOnCurve.at(firstContourPt) == 0 ) {
     isPointOnCurve.at(last) = 0;
   }
 
   std::cout << "x,y,z,isOnCurveMod,angle,isMdlVtx\n";
   for (int j = 0;j < isPointOnCurve.size(); j++) {
-    std::cout << geom.vtx_x.at(j+4) << ", " << geom.vtx_y.at(j+4) << ", " << 0
+    std::cout << geom.vtx_x.at(j) << ", " << geom.vtx_y.at(j) << ", " << 0
       << ", " << isPointOnCurve.at(j) << ", " << angle.at(j)
       << ", " << isMdlVtx.at(j) << "\n";
   }
   std::cout << "doneMod\n";
-
-  for (int j = 1;j < isPointOnCurve.size(); j++) {
-    isPointOnCurve.at(j);
-    isMdlVtx.at(j);
-  }
-
   return {isPointOnCurve,isMdlVtx};
 }
 
