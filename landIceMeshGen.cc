@@ -470,7 +470,7 @@ struct ModelTopo {
 
 };
 
-void createModel(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx) {
+void createEdges(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx) {
   if(geom.numVtx <= 4) { // no internal contour
     return;
   }
@@ -479,29 +479,40 @@ void createModel(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve,
   typedef std::pair<State,Action> psa; // next state, action
   using func=std::function<psa(int pt)>;
 
+  pGVertex firstMdlVtx;
   int startingCurvePtIdx;
   pGVertex startingMdlVtx;
+  std::vector<int> ptsOnCurve;
   func createCurve = [&](int pt) {
     double vtx[3] = {geom.vtx_x[pt], geom.vtx_y[pt], 0};
-    auto endMdlVtx = GR_createVertex(region, vtx);
-    int numPts = pt-startingCurvePtIdx+1;
-    std::vector<double> pts(numPts*3);
-    for(int i=0, ptIdx = 0; i<pts.size(); ptIdx++, i+=3) {
-      pts[i]   = geom.vtx_x[startingCurvePtIdx+ptIdx];
-      pts[i+1] = geom.vtx_y[startingCurvePtIdx+ptIdx];
+    pGVertex endMdlVtx;
+    if(startingCurvePtIdx > pt) { //wrap around
+      endMdlVtx = firstMdlVtx;
+    } else {
+      endMdlVtx = GR_createVertex(region, vtx);
+    }
+    ptsOnCurve.push_back(pt);
+    std::vector<double> pts(ptsOnCurve.size()*3);
+    for(int i=0, j = 0; j<ptsOnCurve.size(); j++, i+=3) {
+      const int ptIdx = ptsOnCurve.at(j);
+      pts[i]   = geom.vtx_x[ptIdx];
+      pts[i+1] = geom.vtx_y[ptIdx];
       pts[i+2] = 0;
     }
     fitCurveToContourSimInterp(region, startingMdlVtx, endMdlVtx, pts, true);
     startingMdlVtx = endMdlVtx;
     startingCurvePtIdx = pt;
+    ptsOnCurve.clear();  //FIXME - find a cheaper way
+    ptsOnCurve.push_back(pt);
     return psa{State::MdlVtx,Action::Curve};
   };
   func createLine = [&](int pt) {
-    assert(pt-startingCurvePtIdx == 1);
+    assert(ptsOnCurve.size() == 1);
     auto ignored = createCurve(pt);
     return psa{State::MdlVtx,Action::Line};
   };
   func advance = [&](int pt) {
+    ptsOnCurve.push_back(pt);
     return psa{State::OnCurve,Action::Advance};
   };
   func fail = [&](int pt) {
@@ -524,10 +535,11 @@ void createModel(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve,
 
   startingCurvePtIdx = findStartingMdlVtx(isMdlVtx);
   double vtx[3] = {geom.vtx_x[startingCurvePtIdx], geom.vtx_y[startingCurvePtIdx], 0};
-  startingMdlVtx = GR_createVertex(region, vtx);
+  firstMdlVtx = startingMdlVtx = GR_createVertex(region, vtx);
+  ptsOnCurve.push_back(startingCurvePtIdx);
 
   State state = State::MdlVtx;
-  int ptsVisited = 1;
+  int ptsVisited = 0; //don't count the first vertex until we close the loop
   int ptIdx = startingCurvePtIdx+1;
   while(ptsVisited < isMdlVtx.size()) {
     State nextState;
@@ -543,10 +555,10 @@ void createModel(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve,
     psa res = machine[{state,nextState}](ptIdx);
     state = res.first;
     ptsVisited++;
-    if(ptIdx != isMdlVtx.size()) {
-      ptIdx++;
+    if(ptIdx == isMdlVtx.size()-1) {
+      ptIdx = 0; //wrap around
     } else {
-      ptIdx = 0;
+      ptIdx++;
     }
   }
 }
@@ -641,11 +653,25 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
 
 std::tuple<std::vector<int>,std::vector<int>>
 discoverTopology(GeomInfo& geom) {
+  std::cout << "tc(30) " << TC::degreesTo(30) << "\n";
+  std::cout << "tc(60) " << TC::degreesTo(60) << "\n";
+  std::cout << "tc(90) " << TC::degreesTo(90) << "\n";
+  std::cout << "tc(120) " << TC::degreesTo(120) << "\n";
+  std::cout << "tc(150) " << TC::degreesTo(150) << "\n";
+  std::cout << "tc(180) " << TC::degreesTo(180) << "\n";
+  std::cout << "tc(270) " << TC::degreesTo(270) << "\n";
+  std::cout << "tc(-120) " << TC::degreesTo(-120) << "\n";
   if(geom.numVtx <= 4) { // no internal contour
     return {std::vector<int>(), std::vector<int>()};
   }
-  const double tc_angle_lower = TC::degreesTo(120);
-  std::cout << "tc_angle_lower " << tc_angle_lower << "\n";
+  const double deg_angle_lower = 120;
+  const double deg_angle_upper = -deg_angle_lower;
+  const double tc_angle_lower = TC::degreesTo(deg_angle_lower);
+  const double tc_angle_upper = TC::degreesTo(deg_angle_upper);
+  std::cout << "deg_angle_lower " << deg_angle_lower <<
+               " tc_angle_lower " << tc_angle_lower << "\n";
+  std::cout << "deg_angle_upper " << deg_angle_upper <<
+               " tc_angle_upper " << tc_angle_upper << "\n";
   std::cout << "numPts " << geom.numVtx-4 << " lastPt " << geom.numVtx << "\n";
 
   std::vector<double> angle;
@@ -659,7 +685,7 @@ discoverTopology(GeomInfo& geom) {
   const double norm_next_y = geom.vtx_y[1] - geom.vtx_y[0];
   const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
   angle.push_back(tc_angle);
-  isMdlVtx.push_back(tc_angle < tc_angle_lower);
+  isMdlVtx.push_back(tc_angle < tc_angle_lower || tc_angle > tc_angle_upper);
   for(int i=5; i<=geom.numVtx; i++) {
     if(i+1 < geom.numVtx ) {
       const double norm_prev_x = geom.vtx_x[i-1] - geom.vtx_x[i];
@@ -668,7 +694,7 @@ discoverTopology(GeomInfo& geom) {
       const double norm_next_y = geom.vtx_y[i+1] - geom.vtx_y[i];
       const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
       angle.push_back(tc_angle);
-      isMdlVtx.push_back(tc_angle < tc_angle_lower);
+      isMdlVtx.push_back(tc_angle < tc_angle_lower || tc_angle > tc_angle_upper);
     }
   }
   //last point
@@ -680,7 +706,7 @@ discoverTopology(GeomInfo& geom) {
     const double norm_next_y = geom.vtx_y[0] - geom.vtx_y[last];
     const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
     angle.push_back(tc_angle);
-    isMdlVtx.push_back(tc_angle < tc_angle_lower);
+    isMdlVtx.push_back(tc_angle < tc_angle_lower || tc_angle > tc_angle_upper);
   }
 
   std::vector<int> isPointOnCurve; //1: along a curve, 0: otherwise
@@ -909,7 +935,7 @@ int main(int argc, char **argv) {
 
     auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom);
 
-    createModel(mdlTopo.region, geom, isPointOnCurve, isMdlVtx); //FIXME - pass mdlTopo
+    createEdges(mdlTopo.region, geom, isPointOnCurve, isMdlVtx); //FIXME - pass mdlTopo
 
     createFaces(mdlTopo, geom);
 
