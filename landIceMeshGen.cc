@@ -857,7 +857,7 @@ void createFaces(ModelTopo& mdlTopo, GeomInfo& geom) {
           numLoopsOuterFace, loopFirstEdgeIdx,
           planarSurface, sameNormal));
     std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
-    assert(GF_area(mdlTopo.faces[0], 0.2) > 0); //FIXME - fails here
+    assert(GF_area(mdlTopo.faces[0], 0.2) > 0);
   } else {
     int numLoopsOuterFace = 1;
     int loopFirstEdgeIdx[1] = {0};
