@@ -19,6 +19,7 @@ function(addExe name)
 endfunction()
 
 addExe(landIceMeshGen)
+addExe(landIceMeshGen_b4Reorg)
 set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
 add_test(NAME landIceMeshGen_gis
   COMMAND ./landIceMeshGen ${testDataDir}/gis.msh gis 0.5 1000)
