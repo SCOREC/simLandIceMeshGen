@@ -484,7 +484,7 @@ void createModel(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve,
   func createCurve = [&](int pt) {
     double vtx[3] = {geom.vtx_x[pt], geom.vtx_y[pt], 0};
     auto endMdlVtx = GR_createVertex(region, vtx);
-    int numPts = pt-startingCurvePtIdx;
+    int numPts = pt-startingCurvePtIdx+1;
     std::vector<double> pts(numPts*3);
     for(int i=0, ptIdx = 0; i<pts.size(); ptIdx++, i+=3) {
       pts[i]   = geom.vtx_x[startingCurvePtIdx+ptIdx];
@@ -493,6 +493,7 @@ void createModel(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve,
     }
     fitCurveToContourSimInterp(region, startingMdlVtx, endMdlVtx, pts, true);
     startingMdlVtx = endMdlVtx;
+    startingCurvePtIdx = pt;
     return psa{State::MdlVtx,Action::Curve};
   };
   func createLine = [&](int pt) {
@@ -525,10 +526,10 @@ void createModel(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve,
   double vtx[3] = {geom.vtx_x[startingCurvePtIdx], geom.vtx_y[startingCurvePtIdx], 0};
   startingMdlVtx = GR_createVertex(region, vtx);
 
-  std::vector<Action> actions;
-  actions.push_back(Action::Line);
   State state = State::MdlVtx;
-  for(int ptIdx = 0; ptIdx < isMdlVtx.size(); ptIdx++) {
+  int ptsVisited = 1;
+  int ptIdx = startingCurvePtIdx+1;
+  while(ptsVisited < isMdlVtx.size()) {
     State nextState;
     if(isMdlVtx[ptIdx] == 1) {
       nextState = State::MdlVtx;
@@ -540,8 +541,13 @@ void createModel(pGRegion region, GeomInfo& geom, std::vector<int>& isPtOnCurve,
       exit(EXIT_FAILURE);
     }
     psa res = machine[{state,nextState}](ptIdx);
-    actions.push_back(res.second);
     state = res.first;
+    ptsVisited++;
+    if(ptIdx != isMdlVtx.size()) {
+      ptIdx++;
+    } else {
+      ptIdx = 0;
+    }
   }
 }
 
