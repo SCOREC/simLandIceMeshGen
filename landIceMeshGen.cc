@@ -869,6 +869,9 @@ void createFaces(ModelTopo& mdlTopo, GeomInfo& geom) {
     assert(GF_area(mdlTopo.faces[0], 0.2) > 0);
   }
 
+  mdlTopo.faceEdges.clear();
+  mdlTopo.faceDirs.clear();
+
   if (mdlTopo.edges.size() > 4) {
     // **************
     // Create the 'ice' face bounded by the grounding line
