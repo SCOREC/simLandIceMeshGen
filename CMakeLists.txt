@@ -22,32 +22,32 @@ addExe(landIceMeshGen)
 addExe(landIceMeshGen_b4Reorg)
 set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
 add_test(NAME landIceMeshGen_gis
-  COMMAND ./landIceMeshGen ${testDataDir}/gis.msh gis 0.5 120 1)
+  COMMAND ./landIceMeshGen ${testDataDir}/gis.msh gis 1 120 1)
 set_tests_properties(landIceMeshGen_gis PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 172874")
 
 add_test(NAME landIceMeshGen_oneSquare_jig
-  COMMAND ./landIceMeshGen ${testDataDir}/oneSquare.msh one_jig 0.5 120 1)
+  COMMAND ./landIceMeshGen ${testDataDir}/oneSquare.msh one_jig 1e-6 120 1)
 set_tests_properties(landIceMeshGen_oneSquare_jig PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 4")
 
 add_test(NAME landIceMeshGen_twoSquares_jig
-  COMMAND ./landIceMeshGen ${testDataDir}/twoSquares.msh two_jig 0.5 120 1)
+  COMMAND ./landIceMeshGen ${testDataDir}/twoSquares.msh two_jig 1e-6 120 1)
 set_tests_properties(landIceMeshGen_twoSquares_jig PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
 
 add_test(NAME landIceMeshGen_oneSquare_vtk
-  COMMAND ./landIceMeshGen ${testDataDir}/oneSquare.vtk one_vtk 0.5 120 1)
+  COMMAND ./landIceMeshGen ${testDataDir}/oneSquare.vtk one_vtk 1e-6 120 1)
 set_tests_properties(landIceMeshGen_oneSquare_vtk PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 4")
 
 add_test(NAME landIceMeshGen_twoSquares_vtk
-  COMMAND ./landIceMeshGen ${testDataDir}/twoSquares.vtk two_vtk 0.5 120 1)
+  COMMAND ./landIceMeshGen ${testDataDir}/twoSquares.vtk two_vtk 1e-6 120 1)
 set_tests_properties(landIceMeshGen_twoSquares_vtk PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
 
 add_test(NAME landIceMeshGen_oval_vtk
-  COMMAND ./landIceMeshGen ${testDataDir}/oval_wBbox.vtk oval 0.0001 120 1)
+  COMMAND ./landIceMeshGen ${testDataDir}/oval_wBbox.vtk oval 1e-8 120 1)
 set_tests_properties(landIceMeshGen_oval_vtk PROPERTIES
   PASS_REGULAR_EXPRESSION "Number of vertices in model: 13")
 

@@ -307,7 +307,12 @@ bool checkVertexUse(GeomInfo &geom, bool debug = false) {
   return isOk;
 }
 
-GeomInfo cleanJigGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
+void convertMetersToKm(GeomInfo &geom) {
+  std::transform(geom.vtx_x.cbegin(), geom.vtx_x.cend(), geom.vtx_x.begin(), [](double v) { return v * 0.001; });
+  std::transform(geom.vtx_y.cbegin(), geom.vtx_y.cend(), geom.vtx_y.begin(), [](double v) { return v * 0.001; });
+}
+
+GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
                       bool debug = false) {
   assert(checkVertexUse(dirty));
   // trying to check the the dirty geom has a chain of edges
@@ -317,6 +322,7 @@ GeomInfo cleanJigGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
   // the remaining edges form a loop
   assert(dirty.edges[4][0] == dirty.edges[dirty.numEdges - 1][1]);
 
+  int numPtsRemoved = 0;
   GeomInfo clean;
   clean.vtx_x.reserve(dirty.numVtx);
   clean.vtx_y.reserve(dirty.numVtx);
@@ -331,6 +337,7 @@ GeomInfo cleanJigGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
       clean.vtx_x.push_back(dirty.vtx_x[i]);
       clean.vtx_y.push_back(dirty.vtx_y[i]);
     } else {
+      numPtsRemoved++;
       if (debug) {
         std::cout << "coincident pt " << i - 1 << " (" << dirty.vtx_x[i - 1]
                   << ", " << dirty.vtx_y[i - 1] << ") " << i << " ("
@@ -339,6 +346,7 @@ GeomInfo cleanJigGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
     }
   }
   clean.numVtx = clean.vtx_x.size();
+  std::cout << "removed " << numPtsRemoved << " coincident points\n";
 
   // loops have an equal number of verts and edges
   assert(dirty.numVtx >= 4); // there must be a bounding box
@@ -941,7 +949,8 @@ int main(int argc, char **argv) {
     std::cerr << "Unsupported file extension: " << ext << "\n";
     return 1;
   }
-  auto geom = cleanJigGeom(dirty, coincidentPtTol, true);
+  convertMetersToKm(dirty);
+  auto geom = cleanGeom(dirty, coincidentPtTol, false);
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
 
