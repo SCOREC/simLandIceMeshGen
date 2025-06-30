@@ -426,7 +426,7 @@ void printModelInfo(pGModel model) {
 
 typedef std::array<double,3> Point;
 //from scorec/tomms @ 2f97d13 (simapis-mod branch)
-int onCurve(Point& pt1, Point& pt2, Point& pt3, Point& pt4, Point& pt5) {
+int onCurve(Point& pt1, Point& pt2, Point& pt3, Point& pt4, Point& pt5, double onCurveAngleTol=30) {
   // Define the vector between two points by using the relation [x2-x1, y2-y1]
   const double vec1[] = {pt1[0]-pt2[0], pt1[1]-pt2[1]}; // Vector between point 1 and 2
   const double vec2[] = {pt3[0]-pt2[0], pt3[1]-pt2[1]}; // Vector between point 2 and 3
@@ -448,7 +448,9 @@ int onCurve(Point& pt1, Point& pt2, Point& pt3, Point& pt4, Point& pt5) {
   const double theta1 = asin (sin_angle1)* 180.0/pi;
   const double theta2 = asin (sin_angle2)* 180.0/pi;
   const double theta3 = asin (sin_angle3)* 180.0/pi;
-  if ((theta1>0) && (theta1<30) && (theta2>0) && (theta2<30) && (theta3>0) && (theta3<30)) {
+  if ((theta1>0) && (theta1<onCurveAngleTol) && 
+      (theta2>0) && (theta2<onCurveAngleTol) && 
+      (theta3>0) && (theta3<onCurveAngleTol)) {
     return 1;
   } else {
     return 0;
@@ -682,7 +684,7 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
 }
 
 std::tuple<std::vector<int>,std::vector<int>>
-discoverTopology(GeomInfo& geom, double angleTol, bool debug = false) {
+discoverTopology(GeomInfo& geom, double angleTol, double onCurveAngleTol, bool debug = false) {
   if(geom.numVtx <= 4) { // no internal contour
     return {std::vector<int>(), std::vector<int>()};
   }
@@ -763,7 +765,7 @@ discoverTopology(GeomInfo& geom, double angleTol, bool debug = false) {
     Point m0{geom.vtx_x.at(j),   geom.vtx_y.at(j),   0.0};
     Point p1{geom.vtx_x.at(j+1), geom.vtx_y.at(j+1), 0.0};
     Point p2{geom.vtx_x.at(j+2), geom.vtx_y.at(j+2), 0.0};
-    const auto on = onCurve(m2, m1, m0, p1, p2);
+    const auto on = onCurve(m2, m1, m0, p1, p2, onCurveAngleTol);
     isPointOnCurve.push_back(on);
   }
 
@@ -910,7 +912,8 @@ void createFaces(ModelTopo& mdlTopo, GeomInfo& geom) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 6) {
+  const int numExpectedArgs = 7;
+  if (argc != numExpectedArgs) {
     std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
                  "<coincidentVtxToleranceSquared> <angleTolerance> <createMesh>\n";
     std::cerr << "coincidentVtxToleranceSquared is the mininum allowed "
@@ -919,13 +922,16 @@ int main(int argc, char **argv) {
                  "be merged.\n";
     std::cerr << "angleTolerance defines the upper bound and "
                  "-angleTolerance defines lower bound for determining "
-                 "if multiple consecutive points are part of the same "
-                 "curve.\n";
+                 "if a vertex bounding two consecutative edges should be "
+                 "treated as a model vertex.\n";
+    std::cerr << "onCurveAngleTolerance defines the upper bound on the angle "
+                 "between adjacent edges in a sequence of four consecutive edges "
+                 "used to determine if they are part of the same curve.\n";
     std::cerr << "createMesh = 1:generate mesh, otherwise, "
                  "skip mesh generation.\n";
     return 1;
   }
-  assert(argc == 6);
+  assert(argc == numExpectedArgs);
 
   GeomInfo dirty;
 
@@ -934,11 +940,13 @@ int main(int argc, char **argv) {
   const auto coincidentPtTol = std::stof(argv[3]);
   const auto prefix = std::string(argv[2]);
   const auto angleTol = std::atof(argv[4]);
-  const bool doCreateMesh = (std::stoi(argv[5]) == 1);
+  const auto onCurveAngleTol = std::atof(argv[5]);
+  const bool doCreateMesh = (std::stoi(argv[6]) == 1);
   std::cout << "input points file: " << argv[1] << " "
             << "coincidentPtTol: " << coincidentPtTol << " "
             << "output prefix: " << prefix << " "
             << "angleTol: " << angleTol << " "
+            << "onCurveAngleTol: " << onCurveAngleTol << " "
             << "createMesh: " << doCreateMesh << "\n";
 
   if (ext == ".vtk") {
