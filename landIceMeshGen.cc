@@ -674,7 +674,7 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
 }
 
 std::tuple<std::vector<int>,std::vector<int>>
-discoverTopology(GeomInfo& geom, bool debug = false) {
+discoverTopology(GeomInfo& geom, double angleTol, bool debug = false) {
   if(geom.numVtx <= 4) { // no internal contour
     return {std::vector<int>(), std::vector<int>()};
   }
@@ -688,7 +688,7 @@ discoverTopology(GeomInfo& geom, bool debug = false) {
     std::cout << "tc(270) " << TC::degreesTo(270) << "\n";
     std::cout << "tc(-120) " << TC::degreesTo(-120) << "\n";
   }
-  const double deg_angle_lower = 120;
+  const double deg_angle_lower = angleTol;
   const double deg_angle_upper = -deg_angle_lower;
   const double tc_angle_lower = TC::degreesTo(deg_angle_lower);
   const double tc_angle_upper = TC::degreesTo(deg_angle_upper);
@@ -902,32 +902,46 @@ void createFaces(ModelTopo& mdlTopo, GeomInfo& geom) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 4) {
+  if (argc != 6) {
     std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
-                 "<coincidentVtxToleranceSquared>\n";
+                 "<coincidentVtxToleranceSquared> <angleTolerance> <createMesh>\n";
     std::cerr << "coincidentVtxToleranceSquared is the mininum allowed "
                  "distance (squared) between adjacent vertices in the "
                  "input.  Vertices within the specified distance will "
                  "be merged.\n";
+    std::cerr << "angleTolerance defines the upper bound and "
+                 "-angleTolerance defines lower bound for determining "
+                 "if multiple consecutive points are part of the same "
+                 "curve.\n";
+    std::cerr << "createMesh = 1:generate mesh, otherwise, "
+                 "skip mesh generation.\n";
     return 1;
   }
-  assert(argc == 4);
+  assert(argc == 6);
 
   GeomInfo dirty;
 
   std::string filename = argv[1];
   std::string ext = getFileExtension(filename);
+  const auto coincidentPtTol = std::stof(argv[3]);
+  const auto prefix = std::string(argv[2]);
+  const auto angleTol = std::atof(argv[4]);
+  const bool doCreateMesh = (std::stoi(argv[5]) == 1);
+  std::cout << "input points file: " << argv[1] << " "
+            << "coincidentPtTol: " << coincidentPtTol << " "
+            << "output prefix: " << prefix << " "
+            << "angleTol: " << angleTol << " "
+            << "createMesh: " << doCreateMesh << "\n";
 
   if (ext == ".vtk") {
-    dirty = readVtkGeom(argv[1]);
+    dirty = readVtkGeom(filename);
   } else if (ext == ".msh") {
-    dirty = readJigGeom(argv[1]);
+    dirty = readJigGeom(filename);
   } else {
     std::cerr << "Unsupported file extension: " << ext << "\n";
     return 1;
   }
-  auto geom = cleanJigGeom(dirty, std::stof(argv[3]), true);
-  const auto prefix = std::string(argv[2]);
+  auto geom = cleanJigGeom(dirty, coincidentPtTol, true);
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
 
@@ -956,7 +970,7 @@ int main(int argc, char **argv) {
 
     createBoundingBoxGeom(mdlTopo,geom);
 
-    auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom, debug);
+    auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom, angleTol, debug);
 
     createEdges(mdlTopo, geom, isPointOnCurve, isMdlVtx, debug);
 
@@ -974,7 +988,9 @@ int main(int argc, char **argv) {
 
     GM_write(mdlTopo.model, modelFileName.c_str(), 0, 0);
 
-    createMesh(mdlTopo, meshFileName, progress);
+    if(doCreateMesh) {
+      createMesh(mdlTopo, meshFileName, progress);
+    }
 
     // cleanup
     GM_release(mdlTopo.model);
