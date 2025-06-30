@@ -972,14 +972,6 @@ int main(int argc, char **argv) {
 
     printModelInfo(mdlTopo.model);
 
-//    // The face we want to suppress has a width of 0.000567
-//    // so we use the value 0.00057 for suppression
-//    pSmallFeatureInfo smallFeats = GM_detectSmallFeatures(model,1,50,2,10,progress);
-//    GM_suppressSmallFeatures(smallFeats,progress);
-//    GM_deleteSmallFeatureInfo(smallFeats);
-//
-//    printModelInfo(model);
-
     GM_write(mdlTopo.model, modelFileName.c_str(), 0, 0);
 
     createMesh(mdlTopo, meshFileName, progress);
