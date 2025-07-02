@@ -1,27 +1,4 @@
-#include "MeshSim.h"
-#include "SimAdvModel.h"
-#include "SimDisplay.h"
-#include "SimInfo.h"
-#include "SimModel.h"
-#include "SimUtil.h"
-#include <iostream>
-#include <math.h>
-
-#include <algorithm> //[min|max]element
-#include <array>
-#include <cassert>
-#include <fstream>
-#include <iostream>
-#include <limits> //std::numeric_limits
-#include <map>
-#include <string>
-#include <tuple>
-#include <vector>
-#include <functional> //std::function
-
-#include "splineInterpolation.h"
-
-void messageHandler(int type, const char *msg);
+#include "landIceMeshGen.h"
 
 namespace TC {
 void normalize(double x, double y, double& nx, double& ny) {
@@ -78,14 +55,6 @@ struct PlaneBounds {
   double maxX;
   double minY;
   double maxY;
-};
-
-struct GeomInfo {
-  int numVtx;
-  int numEdges;
-  std::vector<double> vtx_x;
-  std::vector<double> vtx_y;
-  std::vector<std::array<int, 2>> edges;
 };
 
 std::tuple<std::string, int> readKeyValue(std::ifstream &in,
@@ -158,7 +127,7 @@ std::array<int, 2> readEdgeVtk(std::ifstream &in, bool debug = true) {
 
   return edge;
 }
-GeomInfo readVtkGeom(std::string fname, bool debug = false) {
+GeomInfo readVtkGeom(std::string fname, bool debug) {
   std::ifstream vtkFile(fname);
   if (!vtkFile.is_open()) {
     fprintf(stderr, "failed to open VTK geom file %s\n", fname.c_str());
@@ -225,7 +194,7 @@ GeomInfo readVtkGeom(std::string fname, bool debug = false) {
   return geom;
 }
 
-GeomInfo readJigGeom(std::string fname, bool debug = false) {
+GeomInfo readJigGeom(std::string fname, bool debug) {
   std::ifstream mshFile(fname);
   if (!mshFile.is_open()) {
     fprintf(stderr, "failed to open jigsaw geom file %s\n", fname.c_str());
@@ -281,12 +250,17 @@ GeomInfo readJigGeom(std::string fname, bool debug = false) {
   return geom;
 }
 
-bool isPtCoincident(double ax, double ay, double bx, double by,
-                    double tolSquared = 1) {
+double getLengthSquared(double ax, double ay, double bx, double by) {
   double xDelta = std::abs(ax - bx);
   double yDelta = std::abs(ay - by);
   double length = xDelta * xDelta + yDelta * yDelta;
-  return (length < tolSquared);
+  return length;
+}
+
+bool isPtCoincident(double ax, double ay, double bx, double by,
+                    double tolSquared = 1) {
+  const double lengthSquared = getLengthSquared(ax, ay, bx, by);
+  return (lengthSquared < tolSquared);
 }
 
 bool checkVertexUse(GeomInfo &geom, bool debug = false) {
@@ -313,7 +287,7 @@ void convertMetersToKm(GeomInfo &geom) {
 }
 
 GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
-                      bool debug = false) {
+                      bool debug) {
   assert(checkVertexUse(dirty));
   // trying to check the the dirty geom has a chain of edges
   assert(dirty.numEdges == dirty.numVtx);
@@ -389,13 +363,35 @@ std::array<double, 3> getNormal(pGEdge first, pGEdge second) {
           u[0] * v[1] - u[1] * v[0]};
 }
 
-std::string getFileExtension(const std::string &filename) {
-  size_t dotPos = filename.rfind('.');
-  if (dotPos != std::string::npos) {
-    return filename.substr(dotPos);
-  }
-  return "";
+
+
+double getPt2PtEdgeLength(pGEdge edge) {
+  pGVertex start = GE_vertex(edge, 1);
+  pGVertex end = GE_vertex(edge, 0);
+  double startPt[3];
+  GV_point(start, startPt);
+  double endPt[3];
+  GV_point(end, endPt);
+  auto lenSq = getLengthSquared(startPt[0], startPt[1], endPt[0], endPt[1]);
+  return std::sqrt(lenSq);
 }
+
+/*
+ * Fit a curve through a noisy set of points.
+ * - nP is the number of data points to fit (nP must be >= 4)
+ * - Pts is a double array of data points    e.g { p0_x, p0_y, p0_z,   p1_x, p1_y, p1_z,   p2_x, p2_y, p2_z,   ...  }
+ * - N is the number of control points for the resultant fitted curve, the minimum value is also (4)
+ * - clampedEnds If true, then force the fitted curve to have G0
+ *               continuity at first and last data point (i.e. the fitted curve must
+ *               start and end at these data points)
+ * - resultErr a pointer to double that returns the maximum fitting
+ *             error which is the normal distance of a data point to the curve.
+ *
+ * If you are fitting, say 4, 5, or 6 data points, then set N = 4.
+ * If you are fitting, say 40 points, then you probably want to set N
+ * higher, say 10.
+ */
+pCurve GM_fitCurveFixed(const int nP, const double *Pts, int N, bool clampedEnds, double *resultErr);
 
 pGEdge fitCurveToContourSimInterp(pGRegion region, pGVertex first, pGVertex last,
                          std::vector<double>& pts, bool debug=false) {
@@ -406,10 +402,26 @@ pGEdge fitCurveToContourSimInterp(pGRegion region, pGVertex first, pGVertex last
   if( numPts == 2 || numPts == 3) {
     curve = SCurve_createPiecewiseLinear(numPts, &pts[0]); //TODO - replace withe bspline?
   } else {
-    const int order = 4;
-    curve = SCurve_createInterpolatedBSpline(order, numPts, &pts[0], NULL);
+    int numCtrlPts = numPts;
+    if( numPts > 40 )
+      numCtrlPts = numPts/4.0;
+    else if( numPts > 20 )
+      numCtrlPts = numPts/3.0;
+    else if( numPts > 10 )
+      numCtrlPts = numPts/2.0;
+    bool clampedEnds = true;
+    double maxFittingError;
+    curve = GM_fitCurveFixed(numPts, &pts[0], numCtrlPts, clampedEnds, &maxFittingError);
+    if(debug) std::cerr << " numCtrlPts " << numCtrlPts << " maxFittingError " << maxFittingError << "\n";
   }
   pGEdge edge = GR_createEdge(region, first, last, curve, 1);
+  if(numPts>=4 && debug) {
+    const auto p2pLength = getPt2PtEdgeLength(edge);
+    const auto eLength = GE_length(edge);
+    if( eLength > 1.5*p2pLength ) {
+      std::cerr << "Warning: curve length " << eLength << " is more than 1.5 times longer than the end point to end point length " << p2pLength << "\n";
+    }
+  }
   return edge;
 }
 
@@ -468,19 +480,7 @@ int findStartingMdlVtx(std::vector<int>& isMdlVtx, const int offset) {
   }
 }
 
-struct ModelTopo {
-  std::vector<pGVertex> vertices;
-  std::vector<pGEdge> edges;
-  std::vector<pGFace> faces;
-  std::vector<pGEdge> faceEdges; // the array of edges connected to the face
-  std::vector<int> faceDirs; // the direction of the edge with respect to the face
-  pGRegion region;
-  pGIPart part;
-  pGModel model;
-
-};
-
-void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, bool debug=false) {
+void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, bool debug) {
   if(geom.numVtx <= 4) { // no internal contour
     return;
   }
@@ -595,7 +595,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   }
 }
 
-void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, bool debug=false) {
+void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, bool debug) {
   // TODO generalize face creation
   if (geom.numEdges > 4) {
     mdlTopo.faces.reserve(2);
@@ -684,7 +684,7 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
 }
 
 std::tuple<std::vector<int>,std::vector<int>>
-discoverTopology(GeomInfo& geom, double angleTol, double onCurveAngleTol, bool debug = false) {
+discoverTopology(GeomInfo& geom, double angleTol, double onCurveAngleTol, bool debug) {
   if(geom.numVtx <= 4) { // no internal contour
     return {std::vector<int>(), std::vector<int>()};
   }
@@ -911,139 +911,4 @@ void createFaces(ModelTopo& mdlTopo, GeomInfo& geom) {
   }
 }
 
-int main(int argc, char **argv) {
-  const int numExpectedArgs = 7;
-  if (argc != numExpectedArgs) {
-    std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
-                 "<coincidentVtxToleranceSquared> <angleTolerance> <createMesh>\n";
-    std::cerr << "coincidentVtxToleranceSquared is the mininum allowed "
-                 "distance (squared) between adjacent vertices in the "
-                 "input.  Vertices within the specified distance will "
-                 "be merged.\n";
-    std::cerr << "angleTolerance defines the upper bound and "
-                 "-angleTolerance defines lower bound for determining "
-                 "if a vertex bounding two consecutative edges should be "
-                 "treated as a model vertex.\n";
-    std::cerr << "onCurveAngleTolerance defines the upper bound on the angle "
-                 "between adjacent edges in a sequence of four consecutive edges "
-                 "used to determine if they are part of the same curve.\n";
-    std::cerr << "createMesh = 1:generate mesh, otherwise, "
-                 "skip mesh generation.\n";
-    return 1;
-  }
-  assert(argc == numExpectedArgs);
 
-  GeomInfo dirty;
-
-  std::string filename = argv[1];
-  std::string ext = getFileExtension(filename);
-  const auto coincidentPtTol = std::stof(argv[3]);
-  const auto prefix = std::string(argv[2]);
-  const auto angleTol = std::atof(argv[4]);
-  const auto onCurveAngleTol = std::atof(argv[5]);
-  const bool doCreateMesh = (std::stoi(argv[6]) == 1);
-  std::cout << "input points file: " << argv[1] << " "
-            << "coincidentPtTol: " << coincidentPtTol << " "
-            << "output prefix: " << prefix << " "
-            << "angleTol: " << angleTol << " "
-            << "onCurveAngleTol: " << onCurveAngleTol << " "
-            << "createMesh: " << doCreateMesh << "\n";
-
-  if (ext == ".vtk") {
-    dirty = readVtkGeom(filename);
-  } else if (ext == ".msh") {
-    dirty = readJigGeom(filename);
-  } else {
-    std::cerr << "Unsupported file extension: " << ext << "\n";
-    return 1;
-  }
-  convertMetersToKm(dirty);
-  auto geom = cleanGeom(dirty, coincidentPtTol, false);
-  std::string modelFileName = prefix + ".smd";
-  std::string meshFileName = prefix + ".sms";
-
-  const auto debug = false;
-
-  // You will want to place a try/catch around all SimModSuite calls,
-  // as errors are thrown.
-  try {
-    Sim_logOn("simMeshGen.log");
-    SimModel_start(); // Call before Sim_readLicenseFile
-    // NOTE: Sim_readLicenseFile() is for internal testing only.  To use,
-    // pass in the location of a file containing your keys.  For a release
-    // product, use Sim_registerKey()
-    Sim_readLicenseFile(0);
-    // Tessellation of GeomSim geometry requires Meshing to have started
-    MS_init();
-
-    Sim_setMessageHandler(messageHandler);
-    pProgress progress = Progress_new();
-    Progress_setDefaultCallback(progress);
-
-    ModelTopo mdlTopo;
-    mdlTopo.model = GM_new(1);
-    mdlTopo.part = GM_rootPart(mdlTopo.model);
-    mdlTopo.region = GIP_outerRegion(mdlTopo.part);
-
-    createBoundingBoxGeom(mdlTopo,geom);
-
-    auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom, angleTol, onCurveAngleTol, debug);
-
-    createEdges(mdlTopo, geom, isPointOnCurve, isMdlVtx, debug);
-
-    createFaces(mdlTopo, geom);
-
-    auto isValid = GM_isValid(mdlTopo.model, 2, NULL);
-    if (!isValid) {
-      fprintf(stderr, "ERROR: model is not valid... exiting\n");
-      exit(EXIT_FAILURE);
-    } else {
-      std::cout << "Model is valid.\n";
-    }
-
-    printModelInfo(mdlTopo.model);
-
-    GM_write(mdlTopo.model, modelFileName.c_str(), 0, 0);
-
-    if(doCreateMesh) {
-      createMesh(mdlTopo, meshFileName, progress);
-    }
-
-    // cleanup
-    GM_release(mdlTopo.model);
-    Progress_delete(progress);
-    MS_exit();
-    Sim_unregisterAllKeys();
-    SimModel_stop();
-    Sim_logOff();
-
-  } catch (pSimInfo err) {
-    std::cerr << "SimModSuite error caught:" << std::endl;
-    std::cerr << "  Error code: " << SimInfo_code(err) << std::endl;
-    std::cerr << "  Error string: " << SimInfo_toString(err) << std::endl;
-    SimInfo_delete(err);
-    return 1;
-  } catch (...) {
-    std::cerr << "Unhandled exception caught" << std::endl;
-    return 1;
-  }
-  return 0;
-}
-
-void messageHandler(int type, const char *msg) {
-  switch (type) {
-  case Sim_InfoMsg:
-    std::cout << "Info: " << msg << std::endl;
-    break;
-  case Sim_DebugMsg:
-    std::cout << "Debug: " << msg << std::endl;
-    break;
-  case Sim_WarningMsg:
-    std::cout << "Warning: " << msg << std::endl;
-    break;
-  case Sim_ErrorMsg:
-    std::cout << "Error: " << msg << std::endl;
-    break;
-  }
-  return;
-}
