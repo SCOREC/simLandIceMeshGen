@@ -987,7 +987,7 @@ int main(int argc, char **argv) {
 
     createBoundingBoxGeom(mdlTopo,geom);
 
-    auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom, angleTol, debug);
+    auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom, angleTol, onCurveAngleTol, debug);
 
     createEdges(mdlTopo, geom, isPointOnCurve, isMdlVtx, debug);
 
