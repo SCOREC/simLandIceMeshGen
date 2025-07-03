@@ -73,6 +73,8 @@ add_test(NAME edge522
 
 addExe(testOnCurve)
 target_link_libraries(testOnCurve PRIVATE curveReader)
+add_test(NAME onCurve_edge522
+  COMMAND ./testOnCurve ${testDataDir}/testEdge522.csv 4 0 30)
 
 addExe(testSplineFitting)
 add_test(NAME testSplineFitting_single_edge

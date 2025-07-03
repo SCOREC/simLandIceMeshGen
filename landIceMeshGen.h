@@ -61,4 +61,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
 void createFaces(ModelTopo& mdlTopo, GeomInfo& geom);
 void printModelInfo(pGModel model);
 void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress);
+
+typedef std::array<double,3> Point;
+int onCurve(Point& pt1, Point& pt2, Point& pt3, Point& pt4, Point& pt5, double onCurveAngleTol=30);
 #endif

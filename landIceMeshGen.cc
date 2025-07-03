@@ -438,9 +438,8 @@ void printModelInfo(pGModel model) {
     << std::endl;
 }
 
-typedef std::array<double,3> Point;
 //from scorec/tomms @ 2f97d13 (simapis-mod branch)
-int onCurve(Point& pt1, Point& pt2, Point& pt3, Point& pt4, Point& pt5, double onCurveAngleTol=30) {
+int onCurve(Point& pt1, Point& pt2, Point& pt3, Point& pt4, Point& pt5, double onCurveAngleTol) {
   // Define the vector between two points by using the relation [x2-x1, y2-y1]
   const double vec1[] = {pt1[0]-pt2[0], pt1[1]-pt2[1]}; // Vector between point 1 and 2
   const double vec2[] = {pt3[0]-pt2[0], pt3[1]-pt2[1]}; // Vector between point 2 and 3
