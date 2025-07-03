@@ -545,6 +545,21 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     ptsOnCurve.push_back(pt);
     return psa{State::OnCurve,Action::Advance};
   };
+  func createLineAndStartCurve = [&](int pt) {
+    assert(ptsOnCurve.size() == 1);
+    auto ignored = createCurve(pt);
+    return psa{State::OnCurve,Action::Line};
+  };
+  func createCurveFromPriorPt = [&](int pt) {
+    //we are not adding the current point yet, so there must be
+    //at least two points in the list to form a curve
+    assert(ptsOnCurve.size() >= 2);
+    auto ignored = createCurve(ptsOnCurve.back());
+    auto ret = createLine(pt);
+    return ret;
+  };
+
+
   func fail = [&](int pt) {
     std::cerr << "bad state.... exiting\n";
     exit(EXIT_FAILURE);
@@ -553,11 +568,11 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   typedef std::pair<State,State> pss; // current state, next state
   std::map<pss,func> machine = {
     {{State::MdlVtx,State::MdlVtx}, createLine},
-    {{State::MdlVtx,State::OnCurve}, advance},
+    {{State::MdlVtx,State::OnCurve}, createLineAndStartCurve},
     {{State::MdlVtx,State::NotOnCurve}, createLine},
     {{State::OnCurve,State::MdlVtx}, createCurve},
     {{State::OnCurve,State::OnCurve}, advance},
-    {{State::OnCurve,State::NotOnCurve}, createCurve},
+    {{State::OnCurve,State::NotOnCurve}, createCurveFromPriorPt},
     {{State::NotOnCurve,State::MdlVtx}, fail},
     {{State::NotOnCurve,State::OnCurve}, fail},
     {{State::NotOnCurve,State::NotOnCurve}, fail}
