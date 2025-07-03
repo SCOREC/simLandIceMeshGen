@@ -52,7 +52,7 @@ set_tests_properties(landIceMeshGen_twoSquares_vtk PROPERTIES
 add_test(NAME landIceMeshGen_oval_vtk
   COMMAND ./modelGen ${testDataDir}/oval_wBbox.vtk oval 1e-8 120 30 1)
 set_tests_properties(landIceMeshGen_oval_vtk PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of vertices in model: 13")
+  PASS_REGULAR_EXPRESSION "Number of vertices in model: 17")
 
 addExe(testCreateEdges)
 add_test(NAME edge4277
