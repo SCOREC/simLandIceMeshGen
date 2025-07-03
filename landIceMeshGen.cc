@@ -409,6 +409,8 @@ pGEdge fitCurveToContourSimInterp(pGRegion region, pGVertex first, pGVertex last
       numCtrlPts = numPts/3.0;
     else if( numPts > 10 )
       numCtrlPts = numPts/2.0;
+    else if( numPts >= 4 )
+      numCtrlPts = 4;
     bool clampedEnds = true;
     double maxFittingError;
     curve = GM_fitCurveFixed(numPts, &pts[0], numCtrlPts, clampedEnds, &maxFittingError);
