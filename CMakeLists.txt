@@ -55,12 +55,15 @@ set_tests_properties(landIceMeshGen_oval_vtk PROPERTIES
   PASS_REGULAR_EXPRESSION "Number of vertices in model: 17")
 
 addExe(testCreateEdges)
-add_test(NAME edge4277
-  COMMAND ./testCreateEdges ${testDataDir}/testCurve4277.csv edge4277)
-set_tests_properties(edge4277 PROPERTIES
+add_test(NAME curve4277
+  COMMAND ./testCreateEdges ${testDataDir}/testCurve4277.csv curve4277)
+set_tests_properties(curve4277 PROPERTIES
   PASS_REGULAR_EXPRESSION "Number of vertices in model: 6")
-set_tests_properties(edge4277 PROPERTIES
+set_tests_properties(curve4277 PROPERTIES
   PASS_REGULAR_EXPRESSION "Number of edges in model: 6")
+
+add_test(NAME edge522
+  COMMAND ./testCreateEdges ${testDataDir}/testEdge522.csv edge522)
 
 addExe(testCurveCreation)
 
