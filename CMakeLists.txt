@@ -8,6 +8,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 find_package(SimModSuite MODULE REQUIRED)
 find_package(BLAS REQUIRED)
 
+
 add_library(splineInterp splineInterpolation.cc BSpline.cc Expression.cc PolyNomial.cc)
 target_link_libraries(splineInterp PRIVATE BLAS::BLAS)
 
@@ -54,7 +55,12 @@ add_test(NAME landIceMeshGen_oval_vtk
 set_tests_properties(landIceMeshGen_oval_vtk PROPERTIES
   PASS_REGULAR_EXPRESSION "Number of vertices in model: 17")
 
+add_library(curveReader curveReader.cc)
+target_include_directories(curveReader PUBLIC ${CURRENT_CMAKE_SOURCE_DIR})
+
 addExe(testCreateEdges)
+target_link_libraries(testCreateEdges PRIVATE curveReader)
+
 add_test(NAME curve4277
   COMMAND ./testCreateEdges ${testDataDir}/testCurve4277.csv curve4277)
 set_tests_properties(curve4277 PROPERTIES
@@ -65,7 +71,8 @@ set_tests_properties(curve4277 PROPERTIES
 add_test(NAME edge522
   COMMAND ./testCreateEdges ${testDataDir}/testEdge522.csv edge522)
 
-addExe(testCurveCreation)
+addExe(testOnCurve)
+target_link_libraries(testOnCurve PRIVATE curveReader)
 
 addExe(testSplineFitting)
 add_test(NAME testSplineFitting_single_edge
