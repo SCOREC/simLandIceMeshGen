@@ -440,11 +440,13 @@ void printModelInfo(pGModel model) {
 
 //similar to scorec/tomms @ 2f97d13 (simapis-mod branch)
 int onCurve(double tc_m1, double tc, double tc_p1, double onCurveAngleTol) {
-  const auto tcTol_max = TC::degreesTo(onCurveAngleTol);
-  const auto tcTol_min = -tcTol_max;
-  if ((tc_m1>tcTol_min) && (tc_m1<tcTol_max) &&
-      (tc   >tcTol_min) && (tc   <tcTol_max) &&
-      (tc_p1>tcTol_min) && (tc_p1<tcTol_max)) {
+  const double deg_angle_lower = onCurveAngleTol;
+  const double deg_angle_upper = -onCurveAngleTol;
+  const double tc_angle_lower = TC::degreesTo(deg_angle_lower);
+  const double tc_angle_upper = TC::degreesTo(deg_angle_upper);
+  if ((tc_m1>tc_angle_lower) && (tc_m1<tc_angle_upper) &&
+      (tc   >tc_angle_lower) && (tc   <tc_angle_upper) &&
+      (tc_p1>tc_angle_lower) && (tc_p1<tc_angle_upper)) {
     return 1;
   } else {
     return 0;
@@ -717,48 +719,36 @@ discoverTopology(GeomInfo& geom, double angleTol, double onCurveAngleTol, bool d
     isMdlVtx.push_back(1); //hack - all model verts
     isPointOnCurve.push_back(0); //hack - not on curve
   }
-  //first point
-  const double norm_prev_x = geom.vtx_x.back() - geom.vtx_x[0];
-  const double norm_prev_y = geom.vtx_y.back() - geom.vtx_y[0];
-  const double norm_next_x = geom.vtx_x[1] - geom.vtx_x[0];
-  const double norm_next_y = geom.vtx_y[1] - geom.vtx_y[0];
-  const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
-  angle.push_back(tc_angle);
-  isMdlVtx.push_back(tc_angle < tc_angle_lower || tc_angle > tc_angle_upper);
-  for(int i=5; i<=geom.numVtx; i++) {
-    if(i+1 < geom.numVtx ) {
-      const double norm_prev_x = geom.vtx_x[i-1] - geom.vtx_x[i];
-      const double norm_prev_y = geom.vtx_y[i-1] - geom.vtx_y[i];
-      const double norm_next_x = geom.vtx_x[i+1] - geom.vtx_x[i];
-      const double norm_next_y = geom.vtx_y[i+1] - geom.vtx_y[i];
-      const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
-      angle.push_back(tc_angle);
-      isMdlVtx.push_back(tc_angle < tc_angle_lower || tc_angle > tc_angle_upper);
+
+  //compute angle and determine if each pt is a model vertex
+  for(int i=4; i<geom.numVtx; i++) {
+    int m1 = i-1;
+    int p1 = i+1;
+    if (i == 4) { //first point
+      m1 = geom.numVtx - 1;
+    } else if ( i == geom.numVtx-1 ) { //last point
+      p1 = 4;
     }
-  }
-  //last point
-  {
-    const int last = geom.numVtx-4-1;
-    const double norm_prev_x = geom.vtx_x[last-1] - geom.vtx_x[last];
-    const double norm_prev_y = geom.vtx_y[last-1] - geom.vtx_y[last];
-    const double norm_next_x = geom.vtx_x[0] - geom.vtx_x[last];
-    const double norm_next_y = geom.vtx_y[0] - geom.vtx_y[last];
+    const double norm_prev_x = geom.vtx_x[m1] - geom.vtx_x[i];
+    const double norm_prev_y = geom.vtx_y[m1] - geom.vtx_y[i];
+    const double norm_next_x = geom.vtx_x[p1] - geom.vtx_x[i];
+    const double norm_next_y = geom.vtx_y[p1] - geom.vtx_y[i];
     const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
     angle.push_back(tc_angle);
     isMdlVtx.push_back(tc_angle < tc_angle_lower || tc_angle > tc_angle_upper);
   }
 
-  int mycnt=0;
   for (int j = 4;j < geom.numVtx; ++j) {
-    mycnt++;
-    if (j < (4+2) || j >= geom.numVtx-2) {
-      isPointOnCurve.push_back(0); //FIXME - wrap around when checking the first/last points
-      continue;
+    int m1 = j-1;
+    int p1 = j+1;
+    if (j == 4) { //first point
+      m1 = geom.numVtx - 1;
+    } else if ( j == geom.numVtx-1 ) { //last point
+      p1 = 4;
     }
-
-    const double tc_m1 = angle.at(j-1);
+    const double tc_m1 = angle.at(m1);
     const double tc = angle.at(j);
-    const double tc_p1 = angle.at(j+1);
+    const double tc_p1 = angle.at(p1);
     const auto on = onCurve(tc_m1, tc, tc_p1, onCurveAngleTol);
     isPointOnCurve.push_back(on);
   }
