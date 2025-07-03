@@ -37,6 +37,7 @@ void CurveReader::printCurveInfo(CurveInfo& c) {
   printVec("y", c.y);
   printVec("isOnCurve", c.isOnCurve);
   printVec("isMdlVtx", c.isMdlVtx);
+  printVec("tcAngle", c.tcAngle);
 }
 
 CurveReader::CurveInfo CurveReader::readCurveInfo(const std::string& filename) {
@@ -60,7 +61,7 @@ CurveReader::CurveInfo CurveReader::readCurveInfo(const std::string& filename) {
     std::getline(ss, token, ','); c.y.push_back(std::stod(token));
     std::getline(ss, token, ','); ignored = std::stod(token); //z
     std::getline(ss, token, ','); c.isOnCurve.push_back(parseBool(trim(token)));
-    std::getline(ss, token, ','); ignored = std::stod(token); //angle
+    std::getline(ss, token, ','); c.tcAngle.push_back(std::stod(token));
     std::getline(ss, token, ','); c.isMdlVtx.push_back(parseBool(trim(token)));
   }
 

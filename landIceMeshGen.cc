@@ -438,32 +438,13 @@ void printModelInfo(pGModel model) {
     << std::endl;
 }
 
-//from scorec/tomms @ 2f97d13 (simapis-mod branch)
-int onCurve(Point& pt1, Point& pt2, Point& pt3, Point& pt4, Point& pt5, double onCurveAngleTol) {
-  // Define the vector between two points by using the relation [x2-x1, y2-y1]
-  const double vec1[] = {pt1[0]-pt2[0], pt1[1]-pt2[1]}; // Vector between point 1 and 2
-  const double vec2[] = {pt3[0]-pt2[0], pt3[1]-pt2[1]}; // Vector between point 2 and 3
-  const double vec3[] = {pt4[0]-pt3[0], pt4[1]-pt3[1]}; // Vector between point 3 and 4
-  const double vec4[] = {pt5[0]-pt4[0], pt5[1]-pt4[1]}; // Vector between point 4 and 5
-  // Find the length of the vectors by using the relation [square root(x1*x1 + y1*y1)]
-  const double len1 = std::sqrt(vec1[0]*vec1[0]+vec1[1]*vec1[1]);  // Length of Edge 1
-  const double len2 = std::sqrt(vec2[0]*vec2[0]+vec2[1]*vec2[1]);  // Length of Edge 2
-  const double len3 = std::sqrt(vec3[0]*vec3[0]+vec3[1]*vec3[1]);  // Length of Edge 3
-  const double len4 = std::sqrt(vec4[0]*vec4[0]+vec4[1]*vec4[1]);  // Length of Edge 4
-  // Once the absolute lengths are calculated, the next step is to use the cross product to find the Sin of angles between two edges.
-  // vector1 x vector2 = |length1||length2| Sinθ
-  // Sinθ = (vector1 x vector2)/(|length1||length2|)
-  const double sin_angle1 = std::fabs(vec1[0]*vec2[1]-vec1[1]*vec2[0])/(len1*len2);   // Edge Angle between edge 1 and 2
-  const double sin_angle2 = std::fabs(vec2[0]*vec3[1]-vec2[1]*vec3[0])/(len2*len3);   // Edge Angle between edge 2 and 3
-  const double sin_angle3 = std::fabs(vec3[0]*vec4[1]-vec3[1]*vec4[0])/(len3*len4);   // Edge Angle between edge 3 and 4
-  // Convert sin_angles to angle theta
-  const double pi = 3.14159265;
-  const double theta1 = asin (sin_angle1)* 180.0/pi;
-  const double theta2 = asin (sin_angle2)* 180.0/pi;
-  const double theta3 = asin (sin_angle3)* 180.0/pi;
-  if ((theta1>0) && (theta1<onCurveAngleTol) && 
-      (theta2>0) && (theta2<onCurveAngleTol) && 
-      (theta3>0) && (theta3<onCurveAngleTol)) {
+//similar to scorec/tomms @ 2f97d13 (simapis-mod branch)
+int onCurve(double tc_m1, double tc, double tc_p1, double onCurveAngleTol) {
+  const auto tcTol_max = TC::degreesTo(onCurveAngleTol);
+  const auto tcTol_min = -tcTol_max;
+  if ((tc_m1>tcTol_min) && (tc_m1<tcTol_max) &&
+      (tc   >tcTol_min) && (tc   <tcTol_max) &&
+      (tc_p1>tcTol_min) && (tc_p1<tcTol_max)) {
     return 1;
   } else {
     return 0;
@@ -771,16 +752,14 @@ discoverTopology(GeomInfo& geom, double angleTol, double onCurveAngleTol, bool d
   for (int j = 4;j < geom.numVtx; ++j) {
     mycnt++;
     if (j < (4+2) || j >= geom.numVtx-2) {
-      isPointOnCurve.push_back(0);
+      isPointOnCurve.push_back(0); //FIXME - wrap around when checking the first/last points
       continue;
     }
 
-    Point m2{geom.vtx_x.at(j-2), geom.vtx_y.at(j-2), 0.0};
-    Point m1{geom.vtx_x.at(j-1), geom.vtx_y.at(j-1), 0.0};
-    Point m0{geom.vtx_x.at(j),   geom.vtx_y.at(j),   0.0};
-    Point p1{geom.vtx_x.at(j+1), geom.vtx_y.at(j+1), 0.0};
-    Point p2{geom.vtx_x.at(j+2), geom.vtx_y.at(j+2), 0.0};
-    const auto on = onCurve(m2, m1, m0, p1, p2, onCurveAngleTol);
+    const double tc_m1 = angle.at(j-1);
+    const double tc = angle.at(j);
+    const double tc_p1 = angle.at(j+1);
+    const auto on = onCurve(tc_m1, tc, tc_p1, onCurveAngleTol);
     isPointOnCurve.push_back(on);
   }
 

@@ -8,6 +8,7 @@ struct CurveInfo {
     std::vector<double> y;
     std::vector<int> isOnCurve;
     std::vector<int> isMdlVtx;
+    std::vector<double> tcAngle;
 };
 
 CurveInfo readCurveInfo(const std::string& filename);
