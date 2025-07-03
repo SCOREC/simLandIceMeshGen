@@ -51,7 +51,7 @@ set_tests_properties(landIceMeshGen_twoSquares_vtk PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
 
 add_test(NAME landIceMeshGen_oval_vtk
-  COMMAND ./modelGen ${testDataDir}/oval_wBbox.vtk oval 1e-8 120 30 1)
+  COMMAND ./modelGen ${testDataDir}/oval_wBbox.vtk oval 1e-8 120 120 1)
 set_tests_properties(landIceMeshGen_oval_vtk PROPERTIES
   PASS_REGULAR_EXPRESSION "Number of vertices in model: 17")
 
@@ -74,7 +74,7 @@ add_test(NAME edge522
 addExe(testOnCurve)
 target_link_libraries(testOnCurve PRIVATE curveReader)
 add_test(NAME onCurve_edge522
-  COMMAND ./testOnCurve ${testDataDir}/testEdge522.csv 4 0 30)
+  COMMAND ./testOnCurve ${testDataDir}/testEdge522.csv 4 0 150)
 
 addExe(testSplineFitting)
 add_test(NAME testSplineFitting_single_edge
