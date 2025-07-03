@@ -55,6 +55,8 @@ set_tests_properties(landIceMeshGen_oval_vtk PROPERTIES
   PASS_REGULAR_EXPRESSION "Number of vertices in model: 13")
 
 addExe(testCreateEdges)
+add_test(NAME edge4277
+  COMMAND ./testCreateEdges ${testDataDir}/testCurve4277.csv edge4277)
 
 addExe(testCurveCreation)
 
