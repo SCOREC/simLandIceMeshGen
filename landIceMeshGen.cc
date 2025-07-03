@@ -480,8 +480,8 @@ int findStartingMdlVtx(std::vector<int>& isMdlVtx, const int offset) {
   }
 }
 
-void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, bool debug) {
-  if(geom.numVtx <= 4) { // no internal contour
+void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug, const int firstContourPt) {
+  if(geom.numVtx <= firstContourPt) { // no internal contour
     return;
   }
   enum class State {MdlVtx = 0, OnCurve = 1, NotOnCurve = 2};
@@ -563,7 +563,6 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     {{State::NotOnCurve,State::NotOnCurve}, fail}
   };
 
-  const int firstContourPt = 4;
   startingCurvePtIdx = findStartingMdlVtx(isMdlVtx, firstContourPt);
   double vtx[3] = {geom.vtx_x[startingCurvePtIdx], geom.vtx_y[startingCurvePtIdx], 0};
   firstMdlVtx = startingMdlVtx = GR_createVertex(mdlTopo.region, vtx);

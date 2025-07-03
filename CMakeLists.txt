@@ -54,6 +54,7 @@ add_test(NAME landIceMeshGen_oval_vtk
 set_tests_properties(landIceMeshGen_oval_vtk PROPERTIES
   PASS_REGULAR_EXPRESSION "Number of vertices in model: 13")
 
+addExe(testCreateEdges)
 
 addExe(testCurveCreation)
 

@@ -57,7 +57,7 @@ void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, bool debug=false)
 
 std::tuple<std::vector<int>,std::vector<int>>
 discoverTopology(GeomInfo& geom, double angleTol, double onCurveAngleTol, bool debug = false);
-void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, bool debug=false);
+void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug=false, const int firstContourPt=4);
 void createFaces(ModelTopo& mdlTopo, GeomInfo& geom);
 void printModelInfo(pGModel model);
 void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress);
