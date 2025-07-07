@@ -535,12 +535,18 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     return psa{State::OnCurve,Action::Line};
   };
   func createCurveFromPriorPt = [&](int pt) {
-    //we are not adding the current point yet, so there must be
-    //at least two points in the list to form a curve
-    assert(ptsOnCurve.size() >= 2);
-    auto ignored = createCurve(ptsOnCurve.back());
-    auto ret = createLine(pt);
-    return ret;
+    if(ptsOnCurve.size() == 1 ) {
+      return createLine(pt);
+    } else if (ptsOnCurve.size() >= 2 ) {
+      //we are not adding the current point yet, so there must be
+      //at least two points in the list to form a curve
+      auto ignored = createCurve(ptsOnCurve.back());
+      auto ret = createLine(pt);
+      return ret;
+    } else {
+      std::cerr << "createCurveFromPriorPt: no points on the curve.... exiting\n";
+      exit(EXIT_FAILURE);
+    }
   };
 
 
