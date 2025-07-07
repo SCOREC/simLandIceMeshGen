@@ -1,26 +1,4 @@
-#include "MeshSim.h"
-#include "SimAdvModel.h"
-#include "SimDisplay.h"
-#include "SimInfo.h"
-#include "SimModel.h"
-#include "SimUtil.h"
-#include <iostream>
-#include <math.h>
-
-#include <algorithm> //[min|max]element
-#include <array>
-#include <cassert>
-#include <fstream>
-#include <iostream>
-#include <limits> //std::numeric_limits
-#include <map>
-#include <string>
-#include <tuple>
-#include <vector>
-
-#include "splineInterpolation.h"
-
-void messageHandler(int type, const char *msg);
+#include "landIceMeshGen.h"
 
 namespace TC {
 void normalize(double x, double y, double& nx, double& ny) {
@@ -77,14 +55,6 @@ struct PlaneBounds {
   double maxX;
   double minY;
   double maxY;
-};
-
-struct GeomInfo {
-  int numVtx;
-  int numEdges;
-  std::vector<double> vtx_x;
-  std::vector<double> vtx_y;
-  std::vector<std::array<int, 2>> edges;
 };
 
 std::tuple<std::string, int> readKeyValue(std::ifstream &in,
@@ -157,7 +127,7 @@ std::array<int, 2> readEdgeVtk(std::ifstream &in, bool debug = true) {
 
   return edge;
 }
-GeomInfo readVtkGeom(std::string fname, bool debug = false) {
+GeomInfo readVtkGeom(std::string fname, bool debug) {
   std::ifstream vtkFile(fname);
   if (!vtkFile.is_open()) {
     fprintf(stderr, "failed to open VTK geom file %s\n", fname.c_str());
@@ -224,7 +194,7 @@ GeomInfo readVtkGeom(std::string fname, bool debug = false) {
   return geom;
 }
 
-GeomInfo readJigGeom(std::string fname, bool debug = false) {
+GeomInfo readJigGeom(std::string fname, bool debug) {
   std::ifstream mshFile(fname);
   if (!mshFile.is_open()) {
     fprintf(stderr, "failed to open jigsaw geom file %s\n", fname.c_str());
@@ -280,12 +250,17 @@ GeomInfo readJigGeom(std::string fname, bool debug = false) {
   return geom;
 }
 
-bool isPtCoincident(double ax, double ay, double bx, double by,
-                    double tolSquared = 1) {
+double getLengthSquared(double ax, double ay, double bx, double by) {
   double xDelta = std::abs(ax - bx);
   double yDelta = std::abs(ay - by);
   double length = xDelta * xDelta + yDelta * yDelta;
-  return (length < tolSquared);
+  return length;
+}
+
+bool isPtCoincident(double ax, double ay, double bx, double by,
+                    double tolSquared = 1) {
+  const double lengthSquared = getLengthSquared(ax, ay, bx, by);
+  return (lengthSquared < tolSquared);
 }
 
 bool checkVertexUse(GeomInfo &geom, bool debug = false) {
@@ -306,8 +281,13 @@ bool checkVertexUse(GeomInfo &geom, bool debug = false) {
   return isOk;
 }
 
-GeomInfo cleanJigGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
-                      bool debug = false) {
+void convertMetersToKm(GeomInfo &geom) {
+  std::transform(geom.vtx_x.cbegin(), geom.vtx_x.cend(), geom.vtx_x.begin(), [](double v) { return v * 0.001; });
+  std::transform(geom.vtx_y.cbegin(), geom.vtx_y.cend(), geom.vtx_y.begin(), [](double v) { return v * 0.001; });
+}
+
+GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
+                      bool debug) {
   assert(checkVertexUse(dirty));
   // trying to check the the dirty geom has a chain of edges
   assert(dirty.numEdges == dirty.numVtx);
@@ -316,6 +296,7 @@ GeomInfo cleanJigGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
   // the remaining edges form a loop
   assert(dirty.edges[4][0] == dirty.edges[dirty.numEdges - 1][1]);
 
+  int numPtsRemoved = 0;
   GeomInfo clean;
   clean.vtx_x.reserve(dirty.numVtx);
   clean.vtx_y.reserve(dirty.numVtx);
@@ -330,6 +311,7 @@ GeomInfo cleanJigGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
       clean.vtx_x.push_back(dirty.vtx_x[i]);
       clean.vtx_y.push_back(dirty.vtx_y[i]);
     } else {
+      numPtsRemoved++;
       if (debug) {
         std::cout << "coincident pt " << i - 1 << " (" << dirty.vtx_x[i - 1]
                   << ", " << dirty.vtx_y[i - 1] << ") " << i << " ("
@@ -338,6 +320,7 @@ GeomInfo cleanJigGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
     }
   }
   clean.numVtx = clean.vtx_x.size();
+  std::cout << "removed " << numPtsRemoved << " coincident points\n";
 
   // loops have an equal number of verts and edges
   assert(dirty.numVtx >= 4); // there must be a bounding box
@@ -380,394 +363,542 @@ std::array<double, 3> getNormal(pGEdge first, pGEdge second) {
           u[0] * v[1] - u[1] * v[0]};
 }
 
-std::string getFileExtension(const std::string &filename) {
-  size_t dotPos = filename.rfind('.');
-  if (dotPos != std::string::npos) {
-    return filename.substr(dotPos);
-  }
-  return "";
+
+
+double getPt2PtEdgeLength(pGEdge edge) {
+  pGVertex start = GE_vertex(edge, 1);
+  pGVertex end = GE_vertex(edge, 0);
+  double startPt[3];
+  GV_point(start, startPt);
+  double endPt[3];
+  GV_point(end, endPt);
+  auto lenSq = getLengthSquared(startPt[0], startPt[1], endPt[0], endPt[1]);
+  return std::sqrt(lenSq);
 }
 
-pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const int numPts, std::vector<double>& pts) {
-  auto curve = SCurve_createPiecewiseLinear(numPts, pts.data());
+/*
+ * Fit a curve through a noisy set of points.
+ * - nP is the number of data points to fit (nP must be >= 4)
+ * - Pts is a double array of data points    e.g { p0_x, p0_y, p0_z,   p1_x, p1_y, p1_z,   p2_x, p2_y, p2_z,   ...  }
+ * - N is the number of control points for the resultant fitted curve, the minimum value is also (4)
+ * - clampedEnds If true, then force the fitted curve to have G0
+ *               continuity at first and last data point (i.e. the fitted curve must
+ *               start and end at these data points)
+ * - resultErr a pointer to double that returns the maximum fitting
+ *             error which is the normal distance of a data point to the curve.
+ *
+ * If you are fitting, say 4, 5, or 6 data points, then set N = 4.
+ * If you are fitting, say 40 points, then you probably want to set N
+ * higher, say 10.
+ */
+pCurve GM_fitCurveFixed(const int nP, const double *Pts, int N, bool clampedEnds, double *resultErr);
+
+pGEdge fitCurveToContourSimInterp(pGRegion region, pGVertex first, pGVertex last,
+                         std::vector<double>& pts, bool debug=false) {
+  assert(pts.size() % 3 == 0);
+  const int numPts = pts.size()/3;
+  assert(numPts > 1);
+  pCurve curve;
+  if( numPts == 2 || numPts == 3) {
+    curve = SCurve_createPiecewiseLinear(numPts, &pts[0]); //TODO - replace withe bspline?
+  } else {
+    int numCtrlPts = numPts;
+    if( numPts > 40 )
+      numCtrlPts = numPts/4.0;
+    else if( numPts > 20 )
+      numCtrlPts = numPts/3.0;
+    else if( numPts > 10 )
+      numCtrlPts = numPts/2.0;
+    else if( numPts >= 4 )
+      numCtrlPts = 4;
+    bool clampedEnds = true;
+    double maxFittingError;
+    curve = GM_fitCurveFixed(numPts, &pts[0], numCtrlPts, clampedEnds, &maxFittingError);
+    if(debug) std::cerr << " numCtrlPts " << numCtrlPts << " maxFittingError " << maxFittingError << "\n";
+  }
   pGEdge edge = GR_createEdge(region, first, last, curve, 1);
+  if(numPts>=4 && debug) {
+    const auto p2pLength = getPt2PtEdgeLength(edge);
+    const auto eLength = GE_length(edge);
+    if( eLength > 1.5*p2pLength ) {
+      std::cerr << "Warning: curve length " << eLength << " is more than 1.5 times longer than the end point to end point length " << p2pLength << "\n";
+    }
+  }
   return edge;
 }
 
-int main(int argc, char **argv) {
-  if (argc != 5) {
-    std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
-                 "<coincidentVtxToleranceSquared> <stride>\n";
-    std::cerr << "coincidentVtxToleranceSquared is the mininum allowed "
-                 "distance (squared) between adjacent vertices in the "
-                 "input.  Vertices within the specified distance will "
-                 "be merged.\n";
-    std::cerr << "stride defines the maximum number of points to be "
-                 "used to define a single geometric model edge.\n"
-                 "  A stride less than 1 is invalid.\n"
-                 "  A stride of 1 will create one edge per point "
-                 "where edge i will be defined by points i-1 "
-                 "and i.\n"
-                 "  A stride of N will create one edge for sequences of "
-                 "N points.  It the number of points is not evenly "
-                 "divisible by N then the last edge will contain the "
-                 "remaining points.\n";
+void printModelInfo(pGModel model) {
+  std::cout << "Number of vertices in model: " << GM_numVertices(model)
+    << std::endl;
+  std::cout << "Number of edges in model: " << GM_numEdges(model)
+    << std::endl;
+  std::cout << "Number of faces in model: " << GM_numFaces(model)
+    << std::endl;
+  std::cout << "Number of regions in model: " << GM_numRegions(model)
+    << std::endl;
+}
+
+//similar to scorec/tomms @ 2f97d13 (simapis-mod branch)
+int onCurve(double tc_m1, double tc, double tc_p1, double onCurveAngleTol) {
+  const double deg_angle_lower = onCurveAngleTol;
+  const double deg_angle_upper = -onCurveAngleTol;
+  const double tc_angle_lower = TC::degreesTo(deg_angle_lower);
+  const double tc_angle_upper = TC::degreesTo(deg_angle_upper);
+  if ((tc_m1>tc_angle_lower) && (tc_m1<tc_angle_upper) &&
+      (tc   >tc_angle_lower) && (tc   <tc_angle_upper) &&
+      (tc_p1>tc_angle_lower) && (tc_p1<tc_angle_upper)) {
     return 1;
-  }
-  assert(argc == 5);
-
-  GeomInfo dirty;
-  pGVertex *vertices; // array to store the returned model vertices
-  pGFace *faces;      // array to store the returned model faces
-  pGRegion region;    // pointer to returned model region
-  pGIPart part;
-  pGModel model; // pointer to the complete model
-
-  std::string filename = argv[1];
-  std::string ext = getFileExtension(filename);
-
-  if (ext == ".vtk") {
-    dirty = readVtkGeom(argv[1]);
-  } else if (ext == ".msh") {
-    dirty = readJigGeom(argv[1]);
   } else {
-    std::cerr << "Unsupported file extension: " << ext << "\n";
-    return 1;
+    return 0;
   }
-  auto geom = cleanJigGeom(dirty, std::stof(argv[3]), true);
-  const auto prefix = std::string(argv[2]);
-  std::string modelFileName = prefix + ".smd";
-  std::string meshFileName = prefix + ".sms";
+}
 
-  const auto debug = false;
+int findStartingMdlVtx(std::vector<int>& isMdlVtx, const int offset) {
+  const int mdlVtx = 1;
+  auto it = std::find(isMdlVtx.begin()+offset, isMdlVtx.end(), mdlVtx);
+  if( it == isMdlVtx.end()) {
+    exit(EXIT_FAILURE);
+    return -1;
+  } else {
+    return it - isMdlVtx.begin();
+  }
+}
 
-  // You will want to place a try/catch around all SimModSuite calls,
-  // as errors are thrown.
-  try {
-    Sim_logOn("simMeshGen.log");
-    SimModel_start(); // Call before Sim_readLicenseFile
-    // NOTE: Sim_readLicenseFile() is for internal testing only.  To use,
-    // pass in the location of a file containing your keys.  For a release
-    // product, use Sim_registerKey()
-    Sim_readLicenseFile(0);
-    // Tessellation of GeomSim geometry requires Meshing to have started
-    MS_init();
+void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug, const int firstContourPt) {
+  if(geom.numVtx <= firstContourPt) { // no internal contour
+    return;
+  }
+  enum class State {MdlVtx = 0, OnCurve = 1, NotOnCurve = 2};
+  enum class Action {Init, Advance, Line, Curve};
+  typedef std::pair<State,Action> psa; // next state, action
+  using func=std::function<psa(int pt)>;
 
-    Sim_setMessageHandler(messageHandler);
-    pProgress progress = Progress_new();
-    Progress_setDefaultCallback(progress);
-
-    model = GM_new(1);
-    part = GM_rootPart(model);
-    region = GIP_outerRegion(part);
-
-    vertices = new pGVertex[4];
-
-    // TODO generalize face creation
-    if (geom.numEdges > 4) {
-      faces = new pGFace[2];
+  pGVertex firstMdlVtx;
+  int startingCurvePtIdx;
+  pGVertex startingMdlVtx;
+  std::vector<int> ptsOnCurve;
+  func createCurve = [&](int pt) {
+    double vtx[3] = {geom.vtx_x[pt], geom.vtx_y[pt], 0};
+    pGVertex endMdlVtx;
+    if(startingCurvePtIdx > pt) { //wrap around
+      endMdlVtx = firstMdlVtx;
     } else {
-      faces = new pGFace[1];
+      endMdlVtx = GR_createVertex(mdlTopo.region, vtx);
+      mdlTopo.vertices.push_back(endMdlVtx);
     }
 
-    // First we'll add the vertices
-    int i;
-    for (i = 0; i < 4; i++) {
-      double vtx[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
-      vertices[i] = GR_createVertex(region, vtx);
-      if (debug)
-        std::cout << "vtx " << i << " (" << vtx[0] << " , " << vtx[1] << ")\n";
+    ptsOnCurve.push_back(pt);
+    std::vector<double> pts(ptsOnCurve.size()*3);
+    for(int i=0, j = 0; j<ptsOnCurve.size(); j++, i+=3) {
+      const int ptIdx = ptsOnCurve.at(j);
+      pts[i]   = geom.vtx_x[ptIdx];
+      pts[i+1] = geom.vtx_y[ptIdx];
+      pts[i+2] = 0;
     }
+    auto edge = fitCurveToContourSimInterp(mdlTopo.region, startingMdlVtx, endMdlVtx, pts, true);
+    mdlTopo.edges.push_back(edge);
 
-    std::vector<pGEdge> edges;
-    // Now we'll add the edges
-    double point0[3], point1[3]; // xyz locations of the two vertices
-    pCurve linearCurve;
-    for (i = 0; i < 4; i++) {
-      const auto startVertIdx = geom.edges[i][0];
-      const auto endVertIdx = geom.edges[i][1];
-      auto startVert = vertices[startVertIdx];
-      auto endVert = vertices[endVertIdx];
-      GV_point(startVert, point0);
-      GV_point(endVert, point1);
-      linearCurve = SCurve_createLine(point0, point1);
-      auto edge = GR_createEdge(region, startVert, endVert, linearCurve, 1);
-      edges.push_back(edge);
-      if (debug) {
-        std::cout << "edge " << i << " (" << point0[0] << " , " << point0[1]
-                  << ")"
-                  << ",(" << point1[0] << " , " << point1[1] << ")\n";
+    if (debug) {
+      std::cerr << "edge " << mdlTopo.edges.size()
+        << " range " << startingCurvePtIdx << " " << pt
+        << " numPts " << ptsOnCurve.size() << "\n";
+      double first[3];
+      GV_point(startingMdlVtx, first);
+      double last[3];
+      GV_point(endMdlVtx, last);
+      std::cout << "start " << first[0] << " " << first[1] << "\n";
+      std::cout << "end " << last[0] << " " << last[1] << "\n";
+      std::cout << "x,y,z\n";
+      for(int j=0; j<pts.size(); j+=3) {
+        std::cerr << pts.at(j) << ", " << pts.at(j+1) << ", " << pts.at(j+2) << "\n";
       }
     }
 
-    const double tc_angle_lower = TC::degreesTo(135);
-    const double tc_angle_upper = TC::degreesTo(-135);
-    std::cout << "tc_angle_lower " << tc_angle_lower << "\n";
-    std::cout << "tc_angle_upper " << tc_angle_upper << "\n";
-    const int stride = std::stoi(argv[4]);
-    assert(stride > 0);
-    const int firstPt = 4;
-    std::cout << "numPts " << geom.numVtx-4 << " lastPt " << geom.numVtx << "\n";
-    double pt[3] = {geom.vtx_x[firstPt], geom.vtx_y[firstPt], 0};
-    if (debug) std::cout << "creatingVtx " << pt[0] << " " << pt[1] << "\n";
-    pGVertex firstVtx = GR_createVertex(region, pt);
-    pGVertex prevVtx = firstVtx;
-    int prevVtxIdx = firstPt;
-    int ptsSinceMdlVtx = 1;
-    for(i=5; i<=geom.numVtx; i++) {
-      bool isMdlVtx = false;
-      if(i+1 < geom.numVtx ) {
-        const double norm_prev_x = geom.vtx_x[i-1] - geom.vtx_x[i];
-        const double norm_prev_y = geom.vtx_y[i-1] - geom.vtx_y[i];
-        const double norm_next_x = geom.vtx_x[i+1] - geom.vtx_x[i];
-        const double norm_next_y = geom.vtx_y[i+1] - geom.vtx_y[i];
-        const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
-        if( tc_angle < tc_angle_lower || tc_angle < tc_angle_lower ) {
-          isMdlVtx = true;
-        }
-        if(debug) {
-          std::cout << "i " << i
-                    << " cur " << geom.vtx_x[i] << " " << geom.vtx_y[i]
-                    << " tc_angle " << tc_angle
-                    << " below_lower " << (tc_angle < tc_angle_lower)
-                    << " above_upper " << (tc_angle > tc_angle_upper)
-                    << "\n";
-        }
-      }
-      if(ptsSinceMdlVtx%stride == 0 || i == geom.numVtx || isMdlVtx) {
-        const int isLastPt = (i == geom.numVtx ? 1 : 0);
-        const int numPts = i - prevVtxIdx + 1;
-        std::vector<double> pts(numPts*3);
-        int idx = 0;
-        for(int j=prevVtxIdx; j<=i && j<geom.numVtx; j++) {
-          pts[idx++] = geom.vtx_x[j];
-          pts[idx++] = geom.vtx_y[j];
-          pts[idx++] = 0;
-        }
-        pGVertex vtx;
-        if(isLastPt) {
-          pts[idx++] = geom.vtx_x[firstPt];
-          pts[idx++] = geom.vtx_y[firstPt];
-          pts[idx++] = 0;
-          vtx = firstVtx;
-        } else {
-          double pt[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
-          vtx = GR_createVertex(region, pt);
-        }
-        if (debug) {
-          std::cout << "range " << prevVtxIdx << " " << i << " numPts " << numPts << " isLastPt " << isLastPt << " isMdlVtx " << isMdlVtx << "\n";
-          double first[3];
-          GV_point(prevVtx, first);
-          double last[3];
-          GV_point(vtx, last);
-          std::cout << "start " << first[0] << " " << first[1] << "\n";
-          std::cout << "end " << last[0] << " " << last[1] << "\n";
-        }
-        auto edge = fitCurveToContour(region, prevVtx, vtx, numPts, pts);
-        edges.push_back(edge);
-        prevVtx = vtx;
-        prevVtxIdx = i;
-        ptsSinceMdlVtx=0;
-      }
-      ptsSinceMdlVtx++;
-    }
-
-    auto planeBounds = getBoundingPlane(geom);
-
-    // Now add the faces
-    double corner[3], xPt[3],
-        yPt[3];        // the points defining the surface of the face
-    pGEdge *faceEdges; // the array of edges connected to the face
-    int *faceDirs;     // the direction of the edge with respect to the face
-
-    // When defining the loop, will always start with the first edge in the
-    // faceEdges array
-    pSurface planarSurface;
-
-    // **************
-    // Create the face between the bounding rectangle and the grounding line
-    // (water)
-    // **************
-    // Define the surface
-    corner[0] = planeBounds.minX;
-    corner[1] = planeBounds.minY;
-    corner[2] = 0;
-    xPt[0] = planeBounds.maxX;
-    xPt[1] = planeBounds.minY;
-    xPt[2] = 0;
-    yPt[0] = planeBounds.minX;
-    yPt[1] = planeBounds.maxY;
-    yPt[2] = 0;
-
-    const int faceDirectionFwd = 1;
-    const int faceDirectionRev = 0;
-    const int sameNormal = 1;
-    const int oppositeNormal = 0;
-
-    // Create the face
-    faceEdges = new pGEdge[edges.size()];
-    faceDirs = new int[edges.size()];
-    // the first four edges define the outer bounding rectangle
-    for (i = 0; i < 4; i++) {
-      faceDirs[i] = faceDirectionFwd; // clockwise
-      faceEdges[i] = edges.at(i);
-    }
-    if (edges.size() > 4) {
-      // the remaining edges define the grounding line
-      // TODO generalize loop creation
-      int j = edges.size() - 1;
-      for (i = 4; i < edges.size(); i++) {
-        faceDirs[i] = faceDirectionRev; // counter clockwise
-        // all edges are input in counter clockwise order,
-        // reverse the order so the face is on the left (simmetrix requirement)
-        faceEdges[i] = edges.at(j--);
-      }
-
-      int numLoopsOuterFace = 2;
-      int loopFirstEdgeIdx[2] = {0, 4};
-      planarSurface = SSurface_createPlane(corner, xPt, yPt);
-      faces[0] = GR_createFace(region, edges.size(), faceEdges, faceDirs,
-                               numLoopsOuterFace, loopFirstEdgeIdx,
-                               planarSurface, sameNormal);
-      std::cout << "faces[0] area: " << GF_area(faces[0], 0.2) << "\n";
-      assert(GF_area(faces[0], 0.2) > 0);
+    startingMdlVtx = endMdlVtx;
+    startingCurvePtIdx = pt;
+    ptsOnCurve.clear();  //FIXME - find a cheaper way
+    ptsOnCurve.push_back(pt);
+    return psa{State::MdlVtx,Action::Curve};
+  };
+  func createLine = [&](int pt) {
+    assert(ptsOnCurve.size() == 1);
+    auto ignored = createCurve(pt);
+    return psa{State::MdlVtx,Action::Line};
+  };
+  func advance = [&](int pt) {
+    ptsOnCurve.push_back(pt);
+    return psa{State::OnCurve,Action::Advance};
+  };
+  func createLineAndStartCurve = [&](int pt) {
+    assert(ptsOnCurve.size() == 1);
+    auto ignored = createCurve(pt);
+    return psa{State::OnCurve,Action::Line};
+  };
+  func createCurveFromPriorPt = [&](int pt) {
+    if(ptsOnCurve.size() == 1 ) {
+      return createLine(pt);
+    } else if (ptsOnCurve.size() >= 2 ) {
+      //we are not adding the current point yet, so there must be
+      //at least two points in the list to form a curve
+      auto ignored = createCurve(ptsOnCurve.back());
+      auto ret = createLine(pt);
+      return ret;
     } else {
-      int numLoopsOuterFace = 1;
-      int loopFirstEdgeIdx[1] = {0};
-      planarSurface = SSurface_createPlane(corner, xPt, yPt);
-      faces[0] = GR_createFace(region, edges.size(), faceEdges, faceDirs,
-                               numLoopsOuterFace, loopFirstEdgeIdx,
-                               planarSurface, sameNormal);
-      std::cout << "faces[0] area: " << GF_area(faces[0], 0.2) << "\n";
-      assert(GF_area(faces[0], 0.2) > 0);
-    }
-
-    if (edges.size() > 4) {
-      // **************
-      // Create the 'ice' face bounded by the grounding line
-      // **************
-      planarSurface = SSurface_createPlane(corner, xPt, yPt);
-      const int numEdgesInnerFace = edges.size() - 4;
-      const int numLoopsInnerFace = 1;
-      int loopFirstEdgeIdx[1] = {0};
-      int j = 4;
-      for (i = 0; i < numEdgesInnerFace; i++) {
-        faceDirs[i] = faceDirectionFwd; // clockwise
-        faceEdges[i] = edges.at(j++);
-      }
-      faces[1] = GR_createFace(region, numEdgesInnerFace, faceEdges, faceDirs,
-                               numLoopsInnerFace, loopFirstEdgeIdx,
-                               planarSurface, sameNormal);
-      std::cout << "faces[1] area: " << GF_area(faces[1], 0.2) << "\n";
-      assert(GF_area(faces[1], 0.2) > 0);
-    }
-
-    auto isValid = GM_isValid(model, 2, NULL);
-    if (!isValid) {
-      fprintf(stderr, "ERROR: model is not valid... exiting\n");
+      std::cerr << "createCurveFromPriorPt: no points on the curve.... exiting\n";
       exit(EXIT_FAILURE);
+    }
+  };
+
+
+  func fail = [&](int pt) {
+    std::cerr << "bad state.... exiting\n";
+    exit(EXIT_FAILURE);
+    return psa{State::OnCurve,Action::Advance};
+  };
+  typedef std::pair<State,State> pss; // current state, next state
+  std::map<pss,func> machine = {
+    {{State::MdlVtx,State::MdlVtx}, createLine},
+    {{State::MdlVtx,State::OnCurve}, createLineAndStartCurve},
+    {{State::MdlVtx,State::NotOnCurve}, createLine},
+    {{State::OnCurve,State::MdlVtx}, createCurve},
+    {{State::OnCurve,State::OnCurve}, advance},
+    {{State::OnCurve,State::NotOnCurve}, createCurveFromPriorPt},
+    {{State::NotOnCurve,State::MdlVtx}, fail},
+    {{State::NotOnCurve,State::OnCurve}, fail},
+    {{State::NotOnCurve,State::NotOnCurve}, fail}
+  };
+
+  startingCurvePtIdx = findStartingMdlVtx(isMdlVtx, firstContourPt);
+  double vtx[3] = {geom.vtx_x[startingCurvePtIdx], geom.vtx_y[startingCurvePtIdx], 0};
+  firstMdlVtx = startingMdlVtx = GR_createVertex(mdlTopo.region, vtx);
+  mdlTopo.vertices.push_back(firstMdlVtx);
+  ptsOnCurve.push_back(startingCurvePtIdx);
+
+  State state = State::MdlVtx;
+  int ptsVisited = 0; //don't count the first vertex until we close the loop
+  int ptIdx = startingCurvePtIdx+1;
+  while(ptsVisited < isMdlVtx.size()-firstContourPt) {
+    State nextState;
+    if(isMdlVtx[ptIdx] == 1) {
+      nextState = State::MdlVtx;
+    } else if (isPtOnCurve[ptIdx] == 1) {
+      nextState = State::OnCurve;
+    } else if (isPtOnCurve[ptIdx] == 0) {
+      nextState = State::NotOnCurve;
     } else {
-      std::cout << "Model is valid.\n";
+      exit(EXIT_FAILURE);
     }
-
-    std::cout << "Number of vertices in model: " << GM_numVertices(model)
-              << std::endl;
-    std::cout << "Number of edges in model: " << GM_numEdges(model)
-              << std::endl;
-    std::cout << "Number of faces in model: " << GM_numFaces(model)
-              << std::endl;
-    std::cout << "Number of regions in model: " << GM_numRegions(model)
-              << std::endl;
-    GM_write(model, modelFileName.c_str(), 0, 0);
-
-    // This next section creates a surface mesh from the model.  You can comment
-    // out this section if you don't want to mesh
-    pMesh mesh = M_new(0, model);
-    pACase meshCase = MS_newMeshCase(model);
-
-    pModelItem domain = GM_domain(model);
-    // find the smallest size of the geometric model edges
-    auto minGEdgeLen = std::numeric_limits<double>::max();
-    for (i = 0; i < edges.size(); i++) {
-      auto len = GE_length(faceEdges[i]);
-      if (len < minGEdgeLen)
-        minGEdgeLen = len;
+    psa res = machine[{state,nextState}](ptIdx);
+    state = res.first;
+    ptsVisited++;
+    if(ptIdx == isMdlVtx.size()-1) {
+      ptIdx = firstContourPt; //wrap around
+    } else {
+      ptIdx++;
     }
-    std::cout << "Min geometric model edge length: " << minGEdgeLen
-              << std::endl;
-    const auto contourMeshSize = minGEdgeLen * 128;
-    const auto globMeshSize = contourMeshSize * 128;
-    std::cout << "Contour absolute mesh size target: " << contourMeshSize
-              << std::endl;
-    std::cout << "Global absolute mesh size target: " << globMeshSize
-              << std::endl;
-    MS_setMeshSize(meshCase, domain, 1, globMeshSize, NULL);
-    for (i = 4; i < edges.size(); i++)
-      MS_setMeshSize(meshCase, faceEdges[i], 1, contourMeshSize, NULL);
-
-    {
-      GFIter fIter = GM_faceIter(model);
-      pGFace modelFace;
-      while (modelFace = GFIter_next(fIter)) {
-        const double area = GF_area(modelFace, 0.2);
-        std::cout << "face area: " << area << "\n";
-        assert(area > 0);
-      }
-      GFIter_delete(fIter);
-    }
-
-    pSurfaceMesher surfMesh = SurfaceMesher_new(meshCase, mesh);
-    SurfaceMesher_execute(surfMesh, progress);
-    SurfaceMesher_delete(surfMesh);
-    std::cout << "Number of mesh faces in surface: " << M_numFaces(mesh)
-              << std::endl;
-
-    M_write(mesh, meshFileName.c_str(), 0, progress);
-    std::cout << "Number of mesh regions in volume: " << M_numRegions(mesh)
-              << std::endl;
-    MS_deleteMeshCase(meshCase);
-    M_release(mesh);
-    // end of meshing section
-    
-    delete[] faceEdges;
-    delete[] faceDirs;
-    delete[] vertices;
-    delete[] faces;
-    // cleanup
-    GM_release(model);
-    Progress_delete(progress);
-    MS_exit();
-    Sim_unregisterAllKeys();
-    SimModel_stop();
-    Sim_logOff();
-
-  } catch (pSimInfo err) {
-    std::cerr << "SimModSuite error caught:" << std::endl;
-    std::cerr << "  Error code: " << SimInfo_code(err) << std::endl;
-    std::cerr << "  Error string: " << SimInfo_toString(err) << std::endl;
-    SimInfo_delete(err);
-    return 1;
-  } catch (...) {
-    std::cerr << "Unhandled exception caught" << std::endl;
-    return 1;
   }
-  return 0;
 }
 
-void messageHandler(int type, const char *msg) {
-  switch (type) {
-  case Sim_InfoMsg:
-    std::cout << "Info: " << msg << std::endl;
-    break;
-  case Sim_DebugMsg:
-    std::cout << "Debug: " << msg << std::endl;
-    break;
-  case Sim_WarningMsg:
-    std::cout << "Warning: " << msg << std::endl;
-    break;
-  case Sim_ErrorMsg:
-    std::cout << "Error: " << msg << std::endl;
-    break;
+void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, bool debug) {
+  // TODO generalize face creation
+  if (geom.numEdges > 4) {
+    mdlTopo.faces.reserve(2);
+  } else {
+    mdlTopo.faces.reserve(1);
   }
-  return;
+
+  // First we'll add the vertices
+  int i;
+  for (i = 0; i < 4; i++) {
+    double vtx[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
+    mdlTopo.vertices.push_back(GR_createVertex(mdlTopo.region, vtx));
+    if (debug)
+      std::cout << "vtx " << i << " (" << vtx[0] << " , " << vtx[1] << ")\n";
+  }
+
+  std::vector<pGEdge> edges;
+  // Now we'll add the edges
+  double point0[3], point1[3]; // xyz locations of the two vertices
+  pCurve linearCurve;
+  for (i = 0; i < 4; i++) {
+    const auto startVertIdx = geom.edges[i][0];
+    const auto endVertIdx = geom.edges[i][1];
+    auto startVert = mdlTopo.vertices.at(startVertIdx);
+    auto endVert = mdlTopo.vertices.at(endVertIdx);
+    GV_point(startVert, point0);
+    GV_point(endVert, point1);
+    linearCurve = SCurve_createLine(point0, point1);
+    auto edge = GR_createEdge(mdlTopo.region, startVert, endVert, linearCurve, 1);
+    mdlTopo.edges.push_back(edge);
+    if (debug) {
+      std::cout << "edge " << i << " (" << point0[0] << " , " << point0[1]
+        << ")"
+        << ",(" << point1[0] << " , " << point1[1] << ")\n";
+    }
+  }
+
 }
+
+void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress) {
+  pMesh mesh = M_new(0, mdlTopo.model);
+  pACase meshCase = MS_newMeshCase(mdlTopo.model);
+
+  pModelItem domain = GM_domain(mdlTopo.model);
+  // find the smallest size of the geometric model edges
+  auto minGEdgeLen = std::numeric_limits<double>::max();
+  for (int i = 0; i < mdlTopo.edges.size(); i++) {
+    auto len = GE_length(mdlTopo.edges.at(i));
+    if (len < minGEdgeLen)
+      minGEdgeLen = len;
+  }
+  std::cout << "Min geometric model edge length: " << minGEdgeLen
+    << std::endl;
+  const auto contourMeshSize = minGEdgeLen * 128;
+  const auto globMeshSize = contourMeshSize * 128;
+  std::cout << "Contour absolute mesh size target: " << contourMeshSize
+    << std::endl;
+  std::cout << "Global absolute mesh size target: " << globMeshSize
+    << std::endl;
+  MS_setMeshSize(meshCase, domain, 1, globMeshSize, NULL);
+  for (int i = 4; i < mdlTopo.edges.size(); i++)
+    MS_setMeshSize(meshCase, mdlTopo.edges.at(i), 1, contourMeshSize, NULL);
+
+  {
+    GFIter fIter = GM_faceIter(mdlTopo.model);
+    pGFace modelFace;
+    while (modelFace = GFIter_next(fIter)) {
+      const double area = GF_area(modelFace, 0.2);
+      std::cout << "face area: " << area << "\n";
+      assert(area > 0);
+    }
+    GFIter_delete(fIter);
+  }
+
+  pSurfaceMesher surfMesh = SurfaceMesher_new(meshCase, mesh);
+  SurfaceMesher_execute(surfMesh, progress);
+  SurfaceMesher_delete(surfMesh);
+  std::cout << "Number of mesh faces in surface: " << M_numFaces(mesh)
+    << std::endl;
+
+  M_write(mesh, meshFileName.c_str(), 0, progress);
+  std::cout << "Number of mesh regions in volume: " << M_numRegions(mesh)
+    << std::endl;
+  MS_deleteMeshCase(meshCase);
+  M_release(mesh);
+}
+
+std::tuple<std::vector<int>,std::vector<int>>
+discoverTopology(GeomInfo& geom, double angleTol, double onCurveAngleTol, bool debug) {
+  if(geom.numVtx <= 4) { // no internal contour
+    return {std::vector<int>(), std::vector<int>()};
+  }
+  if(debug) {
+    std::cout << "tc(30) " << TC::degreesTo(30) << "\n";
+    std::cout << "tc(60) " << TC::degreesTo(60) << "\n";
+    std::cout << "tc(90) " << TC::degreesTo(90) << "\n";
+    std::cout << "tc(120) " << TC::degreesTo(120) << "\n";
+    std::cout << "tc(150) " << TC::degreesTo(150) << "\n";
+    std::cout << "tc(180) " << TC::degreesTo(180) << "\n";
+    std::cout << "tc(270) " << TC::degreesTo(270) << "\n";
+    std::cout << "tc(-120) " << TC::degreesTo(-120) << "\n";
+  }
+  const double deg_angle_lower = angleTol;
+  const double deg_angle_upper = -deg_angle_lower;
+  const double tc_angle_lower = TC::degreesTo(deg_angle_lower);
+  const double tc_angle_upper = TC::degreesTo(deg_angle_upper);
+  std::cout << "deg_angle_lower " << deg_angle_lower <<
+               " tc_angle_lower " << tc_angle_lower << "\n";
+  std::cout << "deg_angle_upper " << deg_angle_upper <<
+               " tc_angle_upper " << tc_angle_upper << "\n";
+  std::cout << "numPts " << geom.numVtx-4 << " lastPt " << geom.numVtx << "\n";
+
+  std::vector<double> angle;
+  std::vector<int> isMdlVtx;
+  std::vector<int> isPointOnCurve; //1: along a curve, 0: otherwise
+  angle.reserve(geom.numVtx);
+  isMdlVtx.reserve(geom.numVtx);
+  isPointOnCurve.reserve(geom.numVtx);
+  //hack: add data for the first four boundary verts so 'createEdges' indexing
+  //matches the GeomInfo struct indexing
+  for(int i=0; i<4; i++){
+    angle.push_back(TC::degreesTo(90)); //hack - 90deg corners
+    isMdlVtx.push_back(1); //hack - all model verts
+    isPointOnCurve.push_back(0); //hack - not on curve
+  }
+
+  //compute angle and determine if each pt is a model vertex
+  for(int i=4; i<geom.numVtx; i++) {
+    int m1 = i-1;
+    int p1 = i+1;
+    if (i == 4) { //first point
+      m1 = geom.numVtx - 1;
+    } else if ( i == geom.numVtx-1 ) { //last point
+      p1 = 4;
+    }
+    const double norm_prev_x = geom.vtx_x[m1] - geom.vtx_x[i];
+    const double norm_prev_y = geom.vtx_y[m1] - geom.vtx_y[i];
+    const double norm_next_x = geom.vtx_x[p1] - geom.vtx_x[i];
+    const double norm_next_y = geom.vtx_y[p1] - geom.vtx_y[i];
+    const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
+    angle.push_back(tc_angle);
+    isMdlVtx.push_back(tc_angle < tc_angle_lower || tc_angle > tc_angle_upper);
+  }
+
+  for (int j = 4;j < geom.numVtx; ++j) {
+    int m1 = j-1;
+    int p1 = j+1;
+    if (j == 4) { //first point
+      m1 = geom.numVtx - 1;
+    } else if ( j == geom.numVtx-1 ) { //last point
+      p1 = 4;
+    }
+    const double tc_m1 = angle.at(m1);
+    const double tc = angle.at(j);
+    const double tc_p1 = angle.at(p1);
+    const auto on = onCurve(tc_m1, tc, tc_p1, onCurveAngleTol);
+    isPointOnCurve.push_back(on);
+  }
+
+  if(debug) {
+    std::cout << "x,y,z,isOnCurve,angle,isMdlVtx\n";
+    for (int j = 0;j < isPointOnCurve.size(); j++) {
+      std::cout << geom.vtx_x.at(j) << ", " << geom.vtx_y.at(j) << ", " << 0
+        << ", " << isPointOnCurve.at(j) << ", " << angle.at(j)
+        << ", " << isMdlVtx.at(j) << "\n";
+    }
+    std::cout << "done\n";
+  }
+
+  //find points marked as on a curve that have no
+  // adjacent points that are also marked as on the curve
+  //first point
+  const int firstContourPt = 4;
+  if( isPointOnCurve.back() == 0 &&
+      isPointOnCurve.at(firstContourPt) == 1 &&
+      isPointOnCurve.at(firstContourPt+1) == 0 ) {
+    isPointOnCurve.at(firstContourPt) = 0;
+  }
+  //interior
+  for (int j = firstContourPt+1;j < isPointOnCurve.size(); j++) {
+    if( isPointOnCurve.at(j-1) == 0 &&
+        isPointOnCurve.at(j) == 1 &&
+        isPointOnCurve.at(j+1) == 0 ) {
+      isPointOnCurve.at(j) = 0;
+    }
+  }
+  //last point
+  const int last = isPointOnCurve.size()-1;
+  if( isPointOnCurve.at(last-1) == 0 &&
+      isPointOnCurve.at(last) == 1 &&
+      isPointOnCurve.at(firstContourPt) == 0 ) {
+    isPointOnCurve.at(last) = 0;
+  }
+
+  if(debug) {
+    std::cout << "x,y,z,isOnCurveMod,angle,isMdlVtx\n";
+    for (int j = 0;j < isPointOnCurve.size(); j++) {
+      std::cout << geom.vtx_x.at(j) << ", " << geom.vtx_y.at(j) << ", " << 0
+        << ", " << isPointOnCurve.at(j) << ", " << angle.at(j)
+        << ", " << isMdlVtx.at(j) << "\n";
+    }
+    std::cout << "doneMod\n";
+  }
+  return {isPointOnCurve,isMdlVtx};
+}
+
+void createFaces(ModelTopo& mdlTopo, GeomInfo& geom) {
+  auto planeBounds = getBoundingPlane(geom);
+  // Now add the faces
+  double corner[3], xPt[3], yPt[3]; // the points defining the surface of the face
+
+  // When defining the loop, will always start with the first edge in the
+  // faceEdges array
+  pSurface planarSurface;
+
+  // **************
+  // Create the face between the bounding rectangle and the grounding line
+  // (water)
+  // **************
+  // Define the surface
+  corner[0] = planeBounds.minX;
+  corner[1] = planeBounds.minY;
+  corner[2] = 0;
+  xPt[0] = planeBounds.maxX;
+  xPt[1] = planeBounds.minY;
+  xPt[2] = 0;
+  yPt[0] = planeBounds.minX;
+  yPt[1] = planeBounds.maxY;
+  yPt[2] = 0;
+
+  const int faceDirectionFwd = 1;
+  const int faceDirectionRev = 0;
+  const int sameNormal = 1;
+  const int oppositeNormal = 0;
+
+  // Create the face
+  // the first four edges define the outer bounding rectangle
+  for (int i = 0; i < 4; i++) {
+    mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
+    mdlTopo.faceEdges.push_back(mdlTopo.edges.at(i));
+  }
+  if (mdlTopo.edges.size() > 4) {
+    // the remaining edges define the grounding line
+    // TODO generalize loop creation
+    int j = mdlTopo.edges.size() - 1;
+    for (int i = 4; i < mdlTopo.edges.size(); i++) {
+      mdlTopo.faceDirs.push_back(faceDirectionRev); // counter clockwise
+      // all edges are input in counter clockwise order,
+      // reverse the order so the face is on the left (simmetrix requirement)
+      mdlTopo.faceEdges.push_back(mdlTopo.edges.at(j--));
+    }
+
+    int numLoopsOuterFace = 2;
+    int loopFirstEdgeIdx[2] = {0, 4};
+    planarSurface = SSurface_createPlane(corner, xPt, yPt);
+    mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, mdlTopo.edges.size(),
+          mdlTopo.faceEdges.data(),
+          mdlTopo.faceDirs.data(),
+          numLoopsOuterFace, loopFirstEdgeIdx,
+          planarSurface, sameNormal));
+    std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
+    assert(GF_area(mdlTopo.faces[0], 0.2) > 0);
+  } else {
+    int numLoopsOuterFace = 1;
+    int loopFirstEdgeIdx[1] = {0};
+    planarSurface = SSurface_createPlane(corner, xPt, yPt);
+    mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, mdlTopo.edges.size(),
+          mdlTopo.faceEdges.data(),
+          mdlTopo.faceDirs.data(),
+          numLoopsOuterFace, loopFirstEdgeIdx,
+          planarSurface, sameNormal));
+    std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
+    assert(GF_area(mdlTopo.faces[0], 0.2) > 0);
+  }
+
+  mdlTopo.faceEdges.clear();
+  mdlTopo.faceDirs.clear();
+
+  if (mdlTopo.edges.size() > 4) {
+    // **************
+    // Create the 'ice' face bounded by the grounding line
+    // **************
+    planarSurface = SSurface_createPlane(corner, xPt, yPt);
+    const int numEdgesInnerFace = mdlTopo.edges.size() - 4;
+    const int numLoopsInnerFace = 1;
+    int loopFirstEdgeIdx[1] = {0};
+    int j = 4;
+    for (int i = 0; i < numEdgesInnerFace; i++) {
+      mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
+      mdlTopo.faceEdges.push_back(mdlTopo.edges.at(j++));
+    }
+    mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, numEdgesInnerFace,
+          mdlTopo.faceEdges.data(),
+          mdlTopo.faceDirs.data(),
+          numLoopsInnerFace, loopFirstEdgeIdx,
+          planarSurface, sameNormal));
+    std::cout << "faces[1] area: " << GF_area(mdlTopo.faces[1], 0.2) << "\n";
+    assert(GF_area(mdlTopo.faces[1], 0.2) > 0);
+  }
+}
+
+
