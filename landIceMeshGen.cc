@@ -286,6 +286,13 @@ void convertMetersToKm(GeomInfo &geom) {
   std::transform(geom.vtx_y.cbegin(), geom.vtx_y.cend(), geom.vtx_y.begin(), [](double v) { return v * 0.001; });
 }
 
+//find pairs of points that are not consecutative, but are within some length
+//tolerance of each other - these are considered narrow channels that will be
+//removed
+std::vector<int> markNarrowChannels(GeomInfo &g, double coincidentVtxToleranceSquared, bool debug=false) {
+  //use a quadtree
+}
+
 GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
                       bool debug) {
   assert(checkVertexUse(dirty));
