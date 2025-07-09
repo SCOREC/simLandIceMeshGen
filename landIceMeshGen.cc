@@ -479,6 +479,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   pGVertex startingMdlVtx;
   std::vector<int> ptsOnCurve;
   func createCurve = [&](int pt) {
+    assert(ptsOnCurve.size() >= 2);
     double vtx[3] = {geom.vtx_x[pt], geom.vtx_y[pt], 0};
     pGVertex endMdlVtx;
     if(pt == firstPtIdx) { //wrap around
@@ -563,7 +564,11 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
       exit(EXIT_FAILURE);
     }
   };
-
+  func createCurveFromCurrentPt = [&](int pt) {
+    ptsOnCurve.push_back(pt);
+    auto ret = createCurve(pt);
+    return ret;
+  };
 
   func fail = [&](int pt) {
     std::cerr << "bad state.... exiting\n";
@@ -575,7 +580,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     {{State::MdlVtx,State::MdlVtx}, createLine},
     {{State::MdlVtx,State::OnCurve}, createLineAndStartCurve},
     {{State::MdlVtx,State::NotOnCurve}, createLine},
-    {{State::OnCurve,State::MdlVtx}, createCurve},
+    {{State::OnCurve,State::MdlVtx}, createCurveFromCurrentPt},
     {{State::OnCurve,State::OnCurve}, advance},
     {{State::OnCurve,State::NotOnCurve}, createCurveFromPriorPt},
     {{State::NotOnCurve,State::MdlVtx}, fail},

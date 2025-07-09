@@ -77,6 +77,10 @@ set_tests_properties(curve1293 PROPERTIES
 
 add_test(NAME edge522
   COMMAND ./testCreateEdges ${testDataDir}/testEdge522.csv edge522)
+set_tests_properties(edge522 PROPERTIES
+  PASS_REGULAR_EXPRESSION "Number of vertices in model: 8")
+set_tests_properties(edge522 PROPERTIES
+  PASS_REGULAR_EXPRESSION "Number of edges in model: 8")
 
 addExe(testOnCurve)
 target_link_libraries(testOnCurve PRIVATE curveReader)
