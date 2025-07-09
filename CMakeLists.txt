@@ -68,6 +68,13 @@ set_tests_properties(curve4277 PROPERTIES
 set_tests_properties(curve4277 PROPERTIES
   PASS_REGULAR_EXPRESSION "Number of edges in model: 6")
 
+add_test(NAME curve1293
+  COMMAND ./testCreateEdges ${testDataDir}/testCurve1293.csv curve1293)
+set_tests_properties(curve1293 PROPERTIES
+  PASS_REGULAR_EXPRESSION "Number of vertices in model: 5")
+set_tests_properties(curve1293 PROPERTIES
+  PASS_REGULAR_EXPRESSION "Number of edges in model: 5")
+
 add_test(NAME edge522
   COMMAND ./testCreateEdges ${testDataDir}/testEdge522.csv edge522)
 

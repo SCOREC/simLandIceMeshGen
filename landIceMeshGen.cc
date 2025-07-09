@@ -488,7 +488,6 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
       mdlTopo.vertices.push_back(endMdlVtx);
     }
 
-    ptsOnCurve.push_back(pt);
     std::vector<double> pts(ptsOnCurve.size()*3);
     for(int i=0, j = 0; j<ptsOnCurve.size(); j++, i+=3) {
       const int ptIdx = ptsOnCurve.at(j);
@@ -536,6 +535,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   };
   func createLine = [&](int pt) {
     assert(ptsOnCurve.size() == 1);
+    ptsOnCurve.push_back(pt);
     auto ignored = createCurve(pt);
     return psa{State::MdlVtx,Action::Line};
   };
@@ -545,6 +545,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   };
   func createLineAndStartCurve = [&](int pt) {
     assert(ptsOnCurve.size() == 1);
+    ptsOnCurve.push_back(pt);
     auto ignored = createCurve(pt);
     return psa{State::OnCurve,Action::Line};
   };
