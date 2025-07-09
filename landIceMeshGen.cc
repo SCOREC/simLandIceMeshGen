@@ -395,7 +395,7 @@ pCurve GM_fitCurveFixed(const int nP, const double *Pts, int N, bool clampedEnds
 
 pGEdge fitCurveToContourSimInterp(pGRegion region, pGVertex first, pGVertex last,
                          std::vector<double>& pts, bool debug=false) {
-  assert(pts.size() % 3 == 0);
+  assert(pts.size() % 3 == 0); //pts must contain coordinates x1,y1,z1, x2,y2,z2, ...
   const int numPts = pts.size()/3;
   assert(numPts > 1);
   pCurve curve;
