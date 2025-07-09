@@ -14,9 +14,9 @@ int main(int argc, char **argv) {
   const int numExpectedArgs = 7;
   if (argc != numExpectedArgs) {
     std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
-                 "<coincidentVtxToleranceSquared> <angleTolerance> <createMesh>\n";
-    std::cerr << "coincidentVtxToleranceSquared is the mininum allowed "
-                 "distance (squared) between adjacent vertices in the "
+                 "<coincidentVtxTolerance> <angleTolerance> <createMesh>\n";
+    std::cerr << "coincidentVtxTolerance is the mininum allowed "
+                 "distance between adjacent vertices in the "
                  "input.  Vertices within the specified distance will "
                  "be merged.\n";
     std::cerr << "angleTolerance defines the upper bound and "
@@ -57,7 +57,8 @@ int main(int argc, char **argv) {
     return 1;
   }
   convertMetersToKm(dirty);
-  auto geom = cleanGeom(dirty, coincidentPtTol, false);
+  const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
+  auto geom = cleanGeom(dirty, coincidentPtTolSquared, false);
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
 
