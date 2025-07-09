@@ -376,23 +376,6 @@ double getPt2PtEdgeLength(pGEdge edge) {
   return std::sqrt(lenSq);
 }
 
-/*
- * Fit a curve through a noisy set of points.
- * - nP is the number of data points to fit (nP must be >= 4)
- * - Pts is a double array of data points    e.g { p0_x, p0_y, p0_z,   p1_x, p1_y, p1_z,   p2_x, p2_y, p2_z,   ...  }
- * - N is the number of control points for the resultant fitted curve, the minimum value is also (4)
- * - clampedEnds If true, then force the fitted curve to have G0
- *               continuity at first and last data point (i.e. the fitted curve must
- *               start and end at these data points)
- * - resultErr a pointer to double that returns the maximum fitting
- *             error which is the normal distance of a data point to the curve.
- *
- * If you are fitting, say 4, 5, or 6 data points, then set N = 4.
- * If you are fitting, say 40 points, then you probably want to set N
- * higher, say 10.
- */
-pCurve GM_fitCurveFixed(const int nP, const double *Pts, int N, bool clampedEnds, double *resultErr);
-
 pGEdge fitCurveToContourSimInterp(pGRegion region, pGVertex first, pGVertex last,
                          std::vector<double>& pts, bool debug=false) {
   assert(pts.size() % 3 == 0); //pts must contain coordinates x1,y1,z1, x2,y2,z2, ...
@@ -402,19 +385,8 @@ pGEdge fitCurveToContourSimInterp(pGRegion region, pGVertex first, pGVertex last
   if( numPts == 2 || numPts == 3) {
     curve = SCurve_createPiecewiseLinear(numPts, &pts[0]); //TODO - replace withe bspline?
   } else {
-    int numCtrlPts = numPts;
-    if( numPts > 40 )
-      numCtrlPts = numPts/4.0;
-    else if( numPts > 20 )
-      numCtrlPts = numPts/3.0;
-    else if( numPts > 10 )
-      numCtrlPts = numPts/2.0;
-    else if( numPts >= 4 )
-      numCtrlPts = 4;
-    bool clampedEnds = true;
-    double maxFittingError;
-    curve = GM_fitCurveFixed(numPts, &pts[0], numCtrlPts, clampedEnds, &maxFittingError);
-    if(debug) std::cerr << " numCtrlPts " << numCtrlPts << " maxFittingError " << maxFittingError << "\n";
+    const int order = 4;
+    curve = SCurve_createInterpolatedBSpline(order, numPts, &pts[0], NULL);
   }
   pGEdge edge = GR_createEdge(region, first, last, curve, 1);
   if(numPts>=4 && debug) {
