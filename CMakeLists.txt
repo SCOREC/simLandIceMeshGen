@@ -53,7 +53,7 @@ set_tests_properties(landIceMeshGen_twoSquares_vtk PROPERTIES
 add_test(NAME landIceMeshGen_oval_vtk
   COMMAND ./modelGen ${testDataDir}/oval_wBbox.vtk oval 1e-8 120 120 1)
 set_tests_properties(landIceMeshGen_oval_vtk PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of vertices in model: 17")
+  PASS_REGULAR_EXPRESSION "Number of vertices in model: 14")
 
 add_library(curveReader curveReader.cc)
 target_include_directories(curveReader PUBLIC ${CURRENT_CMAKE_SOURCE_DIR})

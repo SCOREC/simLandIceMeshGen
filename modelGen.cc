@@ -92,6 +92,10 @@ int main(int argc, char **argv) {
 
     createFaces(mdlTopo, geom);
 
+    printModelInfo(mdlTopo.model);
+
+    GM_write(mdlTopo.model, modelFileName.c_str(), 0, 0);
+
     auto isValid = GM_isValid(mdlTopo.model, 2, NULL);
     if (!isValid) {
       fprintf(stderr, "ERROR: model is not valid... exiting\n");
@@ -99,10 +103,6 @@ int main(int argc, char **argv) {
     } else {
       std::cout << "Model is valid.\n";
     }
-
-    printModelInfo(mdlTopo.model);
-
-    GM_write(mdlTopo.model, modelFileName.c_str(), 0, 0);
 
     if(doCreateMesh) {
       createMesh(mdlTopo, meshFileName, progress);

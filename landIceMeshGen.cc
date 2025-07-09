@@ -474,13 +474,14 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   using func=std::function<psa(int pt)>;
 
   pGVertex firstMdlVtx;
+  int firstPtIdx;
   int startingCurvePtIdx;
   pGVertex startingMdlVtx;
   std::vector<int> ptsOnCurve;
   func createCurve = [&](int pt) {
     double vtx[3] = {geom.vtx_x[pt], geom.vtx_y[pt], 0};
     pGVertex endMdlVtx;
-    if(startingCurvePtIdx > pt) { //wrap around
+    if(pt == firstPtIdx) { //wrap around
       endMdlVtx = firstMdlVtx;
     } else {
       endMdlVtx = GR_createVertex(mdlTopo.region, vtx);
@@ -495,6 +496,23 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
       pts[i+1] = geom.vtx_y[ptIdx];
       pts[i+2] = 0;
     }
+
+    double first[3];
+    GV_point(startingMdlVtx, first);
+    const double tol = 1e-12;
+    if( ! isPtCoincident(pts[0], pts[1], first[0], first[1], tol)) {
+      std::cerr << "first model vtx does not match first point on curve!... exiting\n";
+      exit(EXIT_FAILURE);
+    }
+
+    double last[3];
+    GV_point(endMdlVtx, last);
+    const int lpIdx = (ptsOnCurve.size()-1)*3;
+    if( ! isPtCoincident(pts[lpIdx], pts[lpIdx+1], last[0], last[1], tol) ) {
+      std::cerr << "last model vtx does not match last point on curve!... exiting\n";
+      exit(EXIT_FAILURE);
+    }
+
     auto edge = fitCurveToContourSimInterp(mdlTopo.region, startingMdlVtx, endMdlVtx, pts, true);
     mdlTopo.edges.push_back(edge);
 
@@ -502,10 +520,6 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
       std::cerr << "edge " << mdlTopo.edges.size()
         << " range " << startingCurvePtIdx << " " << pt
         << " numPts " << ptsOnCurve.size() << "\n";
-      double first[3];
-      GV_point(startingMdlVtx, first);
-      double last[3];
-      GV_point(endMdlVtx, last);
       std::cout << "start " << first[0] << " " << first[1] << "\n";
       std::cout << "end " << last[0] << " " << last[1] << "\n";
       std::cout << "x,y,z\n";
@@ -568,7 +582,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     {{State::NotOnCurve,State::NotOnCurve}, fail}
   };
 
-  startingCurvePtIdx = findStartingMdlVtx(isMdlVtx, firstContourPt);
+  firstPtIdx = startingCurvePtIdx = findStartingMdlVtx(isMdlVtx, firstContourPt);
   double vtx[3] = {geom.vtx_x[startingCurvePtIdx], geom.vtx_y[startingCurvePtIdx], 0};
   firstMdlVtx = startingMdlVtx = GR_createVertex(mdlTopo.region, vtx);
   mdlTopo.vertices.push_back(firstMdlVtx);
