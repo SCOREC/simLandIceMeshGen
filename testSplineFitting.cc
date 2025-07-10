@@ -5,6 +5,7 @@
 #include "SimModel.h"
 #include "SimUtil.h"
 #include "splineInterpolation.h"
+#include "curveReader.h"
 #include <cassert>
 #include <iostream>
 #include <math.h>
@@ -30,6 +31,18 @@ pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const i
 }
 
 int main(int argc, char **argv) {
+  const int numExpectedArgs = 3;
+  if (argc != numExpectedArgs) {
+    std::cerr << "Usage: <input csv file> <expected curve length>\n";
+    std::cerr << "input csv file with the following columns: "
+                 "x,y,z,isOnCurve,angle,isMdlVtx\n";
+    return 1;
+  }
+  assert(argc == numExpectedArgs);
+
+  std::string curveFilename = argv[1];
+  double expectedCurveLength = std::stod(argv[2]);
+
   pGVertex *vertices; // array to store the returned model vertices
   pGEdge *edges;      // array to store the returned model edges
   pGFace *faces;      // array to store the returned model faces
@@ -55,19 +68,21 @@ int main(int argc, char **argv) {
     part = GM_rootPart(model);
     outerRegion = GIP_outerRegion(part);
 
-    const auto numPts = 4;
-    std::vector<double> pts = {0,  0, 0,
-                               4,  1, 0,
-                               8,  1, 0,
-                               12, 0, 0};
+    auto curve = CurveReader::readCurveInfo(curveFilename);
+    const auto numPts = curve.x.size();
 
-    double startPt[3] = {pts[0], pts[1], pts[2]};
+    double startPt[3] = {curve.x[0], curve.y[0], 0.0};
     auto startVtx = GR_createVertex(outerRegion, startPt);
 
-    double endPt[3] = {pts[(numPts-1)*3],
-                       pts[(numPts-1)*3+1],
-                       pts[(numPts-1)*3+2]};
+    double endPt[3] = {curve.x[(numPts-1)], curve.y[(numPts-1)], 0.0};
     auto endVtx = GR_createVertex(outerRegion, endPt);
+
+    vector<double> pts;
+    for(int i = 0; i < numPts; ++i) {
+      pts.push_back(curve.x[i]);
+      pts.push_back(curve.y[i]);
+      pts.push_back(0);
+    }
 
     auto edge = fitCurveToContour(outerRegion, startVtx, endVtx, numPts, pts, true);
 
@@ -82,7 +97,8 @@ int main(int argc, char **argv) {
     assert(GM_numEdges(model) == 1);
     assert(GM_numFaces(model) == 0);
     assert(GM_numRegions(model) == 0);
-    //assert(std::fabs(GE_length(edge) - 12.2685) <= 1e-5);
+    std::cout << GE_length(edge) << " " << expectedCurveLength << std::endl;
+    assert(std::fabs(GE_length(edge) - expectedCurveLength) <= 1e-5);
     GM_write(model, modelFileName.c_str(), 0, 0);
 
     // cleanup

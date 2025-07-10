@@ -119,6 +119,7 @@ add_test(NAME testDiscoverTopo_dblMdlVtx
   COMMAND ./testDiscoverTopo ${testDataDir}/testDoubleMdlVtxWBbox.csv)
 
 addExe(testSplineFitting)
+target_link_libraries(testSplineFitting PRIVATE curveReader)
 add_test(NAME testSplineFitting_single_edge
-         COMMAND ./testSplineFitting)
+         COMMAND ./testSplineFitting ${testDataDir}/testCurveSplineFitting.csv 12.2685)
 
