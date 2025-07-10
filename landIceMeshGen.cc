@@ -1,4 +1,5 @@
 #include "landIceMeshGen.h"
+#include "Quadtree.h"
 
 namespace TC {
 void normalize(double x, double y, double& nx, double& ny) {
@@ -286,11 +287,44 @@ void convertMetersToKm(GeomInfo &geom) {
   std::transform(geom.vtx_y.cbegin(), geom.vtx_y.cend(), geom.vtx_y.begin(), [](double v) { return v * 0.001; });
 }
 
+quadtree::Box<double> makeBoxAroundPt(double x, double y, double pad=0.5) {
+  const double left = x-pad;
+  const double bottom = y-pad; //see https://github.com/pvigier/Quadtree/issues/10#issuecomment-3058271986
+  const double width = pad*2;
+  const double height = pad*2;
+  return {left, bottom, width, height};
+}
+
+
 //find pairs of points that are not consecutative, but are within some length
 //tolerance of each other - these are considered narrow channels that will be
 //removed
 std::vector<int> markNarrowChannels(GeomInfo &g, double coincidentVtxToleranceSquared, bool debug=false) {
   //use a quadtree
+  struct Node
+  {
+    quadtree::Box<double> box;
+    std::size_t id;
+  };
+  auto n = std::size_t(g.vtx_x.size());
+  auto getBox = [](Node* node)
+  {
+    return node->box;
+  };
+  const auto bbox = getBoundingPlane(g);
+  auto box = quadtree::Box<double>(bbox.minX, bbox.minY, bbox.maxX-bbox.minX, bbox.maxY-bbox.minY);
+  auto quadtree = quadtree::Quadtree<Node*, decltype(getBox), std::equal_to<Node*>, double>(box, getBox);
+  std::vector<Node> nodes;
+  for(size_t i = 4; i < g.vtx_x.size(); i++) {
+    nodes.push_back({makeBoxAroundPt(g.vtx_x.at(i),g.vtx_y.at(i)),i});
+    quadtree.add(&nodes.back());
+  }
+  auto intersections3 = quadtree.findAllIntersections();
+  std::cout << intersections3.size() << '\n';
+  for(auto& [a,b] : intersections3) {
+    std::cout << a->id << " " << b->id << "\n";
+  }
+  return std::vector<int>(); //FIXME
 }
 
 GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
@@ -345,6 +379,8 @@ GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
 
   clean.numEdges = clean.edges.size();
   assert(clean.numEdges == clean.numVtx);
+
+  markNarrowChannels(clean, 1);
   return clean;
 }
 

@@ -11,10 +11,10 @@ std::string getFileExtension(const std::string &filename) {
 }
 
 int main(int argc, char **argv) {
-  const int numExpectedArgs = 7;
+  const int numExpectedArgs = 8;
   if (argc != numExpectedArgs) {
     std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
-                 "<coincidentVtxTolerance> <angleTolerance> <createMesh>\n";
+                 "<coincidentVtxTolerance> <angleTolerance> <createMesh> <units>\n";
     std::cerr << "coincidentVtxTolerance is the mininum allowed "
                  "distance between adjacent vertices in the "
                  "input.  Vertices within the specified distance will "
@@ -28,6 +28,7 @@ int main(int argc, char **argv) {
                  "used to determine if they are part of the same curve.\n";
     std::cerr << "createMesh = 1:generate mesh, otherwise, "
                  "skip mesh generation.\n";
+    std::cerr << "units = m:meters, km:kilometers\n";
     return 1;
   }
   assert(argc == numExpectedArgs);
@@ -41,12 +42,16 @@ int main(int argc, char **argv) {
   const auto angleTol = std::atof(argv[4]);
   const auto onCurveAngleTol = std::atof(argv[5]);
   const bool doCreateMesh = (std::stoi(argv[6]) == 1);
+  const std::string units = argv[7];
   std::cout << "input points file: " << argv[1] << " "
             << "coincidentPtTol: " << coincidentPtTol << " "
             << "output prefix: " << prefix << " "
             << "angleTol: " << angleTol << " "
             << "onCurveAngleTol: " << onCurveAngleTol << " "
-            << "createMesh: " << doCreateMesh << "\n";
+            << "createMesh: " << doCreateMesh << "\n" << " "
+            << "units: " << units << "\n";
+
+  assert(units == "m" || units == "km");
 
   if (ext == ".vtk") {
     dirty = readVtkGeom(filename);
@@ -56,7 +61,9 @@ int main(int argc, char **argv) {
     std::cerr << "Unsupported file extension: " << ext << "\n";
     return 1;
   }
-  convertMetersToKm(dirty);
+  if(units == "m") {
+    convertMetersToKm(dirty);
+  }
   const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
   auto geom = cleanGeom(dirty, coincidentPtTolSquared, false);
   std::string modelFileName = prefix + ".smd";
