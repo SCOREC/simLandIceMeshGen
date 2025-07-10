@@ -100,6 +100,7 @@ add_test(NAME onCurve_edge522
   COMMAND ./testOnCurve ${testDataDir}/testEdge522.csv 4 0 150)
 
 addExe(testSplineFitting)
+target_link_libraries(testSplineFitting PRIVATE curveReader)
 add_test(NAME testSplineFitting_single_edge
-         COMMAND ./testSplineFitting)
+         COMMAND ./testSplineFitting ${testDataDir}/testCurveSplineFitting.csv 12.2685)
 
