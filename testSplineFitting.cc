@@ -108,6 +108,9 @@ int main(int argc, char **argv) {
     if (clockwise)
       edgeDir = 0;
 
+    std::cout << bspline.x.eval(0) << ", " << bspline.y.eval(0) << std::endl;
+    std::cout << bspline.x.eval(1) << ", " << bspline.y.eval(1) << std::endl;
+
     pCurve spline2DCurve =
         SCurve_createBSpline(order, numCtrlPts, &ctrlPts3D[0], &knots[0], NULL);
     pGEdge spline2DEdge =
