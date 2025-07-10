@@ -317,7 +317,9 @@ std::vector<int> markNarrowChannels(GeomInfo &g, double coincidentVtxToleranceSq
   std::vector<Node> nodes;
   for(size_t i = 4; i < g.vtx_x.size(); i++) {
     nodes.push_back({makeBoxAroundPt(g.vtx_x.at(i),g.vtx_y.at(i)),i});
-    quadtree.add(&nodes.back());
+  }
+  for(auto& node : nodes) {
+    quadtree.add(&node);
   }
   auto intersections3 = quadtree.findAllIntersections();
   std::cout << intersections3.size() << '\n';
