@@ -30,6 +30,7 @@ pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const i
   return edge;
 }
 
+
 int main(int argc, char **argv) {
   const int numExpectedArgs = 3;
   if (argc != numExpectedArgs) {
@@ -86,6 +87,32 @@ int main(int argc, char **argv) {
 
     auto edge = fitCurveToContour(outerRegion, startVtx, endVtx, numPts, pts, true);
 
+    //Fit curve using Spline2D Implementation
+    auto bspline = SplineInterp::fitCubicSplineToPoints(curve.x, curve.y);
+    vector<double> ctrlPtsX, ctrlPtsY, knots, weight;
+    int order;
+    bspline.x.getpara(order, ctrlPtsX, knots, weight);
+    bspline.y.getpara(order, ctrlPtsY, knots, weight);
+    const int numCtrlPts = ctrlPtsX.size();
+    vector<double> ctrlPts3D(3 * (numCtrlPts));
+    for (int k = 0; k < numCtrlPts; k++) {
+      ctrlPts3D.at(3 * k) = ctrlPtsX.at(k);
+      ctrlPts3D.at(3 * k + 1) = ctrlPtsY.at(k);
+      ctrlPts3D[3 * k + 2] = 0.0;
+    }
+    // To make it consistent, we will define every edge in counter-clockwise
+    // direction. If curve is clockwise, set edge dir to 0, otherwise 1 to
+    // follow the above convention.
+    int edgeDir = 1;
+    bool clockwise = SplineInterp::curveOrientation(ctrlPts3D);
+    if (clockwise)
+      edgeDir = 0;
+
+    pCurve spline2DCurve =
+        SCurve_createBSpline(order, numCtrlPts, &ctrlPts3D[0], &knots[0], NULL);
+    pGEdge spline2DEdge =
+        GR_createEdge(outerRegion, startVtx, endVtx, curve, edgeDir);
+
     auto isValid = GM_isValid(model, 2, NULL);
     if (!isValid) {
       fprintf(stderr, "ERROR: model is not valid... exiting\n");
@@ -94,11 +121,11 @@ int main(int argc, char **argv) {
       cout << "Model is valid.\n";
     }
     assert(GM_numVertices(model) == 2);
-    assert(GM_numEdges(model) == 1);
+    assert(GM_numEdges(model) == 2);
     assert(GM_numFaces(model) == 0);
     assert(GM_numRegions(model) == 0);
-    std::cout << GE_length(edge) << " " << expectedCurveLength << std::endl;
-    assert(std::fabs(GE_length(edge) - expectedCurveLength) <= 1e-5);
+    std::cout << GE_length(edge) << " " << GE_length(spline2DEdge) << std::endl;
+    assert(std::fabs(GE_length(edge) - GE_length(spline2DEdge)) <= 1e-5);
     GM_write(model, modelFileName.c_str(), 0, 0);
 
     // cleanup
