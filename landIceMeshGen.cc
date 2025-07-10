@@ -322,9 +322,12 @@ std::vector<int> markNarrowChannels(GeomInfo &g, double coincidentVtxToleranceSq
     quadtree.add(&node);
   }
   auto intersections3 = quadtree.findAllIntersections();
-  std::cout << intersections3.size() << '\n';
+  std::cout << "number of point pairs within " << std::sqrt(coincidentVtxToleranceSquared) << "km found: " << intersections3.size() << '\n';
+  std::cout << "pt0_id, pt0_x, pt0_y, pt1_id, pt1_x, pt1_y\n";
   for(auto& [a,b] : intersections3) {
-    std::cout << a->id << " " << b->id << "\n";
+    std::cout << a->id << ", " << g.vtx_x.at(a->id) << ", " << g.vtx_y.at(a->id) << ", "
+              << b->id << ", " << g.vtx_x.at(b->id) << ", " << g.vtx_y.at(b->id) << "\n";
+
   }
   return std::vector<int>(); //FIXME
 }
