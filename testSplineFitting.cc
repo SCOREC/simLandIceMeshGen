@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
     pCurve spline2DCurve =
         SCurve_createBSpline(order, numCtrlPts, &ctrlPts3D[0], &knots[0], NULL);
     pGEdge spline2DEdge =
-        GR_createEdge(outerRegion, startVtx, endVtx, curve, edgeDir);
+        GR_createEdge(outerRegion, startVtx, endVtx, spline2DCurve, edgeDir);
 
     auto isValid = GM_isValid(model, 2, NULL);
     if (!isValid) {
