@@ -299,7 +299,7 @@ quadtree::Box<double> makeBoxAroundPt(double x, double y, double pad=0.5) {
 bool isNumEdgesBtwnPtsGreaterThanOne(size_t small, size_t large, size_t firstPt, size_t lastPt) {
   assert(small<=large);
   if(large == lastPt && small == firstPt) {
-    return true;
+    return false; //difference is one
   } else {
     return (large-small == 1);
   }
