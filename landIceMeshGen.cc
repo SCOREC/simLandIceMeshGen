@@ -317,14 +317,14 @@ void removeNestedSegments(std::map<int,int> longPairs, int firstPt, int lastPt) 
   {
     return node->box;
   };
-  auto box = quadtree::Box<BoxType>(firstPt-1, 0, lastPt+1, 0);
+  auto box = quadtree::Box<BoxType>(firstPt-1, 0, lastPt+1, 0); //FIXME - no intersections found
   auto quadtree = quadtree::Quadtree<Node*, decltype(getBox), std::equal_to<Node*>, BoxType>(box, getBox);
   std::vector<Node> nodes;
   size_t id = 0;
   for(auto& [a,b] : longPairs) {
     const auto small = std::min(a, b);
     const auto large = std::max(a, b);
-    nodes.push_back({{small,0,large-small,0},id});
+    nodes.push_back({{small,0,large-small,0},id}); //FIXME - no intersections found
     id++;
   }
   for(auto& node : nodes) {
