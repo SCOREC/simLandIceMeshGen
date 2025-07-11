@@ -1,5 +1,6 @@
 #include "landIceMeshGen.h"
 #include "Quadtree.h"
+#include <map>
 
 namespace TC {
 void normalize(double x, double y, double& nx, double& ny) {
@@ -295,11 +296,56 @@ quadtree::Box<double> makeBoxAroundPt(double x, double y, double pad=0.5) {
   return {left, bottom, width, height};
 }
 
+bool isNumEdgesBtwnPtsGreaterThanOne(size_t small, size_t large, size_t firstPt, size_t lastPt) {
+  assert(small<=large);
+  if(large == lastPt && small == firstPt) {
+    return true;
+  } else {
+    return (large-small == 1);
+  }
+}
+
+void removeNestedSegments(std::map<int,int> longPairs, int firstPt, int lastPt) {
+  typedef int BoxType;
+  struct Node
+  {
+    quadtree::Box<BoxType> box;
+    std::size_t id;
+  };
+  auto n = longPairs.size();
+  auto getBox = [](Node* node)
+  {
+    return node->box;
+  };
+  auto box = quadtree::Box<BoxType>(firstPt-1, 0, lastPt+1, 0);
+  auto quadtree = quadtree::Quadtree<Node*, decltype(getBox), std::equal_to<Node*>, BoxType>(box, getBox);
+  std::vector<Node> nodes;
+  size_t id = 0;
+  for(auto& [a,b] : longPairs) {
+    const auto small = std::min(a, b);
+    const auto large = std::max(a, b);
+    nodes.push_back({{small,0,large-small,0},id});
+    id++;
+  }
+  for(auto& node : nodes) {
+    quadtree.add(&node);
+  }
+  auto intersections = quadtree.findAllIntersections();
+  if(true) {
+    std::cout << "number of intersecting ranges found: " << intersections.size() << '\n';
+    std::cout << "a_id, a_min, a_max, b_id, b_min, b_max\n";
+    for(auto& [a,b] : intersections) {
+      std::cout << a->id << ", " << a->box.left << ", " << a->box.getRight() << ", "
+                << b->id << ", " << b->box.left << ", " << b->box.getRight() << "\n";
+    }
+    std::cout << "done\n";
+  }
+}
 
 //find pairs of points that are not consecutative, but are within some length
 //tolerance of each other - these are considered narrow channels that will be
 //removed
-std::vector<int> markNarrowChannels(GeomInfo &g, double coincidentVtxToleranceSquared, bool debug=false) {
+std::map<int,int> markNarrowChannels(GeomInfo &g, double coincidentVtxToleranceSquared, int firstPt, bool debug=false) {
   //use a quadtree
   struct Node
   {
@@ -321,15 +367,33 @@ std::vector<int> markNarrowChannels(GeomInfo &g, double coincidentVtxToleranceSq
   for(auto& node : nodes) {
     quadtree.add(&node);
   }
-  auto intersections3 = quadtree.findAllIntersections();
-  std::cout << "number of point pairs within " << std::sqrt(coincidentVtxToleranceSquared) << "km found: " << intersections3.size() << '\n';
-  std::cout << "pt0_id, pt0_x, pt0_y, pt1_id, pt1_x, pt1_y\n";
-  for(auto& [a,b] : intersections3) {
-    std::cout << a->id << ", " << g.vtx_x.at(a->id) << ", " << g.vtx_y.at(a->id) << ", "
-              << b->id << ", " << g.vtx_x.at(b->id) << ", " << g.vtx_y.at(b->id) << "\n";
-
+  auto intersections = quadtree.findAllIntersections();
+  if(true) {
+    std::cout << "number of point pairs within " << std::sqrt(coincidentVtxToleranceSquared) << "km found: " << intersections.size() << '\n';
+    std::cout << "pt0_id, pt0_x, pt0_y, pt1_id, pt1_x, pt1_y\n";
+    for(auto& [a,b] : intersections) {
+      const int distance = std::abs(static_cast<int>(a->id)-static_cast<int>(b->id));
+      std::cout << a->id << ", " << g.vtx_x.at(a->id) << ", " << g.vtx_y.at(a->id) << ", "
+        << b->id << ", " << g.vtx_x.at(b->id) << ", " << g.vtx_y.at(b->id) << ", "
+        << distance << "\n";
+    }
+    std::cout << "done\n";
   }
-  return std::vector<int>(); //FIXME
+  //remove consecutative pairs
+  std::map<int,int> longPairs;
+  const int lastPt = g.vtx_x.size()-1;
+  for(auto& [a,b] : intersections) {
+    const auto small = std::min(a->id, b->id);
+    const auto large = std::max(a->id, b->id);
+    if(isNumEdgesBtwnPtsGreaterThanOne(small, large, firstPt, lastPt)) {
+      assert(longPairs.count(small) == 0);
+      longPairs.insert({small, large});
+    }
+  }
+  std::cout << "longPairs " << longPairs.size() << "\n";
+  ////remove pairs that are nested within another pair
+  removeNestedSegments(longPairs, firstPt, lastPt);
+  return std::map<int,int>();
 }
 
 GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
@@ -385,7 +449,7 @@ GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
   clean.numEdges = clean.edges.size();
   assert(clean.numEdges == clean.numVtx);
 
-  markNarrowChannels(clean, 1);
+  markNarrowChannels(clean, 1, 4);
   return clean;
 }
 
