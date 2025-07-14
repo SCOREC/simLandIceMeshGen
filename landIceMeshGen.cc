@@ -305,41 +305,34 @@ bool isNumEdgesBtwnPtsGreaterThanOne(size_t small, size_t large, size_t firstPt,
   }
 }
 
-void removeNestedSegments(std::map<int,int> longPairs, int firstPt, int lastPt) {
-  typedef int BoxType;
-  struct Node
-  {
-    quadtree::Box<BoxType> box;
-    std::size_t id;
-  };
-  auto n = longPairs.size();
-  auto getBox = [](Node* node)
-  {
-    return node->box;
-  };
-  auto box = quadtree::Box<BoxType>(firstPt-1, 0, lastPt+1, 0); //FIXME - no intersections found
-  auto quadtree = quadtree::Quadtree<Node*, decltype(getBox), std::equal_to<Node*>, BoxType>(box, getBox);
-  std::vector<Node> nodes;
-  size_t id = 0;
-  for(auto& [a,b] : longPairs) {
-    const auto small = std::min(a, b);
-    const auto large = std::max(a, b);
-    nodes.push_back({{small,0,large-small,0},id}); //FIXME - no intersections found
-    id++;
+std::vector<std::pair<int,int>> removeNestedSegments(std::map<int,int> longPairs, int firstPt, int lastPt) {
+  //FIXME: n^2 brute force search
+  std::vector<std::pair<int,int>> unNestedPairs;
+  for( auto it = longPairs.begin(); it != longPairs.end(); it++) {
+    auto [aLow,aHigh] = *it;
+    bool isNested = false;
+    for( auto sit = longPairs.begin(); sit != longPairs.end(); sit++) {
+      if( it == sit ) continue; //don't check against self
+      auto [bLow,bHigh] = *sit;
+      //check if a is within b
+      if( aLow >= bLow && aHigh <= bHigh ) {
+        isNested = true;
+        break;
+      }
+    }
+    if( !isNested ) {
+      unNestedPairs.push_back({aLow,aHigh});
+    }
   }
-  for(auto& node : nodes) {
-    quadtree.add(&node);
-  }
-  auto intersections = quadtree.findAllIntersections();
   if(true) {
-    std::cout << "number of intersecting ranges found: " << intersections.size() << '\n';
-    std::cout << "a_id, a_min, a_max, b_id, b_min, b_max\n";
-    for(auto& [a,b] : intersections) {
-      std::cout << a->id << ", " << a->box.left << ", " << a->box.getRight() << ", "
-                << b->id << ", " << b->box.left << ", " << b->box.getRight() << "\n";
+    std::cout << "number of un-nested pairs found (brute force) " << unNestedPairs.size() << "\n";
+    std::cout << "a_min, a_max\n";
+    for(auto& [a,b] : unNestedPairs) {
+      std::cout << a << ", " << b << "\n";
     }
     std::cout << "done\n";
   }
+  return unNestedPairs;
 }
 
 //find pairs of points that are not consecutative, but are within some length
@@ -390,7 +383,16 @@ std::map<int,int> markNarrowChannels(GeomInfo &g, double coincidentVtxToleranceS
       longPairs.insert({small, large});
     }
   }
-  std::cout << "longPairs " << longPairs.size() << "\n";
+  if(true) {
+    std::cout << "longPairs " << longPairs.size() << "\n";
+    std::cout << "id, min, max\n";
+    int i=0;
+    for(auto& [a,b] : longPairs) {
+      std::cout << i++ << ", " << a << ", " << b << "\n";
+    }
+    std::cout << "done\n";
+  }
+
   ////remove pairs that are nested within another pair
   removeNestedSegments(longPairs, firstPt, lastPt);
   return std::map<int,int>();

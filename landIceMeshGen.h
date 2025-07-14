@@ -63,4 +63,6 @@ void printModelInfo(pGModel model);
 void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress);
 
 int onCurve(double tc_m1, double tc, double tc_p1, double onCurveAngleTol=30);
+
+std::vector<std::pair<int,int>> removeNestedSegments(std::map<int,int> longPairs, int firstPt, int lastPt);
 #endif
