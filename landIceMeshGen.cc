@@ -288,7 +288,7 @@ void convertMetersToKm(GeomInfo &geom) {
   std::transform(geom.vtx_y.cbegin(), geom.vtx_y.cend(), geom.vtx_y.begin(), [](double v) { return v * 0.001; });
 }
 
-quadtree::Box<double> makeBoxAroundPt(double x, double y, double pad=0.5) {
+quadtree::Box<double> makeBoxAroundPt(double x, double y, double pad) {
   const double left = x-pad;
   const double bottom = y-pad; //see https://github.com/pvigier/Quadtree/issues/10#issuecomment-3058271986
   const double width = pad*2;
@@ -301,7 +301,7 @@ bool isNumEdgesBtwnPtsGreaterThanOne(size_t small, size_t large, size_t firstPt,
   if(large == lastPt && small == firstPt) {
     return false; //difference is one
   } else {
-    return (large-small == 1);
+    return (large-small > 1);
   }
 }
 
@@ -335,10 +335,13 @@ std::vector<std::pair<int,int>> removeNestedSegments(std::map<int,int> longPairs
   return unNestedPairs;
 }
 
+
 //find pairs of points that are not consecutative, but are within some length
-//tolerance of each other - these are considered narrow channels that will be
-//removed
-std::map<int,int> markNarrowChannels(GeomInfo &g, double coincidentVtxToleranceSquared, int firstPt, bool debug=false) {
+//tolerance of each other - mark these points as model vertices to help prevent
+//intersecting bsplines
+std::map<int,int> findNarrowChannels(GeomInfo &g, double coincidentVtxToleranceSquared, int firstPt, bool debug=false) {
+  assert(g.vtx_x.size() >= firstPt);
+
   //use a quadtree
   struct Node
   {
@@ -351,11 +354,14 @@ std::map<int,int> markNarrowChannels(GeomInfo &g, double coincidentVtxToleranceS
     return node->box;
   };
   const auto bbox = getBoundingPlane(g);
-  auto box = quadtree::Box<double>(bbox.minX, bbox.minY, bbox.maxX-bbox.minX, bbox.maxY-bbox.minY);
-  auto quadtree = quadtree::Quadtree<Node*, decltype(getBox), std::equal_to<Node*>, double>(box, getBox);
+  auto domain = quadtree::Box<double>(bbox.minX, bbox.minY, bbox.maxX-bbox.minX, bbox.maxY-bbox.minY);
+  auto quadtree = quadtree::Quadtree<Node*, decltype(getBox), std::equal_to<Node*>, double>(domain, getBox);
+
+  double padding = std::sqrt(coincidentVtxToleranceSquared)/2;
   std::vector<Node> nodes;
   for(size_t i = 4; i < g.vtx_x.size(); i++) {
-    nodes.push_back({makeBoxAroundPt(g.vtx_x.at(i),g.vtx_y.at(i)),i});
+    auto box = makeBoxAroundPt(g.vtx_x.at(i),g.vtx_y.at(i),padding);
+    nodes.push_back({box,i});
   }
   for(auto& node : nodes) {
     quadtree.add(&node);
@@ -392,10 +398,7 @@ std::map<int,int> markNarrowChannels(GeomInfo &g, double coincidentVtxToleranceS
     }
     std::cout << "done\n";
   }
-
-  ////remove pairs that are nested within another pair
-  removeNestedSegments(longPairs, firstPt, lastPt);
-  return std::map<int,int>();
+  return longPairs;
 }
 
 GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
@@ -451,7 +454,6 @@ GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
   clean.numEdges = clean.edges.size();
   assert(clean.numEdges == clean.numVtx);
 
-  markNarrowChannels(clean, 1, 4);
   return clean;
 }
 
@@ -794,7 +796,7 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
 }
 
 std::tuple<std::vector<int>,std::vector<int>>
-discoverTopology(GeomInfo& geom, double angleTol, double onCurveAngleTol, bool debug) {
+discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug) {
   if(geom.numVtx <= 4) { // no internal contour
     return {std::vector<int>(), std::vector<int>()};
   }
@@ -848,6 +850,15 @@ discoverTopology(GeomInfo& geom, double angleTol, double onCurveAngleTol, bool d
     const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
     angle.push_back(tc_angle);
     isMdlVtx.push_back(tc_angle < tc_angle_lower || tc_angle > tc_angle_upper);
+  }
+
+  const int firstPt = 4;
+  auto narrowPtPairs = findNarrowChannels(geom, coincidentPtTolSquared, firstPt);
+
+  //mark the narrow points as model vertices
+  for(auto& [a,b] : narrowPtPairs) {
+    isMdlVtx.at(a) = 1;
+    isMdlVtx.at(b) = 1;
   }
 
   for (int j = 4;j < geom.numVtx; ++j) {
