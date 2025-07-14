@@ -104,7 +104,3 @@ addExe(testSplineFitting)
 add_test(NAME testSplineFitting_single_edge
          COMMAND ./testSplineFitting)
 
-addExe(testRemoveNested)
-target_link_libraries(testRemoveNested PRIVATE landIceMeshGen)
-add_test(NAME testRemoveNested COMMAND ./testRemoveNested)
-

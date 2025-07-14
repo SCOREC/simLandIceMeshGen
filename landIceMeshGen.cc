@@ -305,37 +305,6 @@ bool isNumEdgesBtwnPtsGreaterThanOne(size_t small, size_t large, size_t firstPt,
   }
 }
 
-std::vector<std::pair<int,int>> removeNestedSegments(std::map<int,int> longPairs, int firstPt, int lastPt) {
-  //FIXME: n^2 brute force search
-  std::vector<std::pair<int,int>> unNestedPairs;
-  for( auto it = longPairs.begin(); it != longPairs.end(); it++) {
-    auto [aLow,aHigh] = *it;
-    bool isNested = false;
-    for( auto sit = longPairs.begin(); sit != longPairs.end(); sit++) {
-      if( it == sit ) continue; //don't check against self
-      auto [bLow,bHigh] = *sit;
-      //check if a is within b
-      if( aLow >= bLow && aHigh <= bHigh ) {
-        isNested = true;
-        break;
-      }
-    }
-    if( !isNested ) {
-      unNestedPairs.push_back({aLow,aHigh});
-    }
-  }
-  if(true) {
-    std::cout << "number of un-nested pairs found (brute force) " << unNestedPairs.size() << "\n";
-    std::cout << "a_min, a_max\n";
-    for(auto& [a,b] : unNestedPairs) {
-      std::cout << a << ", " << b << "\n";
-    }
-    std::cout << "done\n";
-  }
-  return unNestedPairs;
-}
-
-
 //find pairs of points that are not consecutative, but are within some length
 //tolerance of each other - mark these points as model vertices to help prevent
 //intersecting bsplines
