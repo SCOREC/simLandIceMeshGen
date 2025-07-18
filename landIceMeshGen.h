@@ -30,6 +30,21 @@ struct GeomInfo {
   std::vector<double> vtx_x;
   std::vector<double> vtx_y;
   std::vector<std::array<int, 2>> edges;
+  int firstContourPt;
+  int getPrevPtIdx(int i) {
+    if(i == firstContourPt) {
+      return vtx_x.size()-1;
+    } else {
+      return i-1;
+    }
+  }
+  int getNextPtIdx(int i) {
+    if(i == vtx_x.size()-1) {
+      return firstContourPt;
+    } else {
+      return i+1;
+    }
+  }
 };
 
 struct ModelTopo {

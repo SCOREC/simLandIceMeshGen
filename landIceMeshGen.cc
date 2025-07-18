@@ -521,10 +521,68 @@ int findStartingMdlVtx(std::vector<int>& isMdlVtx, const int offset) {
   }
 }
 
+int getMinYPoint(GeomInfo& geom) {
+  double minY = std::numeric_limits<double>::max();
+  double minX = std::numeric_limits<double>::max();
+  int minIdx = -1;
+  for(int i=geom.firstContourPt; i<geom.vtx_y.size(); i++) {
+    const auto x = geom.vtx_x[i];
+    const auto y = geom.vtx_y[i];
+    if( y < minY ) {
+      minY = y;
+      minX = x;
+      minIdx = i;
+    } else if ( y == minY ) {
+      if ( x < minX ) {
+        minX = x;
+        minIdx = i;
+      }
+    }
+  };
+  assert(minIdx != -1);
+  return minIdx;
+}
+
+typedef std::array<double, 2> Vec2d;
+
+double crossProduct2d(const Vec2d& ab, const Vec2d& cd) {
+  //a*d - c*b
+  return ab[0]*cd[1]-cd[0]*ab[1];
+}
+
+//return the vector from a to b
+Vec2d getVector(GeomInfo& geom, int a, int b) {
+  return {geom.vtx_x[b]-geom.vtx_x[a],
+          geom.vtx_y[b]-geom.vtx_y[a]};
+}
+
+bool isPositiveOrientation(GeomInfo& geom) {
+  //determine if the curve has positive orientation if a region R is on the left
+  //when traveling around the outside of R
+  //from http://www.faqs.org/faqs/graphics/algorithms-faq/ and related stack
+  //overflow discussion (https://stackoverflow.com/a/1180256)
+  //Find the point with smallest y (and largest x if there are ties). Let the
+  //point be A and the previous point in the list be B and the next point in
+  //the list be C. Now compute the sign of the cross product of AB and AC.
+  const int minYpt = getMinYPoint(geom);
+  int prevPt = geom.getPrevPtIdx(minYpt);
+  int nextPt = geom.getNextPtIdx(minYpt);
+  const auto ab = getVector(geom, minYpt, prevPt);
+  const auto ac = getVector(geom, minYpt, nextPt);
+  double cp = crossProduct2d(ab,ac);
+  return (cp < 0);
+}
+
 void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug, const int firstContourPt) {
   if(geom.numVtx <= firstContourPt) { // no internal contour
     return;
   }
+
+  geom.firstContourPt = firstContourPt; //FIXME move to ctor
+  if( !isPositiveOrientation(geom) ) {
+    std::cerr << "orientation is not positive... reversing\n";
+  }
+
   enum class State {MdlVtx = 0, OnCurve = 1, NotOnCurve = 2};
   enum class Action {Init, Advance, Line, Curve};
   typedef std::pair<State,Action> psa; // next state, action
