@@ -475,10 +475,12 @@ GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
   clean.numEdges = clean.edges.size();
   assert(clean.numEdges == clean.numVtx);
 
-  clean.firstContourPt = 4; //only supports bounding rectangles
-  if( !isPositiveOrientation(clean) ) {
-    std::cerr << "orientation is not positive... reversing\n";
-    clean.reverseContourPoints();
+  if(clean.numVtx > 4) {
+    clean.firstContourPt = 4; //only supports bounding rectangles
+    if( !isPositiveOrientation(clean) ) {
+      std::cerr << "orientation is not positive... reversing\n";
+      clean.reverseContourPoints();
+    }
   }
 
   return clean;
