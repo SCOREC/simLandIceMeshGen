@@ -782,7 +782,7 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
 
   pModelItem domain = GM_domain(mdlTopo.model);
   
-  const int relativeSzType = 2;
+  const int relativeSzType = 2 
   MS_setMeshSize(meshCase, domain, relativeSzType, 0.01, NULL);
 //pANode MS_setMeshCurvNew 	( 	pACase  	cs,
 //		pModelItem  	ent,
