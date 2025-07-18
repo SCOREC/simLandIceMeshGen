@@ -45,6 +45,11 @@ struct GeomInfo {
       return i+1;
     }
   }
+  void reverseContourPoints() {
+    std::reverse(vtx_x.begin()+firstContourPt, vtx_x.end());
+    std::reverse(vtx_y.begin()+firstContourPt, vtx_y.end());
+    edges.clear(); //indices become invalid
+  }
 };
 
 struct ModelTopo {
