@@ -10,6 +10,7 @@
 #include <iostream>
 #include <math.h>
 #include <string>
+#include <fstream>
 
 using namespace std;
 
@@ -108,8 +109,19 @@ int main(int argc, char **argv) {
     if (clockwise)
       edgeDir = 0;
 
-    std::cout << bspline.x.eval(0) << ", " << bspline.y.eval(0) << std::endl;
-    std::cout << bspline.x.eval(1) << ", " << bspline.y.eval(1) << std::endl;
+
+    std::ofstream splineInterpFile("SplineInterp_Curve_Samples.csv");
+    if (!splineInterpFile) {
+      std::cerr << "Failed to open output file for splineinterp sampled points.\n";
+      return 1;
+    }
+    auto numSamples = curve.x.size() * 25;
+    splineInterpFile << "x, y\n";
+    for(int i = 0; i < numSamples; ++i) {
+      auto t = 1.0 * i / numSamples;
+      splineInterpFile << bspline.x.eval(t) << ", " << bspline.y.eval(t) << "\n";
+    }
+    splineInterpFile.close();
 
     pCurve spline2DCurve =
         SCurve_createBSpline(order, numCtrlPts, &ctrlPts3D[0], &knots[0], NULL);
