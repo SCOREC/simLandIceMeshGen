@@ -116,11 +116,13 @@ int main(int argc, char **argv) {
       return 1;
     }
     auto numSamples = curve.x.size() * 25;
-    splineInterpFile << "x, y\n";
+    splineInterpFile << "x, y, isVertex\n";
+    splineInterpFile << startPt[0] << ", " << startPt[1] << ", 1\n";
     for(int i = 0; i < numSamples; ++i) {
       auto t = 1.0 * i / numSamples;
-      splineInterpFile << bspline.x.eval(t) << ", " << bspline.y.eval(t) << "\n";
+      splineInterpFile << bspline.x.eval(t) << ", " << bspline.y.eval(t) << ", 0\n";
     }
+    splineInterpFile << endPt[0] << ", " << endPt[1] << ", 1\n";
     splineInterpFile.close();
 
     pCurve spline2DCurve =
