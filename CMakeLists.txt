@@ -75,9 +75,9 @@ set_tests_properties(curve4277 PROPERTIES
 add_test(NAME curve1293
   COMMAND ./testCreateEdges ${testDataDir}/testCurve1293.csv curve1293)
 set_tests_properties(curve1293 PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of vertices in model: 5")
+  PASS_REGULAR_EXPRESSION "Number of vertices in model: 4")
 set_tests_properties(curve1293 PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of edges in model: 5")
+  PASS_REGULAR_EXPRESSION "Number of edges in model: 4")
 
 add_test(NAME curve1655
   COMMAND ./testCreateEdges ${testDataDir}/testCurve1655.csv curve1655)
@@ -97,6 +97,13 @@ set_tests_properties(edge522 PROPERTIES
   PASS_REGULAR_EXPRESSION "Number of vertices in model: 8")
 set_tests_properties(edge522 PROPERTIES
   PASS_REGULAR_EXPRESSION "Number of edges in model: 8")
+
+add_test(NAME dblMdlVtx
+  COMMAND ./testCreateEdges ${testDataDir}/testDoubleMdlVtx.csv dblMdlVtx)
+set_tests_properties(dblMdlVtx PROPERTIES
+  PASS_REGULAR_EXPRESSION "Number of vertices in model: 3")
+set_tests_properties(dblMdlVtx PROPERTIES
+  PASS_REGULAR_EXPRESSION "Number of edges in model: 3")
 
 addExe(testOnCurve)
 target_link_libraries(testOnCurve PRIVATE curveReader)
