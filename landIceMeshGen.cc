@@ -663,11 +663,16 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     ptsOnCurve.push_back(pt);
     return psa{State::OnCurve,Action::Advance};
   };
-  func createLineAndStartCurve = [&](int pt) {
+  func startCurve = [&](int pt) {
     assert(ptsOnCurve.size() == 1);
-    ptsOnCurve.push_back(pt);
-    auto ignored = createCurve(pt);
-    return psa{State::OnCurve,Action::Line};
+    const int prevPt = ptsOnCurve.at(0);
+    if( ! isPtOnCurve.at(prevPt) ) {
+      ptsOnCurve.push_back(pt);
+      auto ignored = createCurve(pt);
+      return psa{State::OnCurve,Action::Line};
+    } else {
+      return advance(pt);
+    }
   };
   func createCurveFromPriorPt = [&](int pt) {
     if(ptsOnCurve.size() == 1 ) {
@@ -697,7 +702,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   typedef std::pair<State,State> pss; // current state, next state
   std::map<pss,func> machine = {
     {{State::MdlVtx,State::MdlVtx}, createLine},
-    {{State::MdlVtx,State::OnCurve}, createLineAndStartCurve},
+    {{State::MdlVtx,State::OnCurve}, startCurve},
     {{State::MdlVtx,State::NotOnCurve}, createLine},
     {{State::OnCurve,State::MdlVtx}, createCurveFromCurrentPt},
     {{State::OnCurve,State::OnCurve}, advance},
