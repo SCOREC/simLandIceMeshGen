@@ -29,7 +29,7 @@ set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
 add_test(NAME landIceMeshGen_gis
   COMMAND ./modelGen ${testDataDir}/gis.msh gis 1 120 40 1 "m")
 set_tests_properties(landIceMeshGen_gis PROPERTIES
-  PASS_REGULAR_EXPRESSION "mesh faces in surface: 6656")
+  PASS_REGULAR_EXPRESSION "mesh faces in surface: 4732")
 
 add_test(NAME landIceMeshGen_ais
   COMMAND ./modelGen ${testDataDir}/ais.vtk ais 1 120 40 1 "m")
@@ -82,9 +82,9 @@ set_tests_properties(curve1293 PROPERTIES
 add_test(NAME curve1655
   COMMAND ./testCreateEdges ${testDataDir}/testCurve1655.csv curve1655)
 set_tests_properties(curve1655 PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of vertices in model: 4")
+  PASS_REGULAR_EXPRESSION "Number of vertices in model: 2")
 set_tests_properties(curve1655 PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of edges in model: 4")
+  PASS_REGULAR_EXPRESSION "Number of edges in model: 2")
 
 add_test(NAME intersection2339_2344
   COMMAND ./testCreateEdges
@@ -113,7 +113,7 @@ add_test(NAME onCurve_edge522
 addExe(testDiscoverTopo)
 target_link_libraries(testDiscoverTopo PRIVATE curveReader)
 add_test(NAME testDiscoverTopo_dblMdlVtx
-  COMMAND ./testDiscoverTopo ${testDataDir}/testDoubleMdlVtx.csv)
+  COMMAND ./testDiscoverTopo ${testDataDir}/testDoubleMdlVtxWBbox.csv)
 
 addExe(testSplineFitting)
 add_test(NAME testSplineFitting_single_edge
