@@ -105,6 +105,9 @@ set_tests_properties(dblMdlVtx PROPERTIES
 set_tests_properties(dblMdlVtx PROPERTIES
   PASS_REGULAR_EXPRESSION "Number of edges in model: 3")
 
+add_test(NAME fjord
+  COMMAND ./testCreateEdges ${testDataDir}/fjord.csv fjord)
+
 addExe(testOnCurve)
 target_link_libraries(testOnCurve PRIVATE curveReader)
 add_test(NAME onCurve_edge522
