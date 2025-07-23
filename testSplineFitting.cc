@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
 
   std::string curveFilename = argv[1];
   int extensionPos = curveFilename.rfind(".");
-  std::string = curveFilename.substr(0, curveFilename.size() - extensionPos - 1)
+  std::string fileNameNoExt = curveFilename.substr(0, curveFilename.size() - extensionPos - 1);
   double expectedCurveLength = std::stod(argv[2]);
 
   pGVertex *vertices; // array to store the returned model vertices
@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
     if (clockwise)
       edgeDir = 0;
 
-    std::ofstream splineInterpDefinitionFile(curveFilename + "_Spline_Fitting_Samples.csv");
+    std::ofstream splineInterpDefinitionFile(fileNameNoExt + "_Spline_Fitting_Samples.csv");
       if (!splineInterpDefinitionFile) {
       std::cerr << "Failed to open output file for splineinterp definition.\n";
       return 1;
@@ -130,7 +130,7 @@ int main(int argc, char **argv) {
       splineInterpDefinitionFile << knots[i] << std::endl; 
     splineInterpDefinitionFile.close();
 
-    std::ofstream splineInterpSampleFile(curveFilename + "_Spline_Fitting_Samples.csv");
+    std::ofstream splineInterpSampleFile(fileNameNoExt + "_Spline_Fitting_Samples.csv");
     if (!splineInterpSampleFile) {
       std::cerr << "Failed to open output file for splineinterp sampled points.\n";
       return 1;
