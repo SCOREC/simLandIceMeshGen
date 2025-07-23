@@ -43,6 +43,8 @@ int main(int argc, char **argv) {
   assert(argc == numExpectedArgs);
 
   std::string curveFilename = argv[1];
+  int extensionPos = curveFilename.rfind(".");
+  std::string = curveFilename.substr(0, curveFilename.size() - extensionPos - 1)
   double expectedCurveLength = std::stod(argv[2]);
 
   pGVertex *vertices; // array to store the returned model vertices
@@ -159,7 +161,8 @@ int main(int argc, char **argv) {
     assert(GM_numEdges(model) == 1);
     assert(GM_numFaces(model) == 0);
     assert(GM_numRegions(model) == 0);
-    std::cout << GE_length(spline2DEdge) << std::endl;
+    std::cout << "Length: " << GE_length(spline2DEdge);
+    std::cout << " Expected Length: " << expectedCurveLength << std::endl;
     assert(std::fabs(GE_length(spline2DEdge) - expectedCurveLength) <= 1e-5);
     GM_write(model, modelFileName.c_str(), 0, 0);
 
