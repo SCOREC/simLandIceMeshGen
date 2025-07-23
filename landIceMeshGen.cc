@@ -883,14 +883,15 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
     isMdlVtx.push_back(tc_angle < tc_angle_lower || tc_angle > tc_angle_upper);
   }
 
+  //mark pairs of points that are within a tolerance of each other as model
+  //vertices
   auto narrowPtPairs = findNarrowChannels(geom, coincidentPtTolSquared);
-
-  //mark the narrow points as model vertices
   for(auto& [a,b] : narrowPtPairs) {
     isMdlVtx.at(a) = 1;
     isMdlVtx.at(b) = 1;
   }
 
+  //mark points that are on smooth curves
   for (int j = geom.firstContourPt;j < geom.numVtx; ++j) {
     const int m1 = geom.getPrevPtIdx(j);
     const int p1 = geom.getNextPtIdx(j);
