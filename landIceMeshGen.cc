@@ -833,7 +833,7 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
 
 std::tuple<std::vector<int>,std::vector<int>>
 discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug) {
-  if(geom.numVtx <= 4) { // no internal contour
+  if(geom.numVtx <= geom.firstContourPt) { // no internal contour
     return {std::vector<int>(), std::vector<int>()};
   }
   if(debug) {
@@ -854,7 +854,7 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
                " tc_angle_lower " << tc_angle_lower << "\n";
   std::cout << "deg_angle_upper " << deg_angle_upper <<
                " tc_angle_upper " << tc_angle_upper << "\n";
-  std::cout << "numPts " << geom.numVtx-4 << " lastPt " << geom.numVtx << "\n";
+  std::cout << "numPts " << geom.numVtx-geom.firstContourPt << " lastPt " << geom.numVtx << "\n";
 
   std::vector<double> angle;
   std::vector<int> isMdlVtx;
@@ -864,21 +864,16 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
   isPointOnCurve.reserve(geom.numVtx);
   //hack: add data for the first four boundary verts so 'createEdges' indexing
   //matches the GeomInfo struct indexing
-  for(int i=0; i<4; i++){
+  for(int i=0; i<geom.firstContourPt; i++){
     angle.push_back(TC::degreesTo(90)); //hack - 90deg corners
     isMdlVtx.push_back(1); //hack - all model verts
     isPointOnCurve.push_back(0); //hack - not on curve
   }
 
   //compute angle and determine if each pt is a model vertex
-  for(int i=4; i<geom.numVtx; i++) {
-    int m1 = i-1;
-    int p1 = i+1;
-    if (i == 4) { //first point
-      m1 = geom.numVtx - 1;
-    } else if ( i == geom.numVtx-1 ) { //last point
-      p1 = 4;
-    }
+  for(int i=geom.firstContourPt; i<geom.numVtx; i++) {
+    const int m1 = geom.getPrevPtIdx(i);
+    const int p1 = geom.getNextPtIdx(i);
     const double norm_prev_x = geom.vtx_x[m1] - geom.vtx_x[i];
     const double norm_prev_y = geom.vtx_y[m1] - geom.vtx_y[i];
     const double norm_next_x = geom.vtx_x[p1] - geom.vtx_x[i];
@@ -896,14 +891,9 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
     isMdlVtx.at(b) = 1;
   }
 
-  for (int j = 4;j < geom.numVtx; ++j) {
-    int m1 = j-1;
-    int p1 = j+1;
-    if (j == 4) { //first point
-      m1 = geom.numVtx - 1;
-    } else if ( j == geom.numVtx-1 ) { //last point
-      p1 = 4;
-    }
+  for (int j = geom.firstContourPt;j < geom.numVtx; ++j) {
+    const int m1 = geom.getPrevPtIdx(j);
+    const int p1 = geom.getNextPtIdx(j);
     const double tc_m1 = angle.at(m1);
     const double tc = angle.at(j);
     const double tc_p1 = angle.at(p1);
@@ -924,14 +914,13 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
   //find points marked as on a curve that have no
   // adjacent points that are also marked as on the curve
   //first point
-  const int firstContourPt = 4;
   if( isPointOnCurve.back() == 0 &&
-      isPointOnCurve.at(firstContourPt) == 1 &&
-      isPointOnCurve.at(firstContourPt+1) == 0 ) {
-    isPointOnCurve.at(firstContourPt) = 0;
+      isPointOnCurve.at(geom.firstContourPt) == 1 &&
+      isPointOnCurve.at(geom.firstContourPt+1) == 0 ) {
+    isPointOnCurve.at(geom.firstContourPt) = 0;
   }
   //interior
-  for (int j = firstContourPt+1;j < isPointOnCurve.size(); j++) {
+  for (int j = geom.firstContourPt+1;j < isPointOnCurve.size(); j++) {
     if( isPointOnCurve.at(j-1) == 0 &&
         isPointOnCurve.at(j) == 1 &&
         isPointOnCurve.at(j+1) == 0 ) {
@@ -942,7 +931,7 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
   const int last = isPointOnCurve.size()-1;
   if( isPointOnCurve.at(last-1) == 0 &&
       isPointOnCurve.at(last) == 1 &&
-      isPointOnCurve.at(firstContourPt) == 0 ) {
+      isPointOnCurve.at(geom.firstContourPt) == 0 ) {
     isPointOnCurve.at(last) = 0;
   }
 
