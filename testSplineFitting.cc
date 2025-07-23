@@ -113,10 +113,16 @@ int main(int argc, char **argv) {
       if (!splineInterpDefinitionFile) {
       std::cerr << "Failed to open output file for splineinterp definition.\n";
       return 1;
-    }
+    } 
+    std::cout << weight.size() << std::endl;
     splineInterpDefinitionFile << "# Control Points" << std::endl << "X,Y,Z,Weight" << std::endl;
-    for(int i = 0; i < numCtrlPts; ++i)
-      splineInterpDefinitionFile << ctrlPtsX[i] << "," << ctrlPtsY[0] << ",0," << weight[0] << std::endl; 
+    for(int i = 0; i < numCtrlPts; ++i) {
+      splineInterpDefinitionFile << ctrlPtsX[i] << "," << ctrlPtsY[i] << ",0,"; 
+      if(weight.size() > i)
+      	splineInterpDefinitionFile << weight[i] << std::endl;
+			else
+				splineInterpDefinitionFile << "1" << std::endl;
+    } 
     splineInterpDefinitionFile << std::endl << "# Knot Vector" << std::endl;
     for(int i = 0; i < knots.size(); ++i)
       splineInterpDefinitionFile << knots[i] << std::endl; 
@@ -126,7 +132,7 @@ int main(int argc, char **argv) {
     if (!splineInterpSampleFile) {
       std::cerr << "Failed to open output file for splineinterp sampled points.\n";
       return 1;
-    }
+    } 
     auto numSamples = curve.x.size() * 25;
     splineInterpSampleFile << "x, y, isVertex\n";
     splineInterpSampleFile << startPt[0] << ", " << startPt[1] << ", 1\n";
