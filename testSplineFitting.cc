@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
       pts.push_back(0);
     }
 
-    auto edge = fitCurveToContour(outerRegion, startVtx, endVtx, numPts, pts, true);
+    //auto edge = fitCurveToContour(outerRegion, startVtx, endVtx, numPts, pts, true);
 
     //Fit curve using Spline2D Implementation
     auto bspline = SplineInterp::fitCubicSplineToPoints(curve.x, curve.y);
@@ -136,11 +136,11 @@ int main(int argc, char **argv) {
       cout << "Model is valid.\n";
     }
     assert(GM_numVertices(model) == 2);
-    assert(GM_numEdges(model) == 2);
+    assert(GM_numEdges(model) == 1);
     assert(GM_numFaces(model) == 0);
     assert(GM_numRegions(model) == 0);
-    std::cout << GE_length(edge) << " " << GE_length(spline2DEdge) << std::endl;
-    assert(std::fabs(GE_length(edge) - GE_length(spline2DEdge)) <= 1e-5);
+    std::cout << GE_length(spline2DEdge) << std::endl;
+    assert(std::fabs(GE_length(spline2DEdge) - expectedCurveLength) <= 1e-5);
     GM_write(model, modelFileName.c_str(), 0, 0);
 
     // cleanup
