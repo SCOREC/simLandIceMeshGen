@@ -913,26 +913,14 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
 
   //find points marked as on a curve that have no
   // adjacent points that are also marked as on the curve
-  //first point
-  if( isPointOnCurve.back() == 0 &&
-      isPointOnCurve.at(geom.firstContourPt) == 1 &&
-      isPointOnCurve.at(geom.firstContourPt+1) == 0 ) {
-    isPointOnCurve.at(geom.firstContourPt) = 0;
-  }
-  //interior
-  for (int j = geom.firstContourPt+1;j < isPointOnCurve.size(); j++) {
-    if( isPointOnCurve.at(j-1) == 0 &&
+  for (int j = geom.firstContourPt;j < isPointOnCurve.size(); j++) {
+    const int m1 = geom.getPrevPtIdx(j);
+    const int p1 = geom.getNextPtIdx(j);
+    if( isPointOnCurve.at(m1) == 0 &&
         isPointOnCurve.at(j) == 1 &&
-        isPointOnCurve.at(j+1) == 0 ) {
+        isPointOnCurve.at(p1) == 0 ) {
       isPointOnCurve.at(j) = 0;
     }
-  }
-  //last point
-  const int last = isPointOnCurve.size()-1;
-  if( isPointOnCurve.at(last-1) == 0 &&
-      isPointOnCurve.at(last) == 1 &&
-      isPointOnCurve.at(geom.firstContourPt) == 0 ) {
-    isPointOnCurve.at(last) = 0;
   }
 
   if(debug) {
