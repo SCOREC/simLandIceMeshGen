@@ -37,8 +37,8 @@ int main(int argc, char **argv) {
 
   std::string filename = argv[1];
   std::string ext = getFileExtension(filename);
-  const auto coincidentPtTol = std::stof(argv[3]);
   const auto prefix = std::string(argv[2]);
+  const auto coincidentPtTol = std::stof(argv[3]);
   const auto angleTol = std::atof(argv[4]);
   const auto onCurveAngleTol = std::atof(argv[5]);
   const bool doCreateMesh = (std::stoi(argv[6]) == 1);
