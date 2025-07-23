@@ -103,6 +103,11 @@ target_link_libraries(testOnCurve PRIVATE curveReader)
 add_test(NAME onCurve_edge522
   COMMAND ./testOnCurve ${testDataDir}/testEdge522.csv 4 0 150)
 
+addExe(testDiscoverTopo)
+target_link_libraries(testDiscoverTopo PRIVATE curveReader)
+add_test(NAME testDiscoverTopo_dblMdlVtx
+  COMMAND ./testDiscoverTopo ${testDataDir}/testDoubleMdlVtx.csv)
+
 addExe(testSplineFitting)
 add_test(NAME testSplineFitting_single_edge
          COMMAND ./testSplineFitting)
