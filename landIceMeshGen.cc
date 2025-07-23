@@ -360,8 +360,8 @@ bool isNumEdgesBtwnPtsGreaterThanOne(size_t small, size_t large, size_t firstPt,
 //find pairs of points that are not consecutative, but are within some length
 //tolerance of each other - mark these points as model vertices to help prevent
 //intersecting bsplines
-std::map<int,int> findNarrowChannels(GeomInfo &g, double coincidentVtxToleranceSquared, int firstPt, bool debug=false) {
-  assert(g.vtx_x.size() >= firstPt);
+std::map<int,int> findNarrowChannels(GeomInfo &g, double coincidentVtxToleranceSquared, bool debug=false) {
+  assert(g.vtx_x.size() >= g.firstContourPt);
 
   //use a quadtree
   struct Node
@@ -405,7 +405,7 @@ std::map<int,int> findNarrowChannels(GeomInfo &g, double coincidentVtxToleranceS
   for(auto& [a,b] : intersections) {
     const auto small = std::min(a->id, b->id);
     const auto large = std::max(a->id, b->id);
-    if(isNumEdgesBtwnPtsGreaterThanOne(small, large, firstPt, lastPt)) {
+    if(isNumEdgesBtwnPtsGreaterThanOne(small, large, g.firstContourPt, lastPt)) {
       assert(longPairs.count(small) == 0);
       longPairs.insert({small, large});
     }
@@ -888,8 +888,7 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
     isMdlVtx.push_back(tc_angle < tc_angle_lower || tc_angle > tc_angle_upper);
   }
 
-  const int firstPt = 4;
-  auto narrowPtPairs = findNarrowChannels(geom, coincidentPtTolSquared, firstPt);
+  auto narrowPtPairs = findNarrowChannels(geom, coincidentPtTolSquared);
 
   //mark the narrow points as model vertices
   for(auto& [a,b] : narrowPtPairs) {
