@@ -125,5 +125,5 @@ add_test(NAME testSplineFitting_straight_edge
 add_test(NAME testSplineFitting_single_edge
          COMMAND ./testSplineFitting ${testDataDir}/testCurveSplineFitting.csv 12.2685)
 add_test(NAME testSplineFitting_sine_edge
-         COMMAND ./testSplineFitting ${testDataDir}/testCurveSineSegment.csv 10.2423)
+         COMMAND ./testSplineFitting ${testDataDir}/testCurveSineSegment.csv 10.24227846)
 
