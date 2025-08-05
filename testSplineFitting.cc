@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
     bool clockwise = SplineInterp::curveOrientation(ctrlPts3D);
     if (clockwise)
       edgeDir = 0;
-		std::cout << fileNameNoExt << std::endl;
+    std::cout << fileNameNoExt << std::endl;
     std::ofstream splineInterpDefinitionFile(fileNameNoExt + "_Spline_Fitting_Samples.csv");
       if (!splineInterpDefinitionFile) {
       std::cerr << "Failed to open output file for splineinterp definition.\n";
@@ -122,9 +122,9 @@ int main(int argc, char **argv) {
     for(int i = 0; i < numCtrlPts; ++i) {
       splineInterpDefinitionFile << ctrlPtsX[i] << "," << ctrlPtsY[i] << ",0,"; 
       if(weight.size() > i)
-      	splineInterpDefinitionFile << weight[i] << std::endl;
-			else
-				splineInterpDefinitionFile << "1" << std::endl;
+        splineInterpDefinitionFile << weight[i] << std::endl;
+      else
+        splineInterpDefinitionFile << "1" << std::endl;
     } 
     splineInterpDefinitionFile << std::endl << "# Knot Vector" << std::endl;
     for(int i = 0; i < knots.size(); ++i)
