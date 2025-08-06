@@ -66,25 +66,7 @@ void writeSamples(std::string fileNameNoExt, const CurveReader::CurveInfo& curve
     splineInterpSampleFile.close();
 }
 
-int main(int argc, char **argv) {
-  const int numExpectedArgs = 3;
-  if (argc != numExpectedArgs) {
-    std::cerr << "Usage: <input csv file> <expected curve length>\n";
-    std::cerr << "input csv file with the following columns: "
-                 "x,y,z,isOnCurve,angle,isMdlVtx\n";
-    return 1;
-  }
-  assert(argc == numExpectedArgs);
-
-  std::string curveFilename = argv[1];
-  int extensionPos = curveFilename.rfind(".");
-  int slashPos = curveFilename.rfind("/");
-  std::string fileNameNoExt = curveFilename.substr(slashPos + 1, extensionPos);
-  double expectedCurveLength = std::stod(argv[2]);
-
-  pGVertex *vertices; // array to store the returned model vertices
-  pGEdge *edges;      // array to store the returned model edges
-  pGFace *faces;      // array to store the returned model faces
+double createSimModelEdge(const CurveReader::CurveInfo& curve, SplineInterp::BSpline2d& bspline) {
   pGRegion outerRegion;
   pGIPart part;
   pGModel model; // pointer to the complete model
@@ -92,6 +74,8 @@ int main(int argc, char **argv) {
   const auto prefix = std::string("foo");
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
+
+  double length = 0;
 
   try {
     Sim_logOn("simMeshGen.log");
@@ -107,19 +91,11 @@ int main(int argc, char **argv) {
     part = GM_rootPart(model);
     outerRegion = GIP_outerRegion(part);
 
-    auto curve = CurveReader::readCurveInfo(curveFilename);
-    const auto numPts = curve.x.size();
-
     double startPt[3] = {curve.x[0], curve.y[0], 0.0};
     auto startVtx = GR_createVertex(outerRegion, startPt);
 
     double endPt[3] = {curve.x.back(), curve.y.back(), 0.0};
     auto endVtx = GR_createVertex(outerRegion, endPt);
-
-    //Fit curve using Spline2D Implementation
-    auto bspline = SplineInterp::fitCubicSplineToPoints(curve.x, curve.y);
-    writeDefinition(fileNameNoExt, bspline);
-    writeSamples(fileNameNoExt, curve, bspline);
 
     vector<double> ctrlPtsX, ctrlPtsY, knots, weight;
     int order;
@@ -156,9 +132,9 @@ int main(int argc, char **argv) {
     assert(GM_numEdges(model) == 1);
     assert(GM_numFaces(model) == 0);
     assert(GM_numRegions(model) == 0);
-    std::cout << "Length: " << GE_length(spline2DEdge);
-    std::cout << " Expected Length: " << expectedCurveLength << std::endl;
-    assert(std::fabs(GE_length(spline2DEdge) - expectedCurveLength) <= 1e-5);
+
+    length = GE_length(spline2DEdge);
+    std::cout << "Simmetrix Edge Length: " << length << "\n";
     GM_write(model, modelFileName.c_str(), 0, 0);
 
     // cleanup
@@ -168,7 +144,6 @@ int main(int argc, char **argv) {
     Sim_unregisterAllKeys();
     SimModel_stop();
     Sim_logOff();
-
   } catch (pSimInfo err) {
     cerr << "SimModSuite error caught:" << endl;
     cerr << "  Error code: " << SimInfo_code(err) << endl;
@@ -179,6 +154,38 @@ int main(int argc, char **argv) {
     cerr << "Unhandled exception caught" << endl;
     return 1;
   }
+  return length;
+}
+
+int main(int argc, char **argv) {
+  const int numExpectedArgs = 3;
+  if (argc != numExpectedArgs) {
+    std::cerr << "Usage: <input csv file> <expected curve length>\n";
+    std::cerr << "input csv file with the following columns: "
+                 "x,y,z,isOnCurve,angle,isMdlVtx\n";
+    return 1;
+  }
+  assert(argc == numExpectedArgs);
+
+  std::string curveFilename = argv[1];
+  int extensionPos = curveFilename.rfind(".");
+  int slashPos = curveFilename.rfind("/");
+  std::string fileNameNoExt = curveFilename.substr(slashPos + 1, extensionPos);
+  double expectedCurveLength = std::stod(argv[2]);
+
+    auto curve = CurveReader::readCurveInfo(curveFilename);
+
+    //Fit curve using Spline2D Implementation
+    auto bspline = SplineInterp::fitCubicSplineToPoints(curve.x, curve.y);
+    writeDefinition(fileNameNoExt, bspline);
+    writeSamples(fileNameNoExt, curve, bspline);
+
+    //Fit curve using the simmetrix APIs
+    auto length = createSimModelEdge(curve, bspline);
+
+    //compare length
+    std::cout << " Expected Length: " << expectedCurveLength << std::endl;
+    assert(std::fabs(length - expectedCurveLength) <= 1e-5);
   return 0;
 }
 
