@@ -1,6 +1,7 @@
 #ifndef CURVEREADER_H
 #define CURVEREADER_H
 #include <vector>
+#include <string>
 
 namespace CurveReader {
 struct CurveInfo {

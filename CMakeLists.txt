@@ -29,7 +29,7 @@ set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
 add_test(NAME landIceMeshGen_gis
   COMMAND ./modelGen ${testDataDir}/gis.msh gis 1 120 40 1 "m")
 set_tests_properties(landIceMeshGen_gis PROPERTIES
-  PASS_REGULAR_EXPRESSION "mesh faces in surface: 4732")
+  PASS_REGULAR_EXPRESSION "mesh faces in surface: 4856")
 
 add_test(NAME landIceMeshGen_ais
   COMMAND ./modelGen ${testDataDir}/ais.vtk ais 1 120 40 1 "m")
@@ -119,6 +119,11 @@ add_test(NAME testDiscoverTopo_dblMdlVtx
   COMMAND ./testDiscoverTopo ${testDataDir}/testDoubleMdlVtxWBbox.csv)
 
 addExe(testSplineFitting)
+target_link_libraries(testSplineFitting PRIVATE curveReader)
+add_test(NAME testSplineFitting_straight_edge
+         COMMAND ./testSplineFitting ${testDataDir}/testCurveStraightLine.csv 9)
 add_test(NAME testSplineFitting_single_edge
-         COMMAND ./testSplineFitting)
+         COMMAND ./testSplineFitting ${testDataDir}/testCurveSplineFitting.csv 12.2685)
+add_test(NAME testSplineFitting_sine_edge
+         COMMAND ./testSplineFitting ${testDataDir}/testCurveSineSegment.csv 10.24227846)
 
