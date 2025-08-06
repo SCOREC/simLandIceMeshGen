@@ -16,21 +16,55 @@ using namespace std;
 
 void messageHandler(int type, const char *msg);
 
-pGEdge fitCurveToContour(pGRegion region, pGVertex first, pGVertex last, const int numPts,
-                         std::vector<double>& pts, bool debug=false) {
-  assert(numPts > 1);
-  int order;
-  if( numPts == 2 || numPts == 3) {
-    order = numPts;
-  } else {
-    order = 4;
-  }
-  pCurve curve =
-    SCurve_createInterpolatedBSpline(order, numPts, &pts[0], NULL);
-  pGEdge edge = GR_createEdge(region, first, last, curve, 1);
-  return edge;
+void writeDefinition(std::string fileNameNoExt, SplineInterp::BSpline2d& bspline) {
+    vector<double> ctrlPtsX, ctrlPtsY, knots, weight;
+    int order;
+    bspline.x.getpara(order, ctrlPtsX, knots, weight);
+    bspline.y.getpara(order, ctrlPtsY, knots, weight);
+
+    std::cout << fileNameNoExt << std::endl;
+    std::ofstream splineInterpDefinitionFile(fileNameNoExt + "_Spline_Interp_Definition.csv");
+      if (!splineInterpDefinitionFile) {
+      std::cerr << "Failed to open output file for splineinterp definition.\n";
+      exit(EXIT_FAILURE);
+    }
+    splineInterpDefinitionFile << "# Control Points" << std::endl << "X,Y,Z,Weight" << std::endl;
+
+    const int numCtrlPts = ctrlPtsX.size();
+    for(int i = 0; i < numCtrlPts; ++i) {
+      splineInterpDefinitionFile << ctrlPtsX[i] << "," << ctrlPtsY[i] << ",0,";
+      if(weight.size() > i)
+        splineInterpDefinitionFile << weight[i] << std::endl;
+      else
+        splineInterpDefinitionFile << "1" << std::endl;
+    }
+    splineInterpDefinitionFile << std::endl << "# Knot Vector" << std::endl;
+    for(int i = 0; i < knots.size(); ++i)
+      splineInterpDefinitionFile << knots[i] << std::endl;
+    splineInterpDefinitionFile.close();
 }
 
+void writeSamples(std::string fileNameNoExt, const CurveReader::CurveInfo& curve, SplineInterp::BSpline2d& bspline) {
+    vector<double> ctrlPtsX, ctrlPtsY, knots, weight;
+    int order;
+    bspline.x.getpara(order, ctrlPtsX, knots, weight);
+    bspline.y.getpara(order, ctrlPtsY, knots, weight);
+
+    std::ofstream splineInterpSampleFile(fileNameNoExt + "_Spline_Fitting_Samples.csv");
+    if (!splineInterpSampleFile) {
+      std::cerr << "Failed to open output file for splineinterp sampled points.\n";
+      exit(EXIT_FAILURE);
+    }
+    auto numSamples = curve.x.size() * 25;
+    splineInterpSampleFile << "x, y, isVertex\n";
+    splineInterpSampleFile << curve.x[0] << ", " << curve.y[0] << ", 1\n";
+    for(int i = 0; i < numSamples; ++i) {
+      auto t = 1.0 * i / numSamples;
+      splineInterpSampleFile << bspline.x.eval(t) << ", " << bspline.y.eval(t) << ", 0\n";
+    }
+    splineInterpSampleFile << curve.x.back() << ", " << curve.y.back() << ", 1\n";
+    splineInterpSampleFile.close();
+}
 
 int main(int argc, char **argv) {
   const int numExpectedArgs = 3;
@@ -79,20 +113,14 @@ int main(int argc, char **argv) {
     double startPt[3] = {curve.x[0], curve.y[0], 0.0};
     auto startVtx = GR_createVertex(outerRegion, startPt);
 
-    double endPt[3] = {curve.x[(numPts-1)], curve.y[(numPts-1)], 0.0};
+    double endPt[3] = {curve.x.back(), curve.y.back(), 0.0};
     auto endVtx = GR_createVertex(outerRegion, endPt);
-
-    vector<double> pts;
-    for(int i = 0; i < numPts; ++i) {
-      pts.push_back(curve.x[i]);
-      pts.push_back(curve.y[i]);
-      pts.push_back(0);
-    }
-
-    //auto edge = fitCurveToContour(outerRegion, startVtx, endVtx, numPts, pts, true);
 
     //Fit curve using Spline2D Implementation
     auto bspline = SplineInterp::fitCubicSplineToPoints(curve.x, curve.y);
+    writeDefinition(fileNameNoExt, bspline);
+    writeSamples(fileNameNoExt, curve, bspline);
+
     vector<double> ctrlPtsX, ctrlPtsY, knots, weight;
     int order;
     bspline.x.getpara(order, ctrlPtsX, knots, weight);
@@ -111,40 +139,6 @@ int main(int argc, char **argv) {
     bool clockwise = SplineInterp::curveOrientation(ctrlPts3D);
     if (clockwise)
       edgeDir = 0;
-    std::cout << fileNameNoExt << std::endl;
-    std::ofstream splineInterpDefinitionFile(fileNameNoExt + "_Spline_Fitting_Samples.csv");
-      if (!splineInterpDefinitionFile) {
-      std::cerr << "Failed to open output file for splineinterp definition.\n";
-      return 1;
-    } 
-    std::cout << weight.size() << std::endl;
-    splineInterpDefinitionFile << "# Control Points" << std::endl << "X,Y,Z,Weight" << std::endl;
-    for(int i = 0; i < numCtrlPts; ++i) {
-      splineInterpDefinitionFile << ctrlPtsX[i] << "," << ctrlPtsY[i] << ",0,"; 
-      if(weight.size() > i)
-        splineInterpDefinitionFile << weight[i] << std::endl;
-      else
-        splineInterpDefinitionFile << "1" << std::endl;
-    } 
-    splineInterpDefinitionFile << std::endl << "# Knot Vector" << std::endl;
-    for(int i = 0; i < knots.size(); ++i)
-      splineInterpDefinitionFile << knots[i] << std::endl; 
-    splineInterpDefinitionFile.close();
-
-    std::ofstream splineInterpSampleFile(fileNameNoExt + "_Spline_Fitting_Samples.csv");
-    if (!splineInterpSampleFile) {
-      std::cerr << "Failed to open output file for splineinterp sampled points.\n";
-      return 1;
-    } 
-    auto numSamples = curve.x.size() * 25;
-    splineInterpSampleFile << "x, y, isVertex\n";
-    splineInterpSampleFile << startPt[0] << ", " << startPt[1] << ", 1\n";
-    for(int i = 0; i < numSamples; ++i) {
-      auto t = 1.0 * i / numSamples;
-      splineInterpSampleFile << bspline.x.eval(t) << ", " << bspline.y.eval(t) << ", 0\n";
-    }
-    splineInterpSampleFile << endPt[0] << ", " << endPt[1] << ", 1\n";
-    splineInterpSampleFile.close();
 
     pCurve spline2DCurve =
         SCurve_createBSpline(order, numCtrlPts, &ctrlPts3D[0], &knots[0], NULL);
