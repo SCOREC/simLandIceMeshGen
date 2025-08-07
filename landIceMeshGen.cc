@@ -586,7 +586,6 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     return;
   }
 
-
   enum class State {MdlVtx = 0, OnCurve = 1, NotOnCurve = 2};
   enum class Action {Init, Advance, Line, Curve};
   typedef std::pair<State,Action> psa; // next state, action
@@ -899,14 +898,6 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
     isMdlVtx.push_back(tc_angle < tc_angle_lower || tc_angle > tc_angle_upper);
   }
 
-  //mark pairs of points that are within a tolerance of each other as model
-  //vertices
-  auto narrowPtPairs = findNarrowChannels(geom, coincidentPtTolSquared);
-  for(auto& [a,b] : narrowPtPairs) {
-    isMdlVtx.at(a) = 1;
-    isMdlVtx.at(b) = 1;
-  }
-
   //mark points that are on smooth curves
   for (int j = geom.firstContourPt;j < geom.numVtx; ++j) {
     const int m1 = geom.getPrevPtIdx(j);
@@ -916,6 +907,14 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
     const double tc_p1 = angle.at(p1);
     const auto on = onCurve(tc_m1, tc, tc_p1, onCurveAngleTol);
     isPointOnCurve.push_back(on);
+  }
+
+  //mark pairs of points that are within a tolerance of each other as not on
+  //smooth curves to force a linear spline through them
+  auto narrowPtPairs = findNarrowChannels(geom, coincidentPtTolSquared);
+  for(auto& [a,b] : narrowPtPairs) {
+    isPointOnCurve.at(a) = 0;
+    isPointOnCurve.at(b) = 0;
   }
 
   if(debug) {
