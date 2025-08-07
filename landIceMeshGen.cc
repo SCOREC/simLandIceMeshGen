@@ -831,6 +831,22 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
   M_release(mesh);
 }
 
+/**
+ * \brief determine where model vertices and smooth curves are along the contours
+ * \param geom (in) provides coordinates of input points along the contour
+ * \param coincidentPtTolSquared (in) tolerance in distance units (e.g., km for landice) for determining
+ *        if consecutive points along the contour should be considered as coincident, the value
+ *        is assumed to be squared
+ * \param angleTol (in) tolerance in degrees for determining if a model vertex
+ *        should be placed at a point
+ * \param onCurveAngleTol (in) tolerance in degrees for determining if points along the
+ *        contour should be considered as along a smooth curve - see onCurve(...) for
+ *        details
+ * \param debug (in) true to enable debug outputs
+ * \return two vectors whose length is equal to the number of points in geom
+ *         isPointOnCurve = 1: point is on a smooth curve - see onCurve(...) for details, 0: otherwise
+ *         isMdlVtx = 1: point bounds two edges which have a narrow angle (> angleTol or < -angleTol) between them
+ */
 std::tuple<std::vector<int>,std::vector<int>>
 discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug) {
   if(geom.numVtx <= geom.firstContourPt) { // no internal contour
