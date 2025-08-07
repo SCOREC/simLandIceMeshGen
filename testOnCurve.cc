@@ -26,10 +26,11 @@ int main(int argc, char **argv) {
   auto curveInfo = CurveReader::readCurveInfo(filename);
   CurveReader::printCurveInfo(curveInfo);
 
+  OnCurve onCurve(onCurveAngleTol);
   const double tc_m1 = curveInfo.tcAngle.at(ptIdx-1);
   const double tc = curveInfo.tcAngle.at(ptIdx);
   const double tc_p1 = curveInfo.tcAngle.at(ptIdx+1);
-  const auto on = onCurve(tc_m1, tc, tc_p1, onCurveAngleTol);
+  const auto on = onCurve(tc_m1, tc, tc_p1);
   std::cerr << "pt " << ptIdx 
             << " (" << curveInfo.x.at(ptIdx) << ", " << curveInfo.y.at(ptIdx) << ")"
             << " isOnCurve = " << on << "\n";

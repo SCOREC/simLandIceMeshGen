@@ -82,5 +82,16 @@ void createFaces(ModelTopo& mdlTopo, GeomInfo& geom);
 void printModelInfo(pGModel model);
 void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress);
 
-int onCurve(double tc_m1, double tc, double tc_p1, double onCurveAngleTol=30);
+class OnCurve {
+  public:
+  OnCurve(double onCurveAngleTol);
+  //similar to scorec/tomms @ 2f97d13 (simapis-mod branch)
+  int operator()(double tc_m1, double tc, double tc_p1);
+  private:
+  const double deg_angle_lower;
+  const double deg_angle_upper;
+  const double tc_angle_lower;
+  const double tc_angle_upper;
+};
+
 #endif
