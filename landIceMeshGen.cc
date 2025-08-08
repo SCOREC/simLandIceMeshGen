@@ -968,6 +968,10 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
     isPointOnCurve.push_back(on);
   }
 
+  if(debug) {
+    writeToCSV("init.csv", geom, angle, isPointOnCurve, isMdlVtx);
+  }
+
   //mark pairs of points that are within a tolerance of each other as not on
   //smooth curves to force a linear spline through them
   auto narrowPtPairs = findNarrowChannels(geom, coincidentPtTolSquared);
@@ -977,7 +981,7 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
   }
 
   if(debug) {
-    writeToCSV("a.csv", geom, angle, isPointOnCurve, isMdlVtx);
+    writeToCSV("narrowChannels.csv", geom, angle, isPointOnCurve, isMdlVtx);
   }
 
   //eliminate curve segments (consecutive points) that don't have at least four points
@@ -1033,7 +1037,7 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
   }
 
   if(debug) {
-    writeToCSV("b.csv", geom, angle, isPointOnCurve, isMdlVtxMod);
+    writeToCSV("rmvSegmentsAddVerts.csv", geom, angle, isPointOnCurve, isMdlVtxMod);
   }
   return {isPointOnCurve,isMdlVtxMod};
 }
