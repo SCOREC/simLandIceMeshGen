@@ -985,15 +985,18 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
     if (isPointOnCurve.at(ptIdx) == 1) {
       ptsOnCurve.push_back(ptIdx);
     } else {
-      if(ptsOnCurve.size() > maxSegment) {
-        maxSegment = ptsOnCurve.size();
-      }
-      if(ptsOnCurve.size() < minSegment) {
-        minSegment = ptsOnCurve.size();
-      }
-      if(ptsOnCurve.size() < 4) { //segment is too short
-        for(int i=0; i<ptsOnCurve.size(); i++) {
-          isPointOnCurve.at(i) = 0; //mark as linear
+      if(ptsOnCurve.size() > 0) {
+        if(ptsOnCurve.size() > maxSegment) {
+          maxSegment = ptsOnCurve.size();
+        }
+        if(ptsOnCurve.size() < minSegment) {
+          minSegment = ptsOnCurve.size();
+        }
+        if(ptsOnCurve.size() < 4) { //segment is too short
+          for(int i=0; i<ptsOnCurve.size(); i++) {
+            const auto pt = ptsOnCurve.at(i);
+            isPointOnCurve.at(pt) = 0; //mark as linear
+          }
         }
         ptsOnCurve.clear();
       }
