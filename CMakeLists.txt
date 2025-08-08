@@ -27,12 +27,12 @@ endfunction()
 addExe(modelGen)
 set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
 add_test(NAME landIceMeshGen_gis
-  COMMAND ./modelGen ${testDataDir}/gis.msh gis 1 120 40 1 "m")
+  COMMAND ./modelGen ${testDataDir}/gis.msh gis 1 100 100 1 "m")
 set_tests_properties(landIceMeshGen_gis PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 4856")
 
 add_test(NAME landIceMeshGen_ais
-  COMMAND ./modelGen ${testDataDir}/ais.vtk ais 1 120 40 1 "m")
+  COMMAND ./modelGen ${testDataDir}/ais.vtk ais 1 100 100 1 "m")
 
 add_test(NAME landIceMeshGen_oneSquare_jig
   COMMAND ./modelGen ${testDataDir}/oneSquare.msh one_jig 1e-6 120 30 1 "km")
