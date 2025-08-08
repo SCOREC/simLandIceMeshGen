@@ -873,6 +873,21 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
   M_release(mesh);
 }
 
+void writeToCSV(std::string fname, GeomInfo& geom,
+    std::vector<double>& angle,
+    std::vector<int>& isPointOnCurve,
+    std::vector<int>& isMdlVtx) {
+  std::ofstream csv(fname);
+  assert(csv.is_open());
+  csv << "x,y,z,isOnCurve,angle,isMdlVtx\n";
+  for (int j = 0;j < isPointOnCurve.size(); j++) {
+    csv << geom.vtx_x.at(j) << ", " << geom.vtx_y.at(j) << ", " << 0
+      << ", " << isPointOnCurve.at(j) << ", " << angle.at(j)
+      << ", " << isMdlVtx.at(j) << "\n";
+  }
+  csv.close();
+}
+
 /**
  * \brief determine where model vertices and smooth curves are along the contours
  * \param geom (in) provides coordinates of input points along the contour
@@ -962,13 +977,7 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
   }
 
   if(debug) {
-    std::cout << "x,y,z,isOnCurve,angle,isMdlVtx\n";
-    for (int j = 0;j < isPointOnCurve.size(); j++) {
-      std::cout << geom.vtx_x.at(j) << ", " << geom.vtx_y.at(j) << ", " << 0
-        << ", " << isPointOnCurve.at(j) << ", " << angle.at(j)
-        << ", " << isMdlVtx.at(j) << "\n";
-    }
-    std::cout << "done\n";
+    writeToCSV("a.csv", geom, angle, isPointOnCurve, isMdlVtx);
   }
 
   //eliminate curve segments (consecutive points) that don't have at least four points
@@ -1024,13 +1033,7 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
   }
 
   if(debug) {
-    std::cout << "x,y,z,isOnCurveMod,angle,isMdlVtxMod\n";
-    for (int j = 0;j < isPointOnCurve.size(); j++) {
-      std::cout << geom.vtx_x.at(j) << ", " << geom.vtx_y.at(j) << ", " << 0
-        << ", " << isPointOnCurve.at(j) << ", " << angle.at(j)
-        << ", " << isMdlVtxMod.at(j) << "\n";
-    }
-    std::cout << "doneMod\n";
+    writeToCSV("b.csv", geom, angle, isPointOnCurve, isMdlVtxMod);
   }
   return {isPointOnCurve,isMdlVtxMod};
 }
