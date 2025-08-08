@@ -726,7 +726,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   };
   func createCurveFromCurrentPt = [&](int pt) {
     ptsOnCurve.push_back(pt);
-    auto ret = createLinearSpline(pt);
+    auto ret = createBSpline(pt);
     return ret;
   };
   func createLinearSplineFromCurrentPt = [&](int pt) {
@@ -1010,11 +1010,11 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
   std::vector<int> isMdlVtxMod(isMdlVtx);
   for (int j = geom.firstContourPt;j < geom.numVtx; ++j) {
     const int m1 = geom.getPrevPtIdx(j);
-    assert( !(isPointOnCurve.at(j) == 1 && isMdlVtx.at(j) == 1) );
+    //assert( !(isPointOnCurve.at(j) == 1 && isMdlVtx.at(j) == 1) ); // too restrictive???
     if( isPointOnCurve.at(m1) == 0 && isPointOnCurve.at(j) == 1 ) {
       isMdlVtxMod.at(j) = 1;
     }
-    assert( !(isPointOnCurve.at(m1) == 1 && isMdlVtx.at(m1) == 1) );
+    //assert( !(isPointOnCurve.at(m1) == 1 && isMdlVtx.at(m1) == 1) ); // too restrictive ??
     if( isPointOnCurve.at(m1) == 1 && isPointOnCurve.at(j) == 0 ) {
       isMdlVtxMod.at(m1) = 1;
     }
