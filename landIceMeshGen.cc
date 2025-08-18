@@ -958,12 +958,13 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
 
   //mark points that are on smooth curves
   OnCurve onCurve(onCurveAngleTol);
+  const double onCurveAngleTolTC = TC::degreesTo(onCurveAngleTol);
   for (int j = geom.firstContourPt;j < geom.numVtx; ++j) {
     const int m1 = geom.getPrevPtIdx(j);
     const int p1 = geom.getNextPtIdx(j);
-    const double tc_m1 = angle.at(m1);
+    const double tc_m1 = isMdlVtx.at(m1) ? onCurveAngleTolTC : angle.at(m1); //ignore the point if it is a model vtx
     const double tc = angle.at(j);
-    const double tc_p1 = angle.at(p1);
+    const double tc_p1 = isMdlVtx.at(p1) ? onCurveAngleTolTC : angle.at(p1); //ignore the point if it is a model vtx
     const auto on = onCurve(tc_m1, tc, tc_p1);
     isPointOnCurve.push_back(on);
   }
