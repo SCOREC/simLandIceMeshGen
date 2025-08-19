@@ -587,8 +587,8 @@ int findFirstPt(std::vector<int>& prop, const int offset, const int match) {
   }
 }
 
-void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug, const int firstContourPt) {
-  if(geom.numVtx <= firstContourPt) { // no internal contour
+void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug) {
+  if(geom.numVtx <= geom.firstContourPt) { // no internal contour
     return;
   }
 
@@ -737,7 +737,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   };
 
   const int isVtx=1;
-  firstPtIdx = startingCurvePtIdx = findFirstPt(isMdlVtx, firstContourPt, isVtx);
+  firstPtIdx = startingCurvePtIdx = findFirstPt(isMdlVtx, geom.firstContourPt, isVtx);
   if(firstPtIdx == -1) {
     std::cerr << "Error: at least one point must be marked as a model vertex... exiting\n";
     exit(EXIT_FAILURE);
@@ -750,7 +750,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   State state = State::MdlVtx;
   int ptsVisited = 0; //don't count the first vertex until we close the loop
   int ptIdx = startingCurvePtIdx+1;
-  while(ptsVisited < isMdlVtx.size()-firstContourPt) {
+  while(ptsVisited < isMdlVtx.size()-geom.firstContourPt) {
     State nextState;
     if(isMdlVtx[ptIdx] == 1) {
       nextState = State::MdlVtx;
