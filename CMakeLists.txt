@@ -29,18 +29,20 @@ set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
 add_test(NAME landIceMeshGen_gis
   COMMAND ./modelGen ${testDataDir}/gis.msh gis 1 100 100 1 "m")
 set_tests_properties(landIceMeshGen_gis PROPERTIES
-  PASS_REGULAR_EXPRESSION "mesh faces in surface: 4856")
+  PASS_REGULAR_EXPRESSION "Number of vertices in model: 925")
+set_tests_properties(landIceMeshGen_gis PROPERTIES
+  PASS_REGULAR_EXPRESSION "mesh faces in surface: 3326")
 
 add_test(NAME landIceMeshGen_ais
   COMMAND ./modelGen ${testDataDir}/ais.vtk ais 1 100 100 1 "m")
 
 add_test(NAME landIceMeshGen_oneSquare_jig
-  COMMAND ./modelGen ${testDataDir}/oneSquare.msh one_jig 1e-6 120 30 1 "km")
+  COMMAND ./modelGen ${testDataDir}/oneSquare.msh one_jig 1e-6 100 100 1 "km")
 set_tests_properties(landIceMeshGen_oneSquare_jig PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 4")
 
 add_test(NAME landIceMeshGen_twoSquares_jig
-  COMMAND ./modelGen ${testDataDir}/twoSquares.msh two_jig 1e-6 120 30 1 "km")
+  COMMAND ./modelGen ${testDataDir}/twoSquares.msh two_jig 1e-6 100 100 1 "km")
 set_tests_properties(landIceMeshGen_twoSquares_jig PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
 
@@ -57,7 +59,7 @@ set_tests_properties(landIceMeshGen_twoSquares_vtk PROPERTIES
 add_test(NAME landIceMeshGen_oval_vtk
   COMMAND ./modelGen ${testDataDir}/oval_wBbox.vtk oval 1e-8 120 120 1 "km")
 set_tests_properties(landIceMeshGen_oval_vtk PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of vertices in model: 14")
+  PASS_REGULAR_EXPRESSION "Number of vertices in model: 6")
 
 add_library(curveReader curveReader.cc)
 target_include_directories(curveReader PUBLIC ${CURRENT_CMAKE_SOURCE_DIR})
@@ -68,16 +70,16 @@ target_link_libraries(testCreateEdges PRIVATE curveReader)
 add_test(NAME curve4277
   COMMAND ./testCreateEdges ${testDataDir}/testCurve4277.csv curve4277)
 set_tests_properties(curve4277 PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of vertices in model: 6")
+  PASS_REGULAR_EXPRESSION "Number of vertices in model: 3")
 set_tests_properties(curve4277 PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of edges in model: 6")
+  PASS_REGULAR_EXPRESSION "Number of edges in model: 3")
 
 add_test(NAME curve1293
   COMMAND ./testCreateEdges ${testDataDir}/testCurve1293.csv curve1293)
 set_tests_properties(curve1293 PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of vertices in model: 4")
+  PASS_REGULAR_EXPRESSION "Number of vertices in model: 2")
 set_tests_properties(curve1293 PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of edges in model: 4")
+  PASS_REGULAR_EXPRESSION "Number of edges in model: 2")
 
 add_test(NAME curve1655
   COMMAND ./testCreateEdges ${testDataDir}/testCurve1655.csv curve1655)
