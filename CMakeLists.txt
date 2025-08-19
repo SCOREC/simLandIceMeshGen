@@ -117,6 +117,8 @@ addExe(testDiscoverTopo)
 target_link_libraries(testDiscoverTopo PRIVATE curveReader)
 add_test(NAME testDiscoverTopo_dblMdlVtx
   COMMAND ./testDiscoverTopo ${testDataDir}/testDoubleMdlVtxWBbox.csv)
+add_test(NAME testDiscoverTopo_L11pts
+  COMMAND ./testDiscoverTopo ${testDataDir}/L_11pts.csv)
 
 addExe(testSplineFitting)
 target_link_libraries(testSplineFitting PRIVATE curveReader)
