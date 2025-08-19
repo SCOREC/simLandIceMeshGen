@@ -581,7 +581,6 @@ int OnCurve::operator()(double tc_m1, double tc, double tc_p1) {
 int findFirstPt(std::vector<int>& prop, const int offset, const int match) {
   auto it = std::find(prop.begin()+offset, prop.end(), match);
   if( it == prop.end()) {
-    exit(EXIT_FAILURE);
     return -1;
   } else {
     return it - prop.begin();
@@ -754,6 +753,10 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
 
   const int isVtx=1;
   firstPtIdx = startingCurvePtIdx = findFirstPt(isMdlVtx, firstContourPt, isVtx);
+  if(firstPtIdx == -1) {
+    std::cerr << "Error: at least one point must be marked as a model vertex... exiting\n";
+    exit(EXIT_FAILURE);
+  }
   double vtx[3] = {geom.vtx_x[startingCurvePtIdx], geom.vtx_y[startingCurvePtIdx], 0};
   firstMdlVtx = startingMdlVtx = GR_createVertex(mdlTopo.region, vtx);
   mdlTopo.vertices.push_back(firstMdlVtx);
@@ -988,39 +991,40 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
   //eliminate curve segments (consecutive points) that don't have at least four points
   const int isOnCurve = 1;
   int firstPtOnCurve = findFirstPt(isPointOnCurve, geom.firstContourPt, isOnCurve);
-  int startingCurvePtIdx = firstPtOnCurve;
-  std::vector<int> ptsOnCurve;
-  ptsOnCurve.push_back(startingCurvePtIdx);
-  int ptsVisited = 0; //don't count the first vertex until we close the loop
-  int ptIdx = startingCurvePtIdx+1;
-  int maxSegment = 0;
-  int minSegment = std::numeric_limits<int>::max();
-  while(ptsVisited < isPointOnCurve.size()-geom.firstContourPt) {
-    if (isPointOnCurve.at(ptIdx) == 1) {
-      ptsOnCurve.push_back(ptIdx);
-    } else {
-      if(ptsOnCurve.size() > 0) {
-        if(ptsOnCurve.size() > maxSegment) {
-          maxSegment = ptsOnCurve.size();
-        }
-        if(ptsOnCurve.size() < minSegment) {
-          minSegment = ptsOnCurve.size();
-        }
-        if(ptsOnCurve.size() < 4) { //segment is too short
-          for(int i=0; i<ptsOnCurve.size(); i++) {
-            const auto pt = ptsOnCurve.at(i);
-            isPointOnCurve.at(pt) = 0; //mark as linear
+  if(firstPtOnCurve != -1) { // at least one point marked as on a curve
+    int startingCurvePtIdx = firstPtOnCurve;
+    std::vector<int> ptsOnCurve;
+    ptsOnCurve.push_back(startingCurvePtIdx);
+    int ptsVisited = 0; //don't count the first vertex until we close the loop
+    int ptIdx = startingCurvePtIdx+1;
+    int maxSegment = 0;
+    int minSegment = std::numeric_limits<int>::max();
+    while(ptsVisited < isPointOnCurve.size()-geom.firstContourPt) {
+      if (isPointOnCurve.at(ptIdx) == 1) {
+        ptsOnCurve.push_back(ptIdx);
+      } else {
+        if(ptsOnCurve.size() > 0) {
+          if(ptsOnCurve.size() > maxSegment) {
+            maxSegment = ptsOnCurve.size();
           }
+          if(ptsOnCurve.size() < minSegment) {
+            minSegment = ptsOnCurve.size();
+          }
+          if(ptsOnCurve.size() < 4) { //segment is too short
+            for(int i=0; i<ptsOnCurve.size(); i++) {
+              const auto pt = ptsOnCurve.at(i);
+              isPointOnCurve.at(pt) = 0; //mark as linear
+            }
+          }
+          ptsOnCurve.clear();
         }
-        ptsOnCurve.clear();
       }
+      ptsVisited++;
+      ptIdx = geom.getNextPtIdx(ptIdx);
     }
-    ptsVisited++;
-    ptIdx = geom.getNextPtIdx(ptIdx);
-  }
-
-  if(debug) {
-    std::cout << "onCurve minSegment " << minSegment << " maxSegment " << maxSegment << std::endl;
+    if(debug) {
+      std::cout << "onCurve minSegment " << minSegment << " maxSegment " << maxSegment << std::endl;
+    }
   }
 
   //if the last point on a curve does not have a model vertex then add one
