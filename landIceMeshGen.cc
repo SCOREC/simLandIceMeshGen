@@ -680,21 +680,6 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     ptsOnCurve.push_back(pt);
     return psa{State::NotOnCurve,Action::Advance};
   };
-  func startCurve = [&](int pt) {
-    assert(ptsOnCurve.size() == 1);
-    const int prevPt = ptsOnCurve.at(0);
-    // This function is only called when the prior point
-    // was a model vertex and the current point is on a curve.
-    // Why do we want to create a curve with only two points
-    // when there could be more points on the curve? FIXME
-    if( ! isPtOnCurve.at(prevPt) ) {
-      ptsOnCurve.push_back(pt);
-      auto ignored = createBSpline(pt);
-      return psa{State::OnCurve,Action::Line};
-    } else {
-      return advance(pt);
-    }
-  };
   func createCurveFromPriorPt = [&](int pt) {
     if(ptsOnCurve.size() == 1 ) {
       return createLine(pt);
@@ -741,7 +726,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   typedef std::pair<State,State> pss; // current state, next state
   std::map<pss,func> machine = {
     {{State::MdlVtx,State::MdlVtx}, createLine},
-    {{State::MdlVtx,State::OnCurve}, startCurve},
+    {{State::MdlVtx,State::OnCurve}, advance},
     {{State::MdlVtx,State::NotOnCurve}, advanceLinearSpline},
     {{State::OnCurve,State::MdlVtx}, createCurveFromCurrentPt},
     {{State::OnCurve,State::OnCurve}, advance},
@@ -1031,13 +1016,8 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
   std::vector<int> isMdlVtxMod(isMdlVtx);
   for (int j = geom.firstContourPt;j < geom.numVtx; ++j) {
     const int m1 = geom.getPrevPtIdx(j);
-    //assert( !(isPointOnCurve.at(j) == 1 && isMdlVtx.at(j) == 1) ); // too restrictive???
-    if( isPointOnCurve.at(m1) == 0 && isPointOnCurve.at(j) == 1 ) {
+    if( isPointOnCurve.at(m1) == 0 && isPointOnCurve.at(j) == 1 && isMdlVtx.at(m1) != 1) {
       isMdlVtxMod.at(j) = 1;
-    }
-    //assert( !(isPointOnCurve.at(m1) == 1 && isMdlVtx.at(m1) == 1) ); // too restrictive ??
-    if( isPointOnCurve.at(m1) == 1 && isPointOnCurve.at(j) == 0 ) {
-      isMdlVtxMod.at(m1) = 1;
     }
   }
 
