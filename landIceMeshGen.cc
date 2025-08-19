@@ -764,12 +764,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     psa res = machine[{state,nextState}](ptIdx);
     state = res.first;
     ptsVisited++;
-    //FIXME replace the following with ptIdx = geom.getNextPtIdx(ptIdx);
-    if(ptIdx == isMdlVtx.size()-1) {
-      ptIdx = firstContourPt; //wrap around
-    } else {
-      ptIdx++;
-    }
+    ptIdx = geom.getNextPtIdx(ptIdx);
   }
 }
 
