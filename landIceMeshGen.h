@@ -88,6 +88,8 @@ class OnCurve {
   OnCurve(double onCurveAngleTol);
   //similar to scorec/tomms @ 2f97d13 (simapis-mod branch)
   int operator()(double tc_m1, double tc, double tc_p1);
+  double getLowerTolTC() const { return tc_angle_lower; }
+  double getUpperTolTC() const { return tc_angle_upper; }
   private:
   const double deg_angle_lower;
   const double deg_angle_upper;
