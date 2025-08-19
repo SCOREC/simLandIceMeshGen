@@ -24,6 +24,7 @@
 
 #include "splineInterpolation.h"
 
+//FIXME - make this a class
 struct GeomInfo {
   int numVtx;
   int numEdges;
