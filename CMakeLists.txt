@@ -119,6 +119,8 @@ add_test(NAME testDiscoverTopo_dblMdlVtx
   COMMAND ./testDiscoverTopo ${testDataDir}/testDoubleMdlVtxWBbox.csv)
 add_test(NAME testDiscoverTopo_L11pts
   COMMAND ./testDiscoverTopo ${testDataDir}/L_11pts.csv)
+set_tests_properties(testDiscoverTopo_L11pts PROPERTIES
+  PASS_REGULAR_EXPRESSION "number of model vertices: 3")
 
 addExe(testSplineFitting)
 target_link_libraries(testSplineFitting PRIVATE curveReader)
