@@ -50,9 +50,9 @@ int main(int argc, char **argv) {
     geom.numVtx = curveInfo.isMdlVtx.size();
     geom.vtx_x = curveInfo.x;
     geom.vtx_y = curveInfo.y;
-    int firstContourPt = 0;
+    geom.firstContourPt = 0;
     createEdges(mdlTopo, geom, curveInfo.isOnCurve, curveInfo.isMdlVtx,
-                debug, firstContourPt);
+                debug);
 
     auto isValid = GM_isValid(mdlTopo.model, 2, NULL);
     if (!isValid) {

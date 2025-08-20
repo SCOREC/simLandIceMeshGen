@@ -27,20 +27,22 @@ endfunction()
 addExe(modelGen)
 set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
 add_test(NAME landIceMeshGen_gis
-  COMMAND ./modelGen ${testDataDir}/gis.msh gis 1 120 40 1 "m")
+  COMMAND ./modelGen ${testDataDir}/gis.msh gis 1 100 100 1 "m")
 set_tests_properties(landIceMeshGen_gis PROPERTIES
-  PASS_REGULAR_EXPRESSION "mesh faces in surface: 4856")
+  PASS_REGULAR_EXPRESSION "Number of vertices in model: 925")
+set_tests_properties(landIceMeshGen_gis PROPERTIES
+  PASS_REGULAR_EXPRESSION "mesh faces in surface: 3326")
 
 add_test(NAME landIceMeshGen_ais
-  COMMAND ./modelGen ${testDataDir}/ais.vtk ais 1 120 40 1 "m")
+  COMMAND ./modelGen ${testDataDir}/ais.vtk ais 1 100 100 1 "m")
 
 add_test(NAME landIceMeshGen_oneSquare_jig
-  COMMAND ./modelGen ${testDataDir}/oneSquare.msh one_jig 1e-6 120 30 1 "km")
+  COMMAND ./modelGen ${testDataDir}/oneSquare.msh one_jig 1e-6 100 100 1 "km")
 set_tests_properties(landIceMeshGen_oneSquare_jig PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 4")
 
 add_test(NAME landIceMeshGen_twoSquares_jig
-  COMMAND ./modelGen ${testDataDir}/twoSquares.msh two_jig 1e-6 120 30 1 "km")
+  COMMAND ./modelGen ${testDataDir}/twoSquares.msh two_jig 1e-6 100 100 1 "km")
 set_tests_properties(landIceMeshGen_twoSquares_jig PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
 
@@ -57,7 +59,7 @@ set_tests_properties(landIceMeshGen_twoSquares_vtk PROPERTIES
 add_test(NAME landIceMeshGen_oval_vtk
   COMMAND ./modelGen ${testDataDir}/oval_wBbox.vtk oval 1e-8 120 120 1 "km")
 set_tests_properties(landIceMeshGen_oval_vtk PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of vertices in model: 14")
+  PASS_REGULAR_EXPRESSION "Number of vertices in model: 6")
 
 add_library(curveReader curveReader.cc)
 target_include_directories(curveReader PUBLIC ${CURRENT_CMAKE_SOURCE_DIR})
@@ -68,16 +70,16 @@ target_link_libraries(testCreateEdges PRIVATE curveReader)
 add_test(NAME curve4277
   COMMAND ./testCreateEdges ${testDataDir}/testCurve4277.csv curve4277)
 set_tests_properties(curve4277 PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of vertices in model: 6")
+  PASS_REGULAR_EXPRESSION "Number of vertices in model: 3")
 set_tests_properties(curve4277 PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of edges in model: 6")
+  PASS_REGULAR_EXPRESSION "Number of edges in model: 3")
 
 add_test(NAME curve1293
   COMMAND ./testCreateEdges ${testDataDir}/testCurve1293.csv curve1293)
 set_tests_properties(curve1293 PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of vertices in model: 4")
+  PASS_REGULAR_EXPRESSION "Number of vertices in model: 2")
 set_tests_properties(curve1293 PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of edges in model: 4")
+  PASS_REGULAR_EXPRESSION "Number of edges in model: 2")
 
 add_test(NAME curve1655
   COMMAND ./testCreateEdges ${testDataDir}/testCurve1655.csv curve1655)
@@ -94,9 +96,9 @@ add_test(NAME intersection2339_2344
 add_test(NAME edge522
   COMMAND ./testCreateEdges ${testDataDir}/testEdge522.csv edge522)
 set_tests_properties(edge522 PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of vertices in model: 8")
+  PASS_REGULAR_EXPRESSION "Number of vertices in model: 4")
 set_tests_properties(edge522 PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of edges in model: 8")
+  PASS_REGULAR_EXPRESSION "Number of edges in model: 4")
 
 add_test(NAME dblMdlVtx
   COMMAND ./testCreateEdges ${testDataDir}/testDoubleMdlVtx.csv dblMdlVtx)
@@ -117,6 +119,10 @@ addExe(testDiscoverTopo)
 target_link_libraries(testDiscoverTopo PRIVATE curveReader)
 add_test(NAME testDiscoverTopo_dblMdlVtx
   COMMAND ./testDiscoverTopo ${testDataDir}/testDoubleMdlVtxWBbox.csv)
+add_test(NAME testDiscoverTopo_L11pts
+  COMMAND ./testDiscoverTopo ${testDataDir}/L_11pts.csv)
+set_tests_properties(testDiscoverTopo_L11pts PROPERTIES
+  PASS_REGULAR_EXPRESSION "number of model vertices: 3")
 
 addExe(testSplineFitting)
 target_link_libraries(testSplineFitting PRIVATE curveReader)

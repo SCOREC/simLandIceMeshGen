@@ -475,8 +475,8 @@ GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
   clean.numEdges = clean.edges.size();
   assert(clean.numEdges == clean.numVtx);
 
+  clean.firstContourPt = 4; //only supports bounding rectangles - TODO move to geom ctor
   if(clean.numVtx > 4) {
-    clean.firstContourPt = 4; //only supports bounding rectangles
     if( !isPositiveOrientation(clean) ) {
       std::cerr << "orientation is not positive... reversing\n";
       clean.reverseContourPoints();
@@ -521,13 +521,13 @@ double getPt2PtEdgeLength(pGEdge edge) {
   return std::sqrt(lenSq);
 }
 
-pGEdge fitCurveToContourSimInterp(pGRegion region, pGVertex first, pGVertex last,
+pGEdge fitCurveToContourSimInterp(bool isLinearSpline, pGRegion region, pGVertex first, pGVertex last,
                          std::vector<double>& pts, bool debug=false) {
   assert(pts.size() % 3 == 0); //pts must contain coordinates x1,y1,z1, x2,y2,z2, ...
   const int numPts = pts.size()/3;
   assert(numPts > 1);
   pCurve curve;
-  if( numPts == 2 || numPts == 3) {
+  if( isLinearSpline || numPts == 2 || numPts == 3) {
     curve = SCurve_createPiecewiseLinear(numPts, &pts[0]); //TODO - replace withe bspline?
   } else {
     const int order = 4;
@@ -555,12 +555,20 @@ void printModelInfo(pGModel model) {
     << std::endl;
 }
 
+OnCurve::OnCurve(double onCurveAngleTol) :
+  deg_angle_lower(onCurveAngleTol),
+  deg_angle_upper(-onCurveAngleTol),
+  tc_angle_lower(TC::degreesTo(deg_angle_lower)),
+  tc_angle_upper(TC::degreesTo(deg_angle_upper))
+{
+  std::cout << "OnCurve deg_angle_lower " << deg_angle_lower <<
+    " tc_angle_lower " << tc_angle_lower << "\n";
+  std::cout << "OnCurve deg_angle_upper " << deg_angle_upper <<
+    " tc_angle_upper " << tc_angle_upper << "\n";
+}
+
 //similar to scorec/tomms @ 2f97d13 (simapis-mod branch)
-int onCurve(double tc_m1, double tc, double tc_p1, double onCurveAngleTol) {
-  const double deg_angle_lower = onCurveAngleTol;
-  const double deg_angle_upper = -onCurveAngleTol;
-  const double tc_angle_lower = TC::degreesTo(deg_angle_lower);
-  const double tc_angle_upper = TC::degreesTo(deg_angle_upper);
+int OnCurve::operator()(double tc_m1, double tc, double tc_p1) {
   if ((tc_m1>tc_angle_lower) && (tc_m1<tc_angle_upper) &&
       (tc   >tc_angle_lower) && (tc   <tc_angle_upper) &&
       (tc_p1>tc_angle_lower) && (tc_p1<tc_angle_upper)) {
@@ -570,34 +578,32 @@ int onCurve(double tc_m1, double tc, double tc_p1, double onCurveAngleTol) {
   }
 }
 
-int findStartingMdlVtx(std::vector<int>& isMdlVtx, const int offset) {
-  const int mdlVtx = 1;
-  auto it = std::find(isMdlVtx.begin()+offset, isMdlVtx.end(), mdlVtx);
-  if( it == isMdlVtx.end()) {
-    exit(EXIT_FAILURE);
+int findFirstPt(std::vector<int>& prop, const int offset, const int match) {
+  auto it = std::find(prop.begin()+offset, prop.end(), match);
+  if( it == prop.end()) {
     return -1;
   } else {
-    return it - isMdlVtx.begin();
+    return it - prop.begin();
   }
 }
 
-void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug, const int firstContourPt) {
-  if(geom.numVtx <= firstContourPt) { // no internal contour
+void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug) {
+  if(geom.numVtx <= geom.firstContourPt) { // no internal contour
     return;
   }
 
-
   enum class State {MdlVtx = 0, OnCurve = 1, NotOnCurve = 2};
-  enum class Action {Init, Advance, Line, Curve};
+  enum class Action {Init, Advance, Line, Curve, LinearSpline};
   typedef std::pair<State,Action> psa; // next state, action
   using func=std::function<psa(int pt)>;
+  using funcIntBool=std::function<psa(int pt, bool)>;
 
   pGVertex firstMdlVtx;
   int firstPtIdx;
   int startingCurvePtIdx;
   pGVertex startingMdlVtx;
   std::vector<int> ptsOnCurve;
-  func createCurve = [&](int pt) {
+  funcIntBool createCurve = [&](int pt, bool isLinearSpline=false) {
     assert(ptsOnCurve.size() >= 2);
     double vtx[3] = {geom.vtx_x[pt], geom.vtx_y[pt], 0};
     pGVertex endMdlVtx;
@@ -632,11 +638,12 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
       exit(EXIT_FAILURE);
     }
 
-    auto edge = fitCurveToContourSimInterp(mdlTopo.region, startingMdlVtx, endMdlVtx, pts, true);
+    auto edge = fitCurveToContourSimInterp(isLinearSpline, mdlTopo.region, startingMdlVtx, endMdlVtx, pts, true);
     mdlTopo.edges.push_back(edge);
 
     if (debug) {
       std::cerr << "edge " << mdlTopo.edges.size()
+        << " isLinearSpline " << isLinearSpline << " "
         << " range " << startingCurvePtIdx << " " << pt
         << " numPts " << ptsOnCurve.size() << "\n";
       std::cout << "start " << first[0] << " " << first[1] << "\n";
@@ -653,26 +660,25 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     ptsOnCurve.push_back(pt);
     return psa{State::MdlVtx,Action::Curve};
   };
+  func createLinearSpline = [&](int pt) {
+    return createCurve(pt,true);
+  };
+  func createBSpline = [&](int pt) {
+    return createCurve(pt,false);
+  };
   func createLine = [&](int pt) {
     assert(ptsOnCurve.size() == 1);
     ptsOnCurve.push_back(pt);
-    auto ignored = createCurve(pt);
+    auto ignored = createBSpline(pt);
     return psa{State::MdlVtx,Action::Line};
   };
   func advance = [&](int pt) {
     ptsOnCurve.push_back(pt);
     return psa{State::OnCurve,Action::Advance};
   };
-  func startCurve = [&](int pt) {
-    assert(ptsOnCurve.size() == 1);
-    const int prevPt = ptsOnCurve.at(0);
-    if( ! isPtOnCurve.at(prevPt) ) {
-      ptsOnCurve.push_back(pt);
-      auto ignored = createCurve(pt);
-      return psa{State::OnCurve,Action::Line};
-    } else {
-      return advance(pt);
-    }
+  func advanceLinearSpline = [&](int pt) {
+    ptsOnCurve.push_back(pt);
+    return psa{State::NotOnCurve,Action::Advance};
   };
   func createCurveFromPriorPt = [&](int pt) {
     if(ptsOnCurve.size() == 1 ) {
@@ -680,20 +686,38 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     } else if (ptsOnCurve.size() >= 2 ) {
       //we are not adding the current point yet, so there must be
       //at least two points in the list to form a curve
-      auto ignored = createCurve(ptsOnCurve.back());
-      auto ret = createLine(pt);
-      return ret;
+      auto ignored = createBSpline(ptsOnCurve.back());
+      ptsOnCurve.push_back(pt);
+      return psa{State::NotOnCurve,Action::LinearSpline};
     } else {
       std::cerr << "createCurveFromPriorPt: no points on the curve.... exiting\n";
       exit(EXIT_FAILURE);
     }
   };
+  func createLinearSplineFromPriorPt = [&](int pt) {
+    if(ptsOnCurve.size() == 1 ) {
+      return createLine(pt);
+    } else if (ptsOnCurve.size() >= 2 ) {
+      //we are not adding the current point yet, so there must be
+      //at least two points in the list to form a curve
+      auto ignored = createLinearSpline(ptsOnCurve.back());
+      ptsOnCurve.push_back(pt);
+      return psa{State::OnCurve,Action::LinearSpline};
+    } else {
+      std::cerr << "createLinearSplineFromPriorPt: no points on the curve.... exiting\n";
+      exit(EXIT_FAILURE);
+    }
+  };
   func createCurveFromCurrentPt = [&](int pt) {
     ptsOnCurve.push_back(pt);
-    auto ret = createCurve(pt);
+    auto ret = createBSpline(pt);
     return ret;
   };
-
+  func createLinearSplineFromCurrentPt = [&](int pt) {
+    ptsOnCurve.push_back(pt);
+    auto ret = createLinearSpline(pt);
+    return ret;
+  };
   func fail = [&](int pt) {
     std::cerr << "bad state.... exiting\n";
     exit(EXIT_FAILURE);
@@ -702,17 +726,22 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   typedef std::pair<State,State> pss; // current state, next state
   std::map<pss,func> machine = {
     {{State::MdlVtx,State::MdlVtx}, createLine},
-    {{State::MdlVtx,State::OnCurve}, startCurve},
-    {{State::MdlVtx,State::NotOnCurve}, createLine},
+    {{State::MdlVtx,State::OnCurve}, advance},
+    {{State::MdlVtx,State::NotOnCurve}, advanceLinearSpline},
     {{State::OnCurve,State::MdlVtx}, createCurveFromCurrentPt},
     {{State::OnCurve,State::OnCurve}, advance},
     {{State::OnCurve,State::NotOnCurve}, createCurveFromPriorPt},
-    {{State::NotOnCurve,State::MdlVtx}, fail},
-    {{State::NotOnCurve,State::OnCurve}, fail},
-    {{State::NotOnCurve,State::NotOnCurve}, fail}
+    {{State::NotOnCurve,State::MdlVtx}, createLinearSplineFromCurrentPt},
+    {{State::NotOnCurve,State::OnCurve}, createLinearSplineFromPriorPt},
+    {{State::NotOnCurve,State::NotOnCurve}, advanceLinearSpline}
   };
 
-  firstPtIdx = startingCurvePtIdx = findStartingMdlVtx(isMdlVtx, firstContourPt);
+  const int isVtx=1;
+  firstPtIdx = startingCurvePtIdx = findFirstPt(isMdlVtx, geom.firstContourPt, isVtx);
+  if(firstPtIdx == -1) {
+    std::cerr << "Error: at least one point must be marked as a model vertex... exiting\n";
+    exit(EXIT_FAILURE);
+  }
   double vtx[3] = {geom.vtx_x[startingCurvePtIdx], geom.vtx_y[startingCurvePtIdx], 0};
   firstMdlVtx = startingMdlVtx = GR_createVertex(mdlTopo.region, vtx);
   mdlTopo.vertices.push_back(firstMdlVtx);
@@ -721,7 +750,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   State state = State::MdlVtx;
   int ptsVisited = 0; //don't count the first vertex until we close the loop
   int ptIdx = startingCurvePtIdx+1;
-  while(ptsVisited < isMdlVtx.size()-firstContourPt) {
+  while(ptsVisited < isMdlVtx.size()-geom.firstContourPt) {
     State nextState;
     if(isMdlVtx[ptIdx] == 1) {
       nextState = State::MdlVtx;
@@ -735,11 +764,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     psa res = machine[{state,nextState}](ptIdx);
     state = res.first;
     ptsVisited++;
-    if(ptIdx == isMdlVtx.size()-1) {
-      ptIdx = firstContourPt; //wrap around
-    } else {
-      ptIdx++;
-    }
+    ptIdx = geom.getNextPtIdx(ptIdx);
   }
 }
 
@@ -831,6 +856,21 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
   M_release(mesh);
 }
 
+void writeToCSV(std::string fname, GeomInfo& geom,
+    std::vector<double>& angle,
+    std::vector<int>& isPointOnCurve,
+    std::vector<int>& isMdlVtx) {
+  std::ofstream csv(fname);
+  assert(csv.is_open());
+  csv << "x,y,z,isOnCurve,angle,isMdlVtx\n";
+  for (int j = 0;j < isPointOnCurve.size(); j++) {
+    csv << geom.vtx_x.at(j) << ", " << geom.vtx_y.at(j) << ", " << 0
+      << ", " << isPointOnCurve.at(j) << ", " << angle.at(j)
+      << ", " << isMdlVtx.at(j) << "\n";
+  }
+  csv.close();
+}
+
 /**
  * \brief determine where model vertices and smooth curves are along the contours
  * \param geom (in) provides coordinates of input points along the contour
@@ -899,57 +939,87 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
     isMdlVtx.push_back(tc_angle < tc_angle_lower || tc_angle > tc_angle_upper);
   }
 
-  //mark pairs of points that are within a tolerance of each other as model
-  //vertices
-  auto narrowPtPairs = findNarrowChannels(geom, coincidentPtTolSquared);
-  for(auto& [a,b] : narrowPtPairs) {
-    isMdlVtx.at(a) = 1;
-    isMdlVtx.at(b) = 1;
-  }
-
   //mark points that are on smooth curves
+  OnCurve onCurve(onCurveAngleTol);
+  const double smoothAngle = (onCurve.getLowerTolTC()+onCurve.getUpperTolTC())/2;
   for (int j = geom.firstContourPt;j < geom.numVtx; ++j) {
     const int m1 = geom.getPrevPtIdx(j);
     const int p1 = geom.getNextPtIdx(j);
-    const double tc_m1 = angle.at(m1);
+    const double tc_m1 = isMdlVtx.at(m1) ? smoothAngle : angle.at(m1); //ignore the point if it is a model vtx
     const double tc = angle.at(j);
-    const double tc_p1 = angle.at(p1);
-    const auto on = onCurve(tc_m1, tc, tc_p1, onCurveAngleTol);
+    const double tc_p1 = isMdlVtx.at(p1) ? smoothAngle : angle.at(p1); //ignore the point if it is a model vtx
+    const auto on = onCurve(tc_m1, tc, tc_p1);
     isPointOnCurve.push_back(on);
   }
 
   if(debug) {
-    std::cout << "x,y,z,isOnCurve,angle,isMdlVtx\n";
-    for (int j = 0;j < isPointOnCurve.size(); j++) {
-      std::cout << geom.vtx_x.at(j) << ", " << geom.vtx_y.at(j) << ", " << 0
-        << ", " << isPointOnCurve.at(j) << ", " << angle.at(j)
-        << ", " << isMdlVtx.at(j) << "\n";
-    }
-    std::cout << "done\n";
+    writeToCSV("init.csv", geom, angle, isPointOnCurve, isMdlVtx);
   }
 
-  //find points marked as on a curve that have no
-  // adjacent points that are also marked as on the curve
-  for (int j = geom.firstContourPt;j < isPointOnCurve.size(); j++) {
+  //mark pairs of points that are within a tolerance of each other as not on
+  //smooth curves to force a linear spline through them
+  auto narrowPtPairs = findNarrowChannels(geom, coincidentPtTolSquared);
+  for(auto& [a,b] : narrowPtPairs) {
+    isPointOnCurve.at(a) = 0;
+    isPointOnCurve.at(b) = 0;
+  }
+
+  if(debug) {
+    writeToCSV("narrowChannels.csv", geom, angle, isPointOnCurve, isMdlVtx);
+  }
+
+  //eliminate curve segments (consecutive points) that don't have at least four points
+  const int isOnCurve = 1;
+  int firstPtOnCurve = findFirstPt(isPointOnCurve, geom.firstContourPt, isOnCurve);
+  if(firstPtOnCurve != -1) { // at least one point marked as on a curve
+    int startingCurvePtIdx = firstPtOnCurve;
+    std::vector<int> ptsOnCurve;
+    ptsOnCurve.push_back(startingCurvePtIdx);
+    int ptsVisited = 0; //don't count the first vertex until we close the loop
+    int ptIdx = startingCurvePtIdx+1;
+    int maxSegment = 0;
+    int minSegment = std::numeric_limits<int>::max();
+    while(ptsVisited < isPointOnCurve.size()-geom.firstContourPt) {
+      if (isPointOnCurve.at(ptIdx) == 1) {
+        ptsOnCurve.push_back(ptIdx);
+      } else {
+        if(ptsOnCurve.size() > 0) {
+          if(ptsOnCurve.size() > maxSegment) {
+            maxSegment = ptsOnCurve.size();
+          }
+          if(ptsOnCurve.size() < minSegment) {
+            minSegment = ptsOnCurve.size();
+          }
+          if(ptsOnCurve.size() < 4) { //segment is too short
+            for(int i=0; i<ptsOnCurve.size(); i++) {
+              const auto pt = ptsOnCurve.at(i);
+              isPointOnCurve.at(pt) = 0; //mark as linear
+            }
+          }
+          ptsOnCurve.clear();
+        }
+      }
+      ptsVisited++;
+      ptIdx = geom.getNextPtIdx(ptIdx);
+    }
+    if(debug) {
+      std::cout << "onCurve minSegment " << minSegment << " maxSegment " << maxSegment << std::endl;
+    }
+  }
+
+  //if the last point on a curve does not have a model vertex then add one
+  std::vector<int> isMdlVtxMod(isMdlVtx);
+  for (int j = geom.firstContourPt;j < geom.numVtx; ++j) {
     const int m1 = geom.getPrevPtIdx(j);
-    const int p1 = geom.getNextPtIdx(j);
-    if( isPointOnCurve.at(m1) == 0 &&
-        isPointOnCurve.at(j) == 1 &&
-        isPointOnCurve.at(p1) == 0 ) {
-      isPointOnCurve.at(j) = 0;
+    if( isPointOnCurve.at(m1) == 0 && isPointOnCurve.at(j) == 1 && isMdlVtx.at(m1) != 1) {
+      isMdlVtxMod.at(j) = 1;
     }
   }
 
   if(debug) {
-    std::cout << "x,y,z,isOnCurveMod,angle,isMdlVtx\n";
-    for (int j = 0;j < isPointOnCurve.size(); j++) {
-      std::cout << geom.vtx_x.at(j) << ", " << geom.vtx_y.at(j) << ", " << 0
-        << ", " << isPointOnCurve.at(j) << ", " << angle.at(j)
-        << ", " << isMdlVtx.at(j) << "\n";
-    }
-    std::cout << "doneMod\n";
+    writeToCSV("rmvSegmentsAddVerts.csv", geom, angle, isPointOnCurve, isMdlVtxMod);
   }
-  return {isPointOnCurve,isMdlVtx};
+  return {isPointOnCurve,isMdlVtxMod};
 }
 
 void createFaces(ModelTopo& mdlTopo, GeomInfo& geom) {
