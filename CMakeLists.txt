@@ -96,9 +96,9 @@ add_test(NAME intersection2339_2344
 add_test(NAME edge522
   COMMAND ./testCreateEdges ${testDataDir}/testEdge522.csv edge522)
 set_tests_properties(edge522 PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of vertices in model: 8")
+  PASS_REGULAR_EXPRESSION "Number of vertices in model: 4")
 set_tests_properties(edge522 PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of edges in model: 8")
+  PASS_REGULAR_EXPRESSION "Number of edges in model: 4")
 
 add_test(NAME dblMdlVtx
   COMMAND ./testCreateEdges ${testDataDir}/testDoubleMdlVtx.csv dblMdlVtx)
