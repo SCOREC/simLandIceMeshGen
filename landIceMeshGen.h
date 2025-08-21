@@ -79,13 +79,13 @@ void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, bool debug=false)
 std::tuple<std::vector<int>,std::vector<int>>
 discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug = false);
 void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug=false);
-void createFaces(ModelTopo& mdlTopo, GeomInfo& geom);
+void createFaces(ModelTopo& mdlTopo, GeomInfo& geom, bool debug=false);
 void printModelInfo(pGModel model);
-void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress);
+void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress, bool debug=false);
 
 class OnCurve {
   public:
-  OnCurve(double onCurveAngleTol);
+  OnCurve(double onCurveAngleTol, bool isDebug=false);
   //similar to scorec/tomms @ 2f97d13 (simapis-mod branch)
   int operator()(double tc_m1, double tc, double tc_p1);
   double getLowerTolTC() const { return tc_angle_lower; }
@@ -95,6 +95,7 @@ class OnCurve {
   const double deg_angle_upper;
   const double tc_angle_lower;
   const double tc_angle_upper;
+  const bool debug;
 };
 
 #endif

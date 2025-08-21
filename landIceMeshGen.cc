@@ -388,7 +388,7 @@ std::map<int,int> findNarrowChannels(GeomInfo &g, double coincidentVtxToleranceS
     quadtree.add(&node);
   }
   auto intersections = quadtree.findAllIntersections();
-  if(true) {
+  if(debug) {
     std::cout << "number of point pairs within " << std::sqrt(coincidentVtxToleranceSquared) << "km found: " << intersections.size() << '\n';
     std::cout << "pt0_id, pt0_x, pt0_y, pt1_id, pt1_x, pt1_y\n";
     for(auto& [a,b] : intersections) {
@@ -410,7 +410,7 @@ std::map<int,int> findNarrowChannels(GeomInfo &g, double coincidentVtxToleranceS
       longPairs.insert({small, large});
     }
   }
-  if(true) {
+  if(debug) {
     std::cout << "longPairs " << longPairs.size() << "\n";
     std::cout << "id, min, max\n";
     int i=0;
@@ -456,7 +456,8 @@ GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
     }
   }
   clean.numVtx = clean.vtx_x.size();
-  std::cout << "removed " << numPtsRemoved << " coincident points\n";
+  if(debug)
+    std::cout << "removed " << numPtsRemoved << " coincident points\n";
 
   // loops have an equal number of verts and edges
   assert(dirty.numVtx >= 4); // there must be a bounding box
@@ -555,16 +556,19 @@ void printModelInfo(pGModel model) {
     << std::endl;
 }
 
-OnCurve::OnCurve(double onCurveAngleTol) :
+OnCurve::OnCurve(double onCurveAngleTol, bool isDebug) :
   deg_angle_lower(onCurveAngleTol),
   deg_angle_upper(-onCurveAngleTol),
   tc_angle_lower(TC::degreesTo(deg_angle_lower)),
-  tc_angle_upper(TC::degreesTo(deg_angle_upper))
+  tc_angle_upper(TC::degreesTo(deg_angle_upper)),
+  debug(isDebug)
 {
-  std::cout << "OnCurve deg_angle_lower " << deg_angle_lower <<
-    " tc_angle_lower " << tc_angle_lower << "\n";
-  std::cout << "OnCurve deg_angle_upper " << deg_angle_upper <<
-    " tc_angle_upper " << tc_angle_upper << "\n";
+  if(debug) {
+    std::cout << "OnCurve deg_angle_lower " << deg_angle_lower <<
+      " tc_angle_lower " << tc_angle_lower << "\n";
+    std::cout << "OnCurve deg_angle_upper " << deg_angle_upper <<
+      " tc_angle_upper " << tc_angle_upper << "\n";
+  }
 }
 
 //similar to scorec/tomms @ 2f97d13 (simapis-mod branch)
@@ -638,7 +642,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
       exit(EXIT_FAILURE);
     }
 
-    auto edge = fitCurveToContourSimInterp(isLinearSpline, mdlTopo.region, startingMdlVtx, endMdlVtx, pts, true);
+    auto edge = fitCurveToContourSimInterp(isLinearSpline, mdlTopo.region, startingMdlVtx, endMdlVtx, pts, debug);
     mdlTopo.edges.push_back(edge);
 
     if (debug) {
@@ -808,7 +812,7 @@ void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, bool debug) {
 
 }
 
-void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress) {
+void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress, bool debug) {
   pMesh mesh = M_new(0, mdlTopo.model);
   pACase meshCase = MS_newMeshCase(mdlTopo.model);
 
@@ -820,14 +824,15 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
     if (len < minGEdgeLen)
       minGEdgeLen = len;
   }
-  std::cout << "Min geometric model edge length: " << minGEdgeLen
-    << std::endl;
   const auto contourMeshSize = minGEdgeLen * 128;
   const auto globMeshSize = contourMeshSize * 128;
-  std::cout << "Contour absolute mesh size target: " << contourMeshSize
-    << std::endl;
-  std::cout << "Global absolute mesh size target: " << globMeshSize
-    << std::endl;
+  if(debug) {
+    std::cout << "Min geometric model edge length: " << minGEdgeLen << std::endl;
+    std::cout << "Contour absolute mesh size target: " << contourMeshSize
+      << std::endl;
+    std::cout << "Global absolute mesh size target: " << globMeshSize
+      << std::endl;
+  }
   MS_setMeshSize(meshCase, domain, 1, globMeshSize, NULL);
   for (int i = 4; i < mdlTopo.edges.size(); i++)
     MS_setMeshSize(meshCase, mdlTopo.edges.at(i), 1, contourMeshSize, NULL);
@@ -837,7 +842,9 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
     pGFace modelFace;
     while (modelFace = GFIter_next(fIter)) {
       const double area = GF_area(modelFace, 0.2);
-      std::cout << "face area: " << area << "\n";
+      if(debug) {
+        std::cout << "face area: " << area << "\n";
+      }
       assert(area > 0);
     }
     GFIter_delete(fIter);
@@ -892,6 +899,10 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
   if(geom.numVtx <= geom.firstContourPt) { // no internal contour
     return {std::vector<int>(), std::vector<int>()};
   }
+  const double deg_angle_lower = angleTol;
+  const double deg_angle_upper = -deg_angle_lower;
+  const double tc_angle_lower = TC::degreesTo(deg_angle_lower);
+  const double tc_angle_upper = TC::degreesTo(deg_angle_upper);
   if(debug) {
     std::cout << "tc(30) " << TC::degreesTo(30) << "\n";
     std::cout << "tc(60) " << TC::degreesTo(60) << "\n";
@@ -901,16 +912,12 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
     std::cout << "tc(180) " << TC::degreesTo(180) << "\n";
     std::cout << "tc(270) " << TC::degreesTo(270) << "\n";
     std::cout << "tc(-120) " << TC::degreesTo(-120) << "\n";
+    std::cout << "deg_angle_lower " << deg_angle_lower <<
+                 " tc_angle_lower " << tc_angle_lower << "\n";
+    std::cout << "deg_angle_upper " << deg_angle_upper <<
+                 " tc_angle_upper " << tc_angle_upper << "\n";
+    std::cout << "numPts " << geom.numVtx-geom.firstContourPt << " lastPt " << geom.numVtx << "\n";
   }
-  const double deg_angle_lower = angleTol;
-  const double deg_angle_upper = -deg_angle_lower;
-  const double tc_angle_lower = TC::degreesTo(deg_angle_lower);
-  const double tc_angle_upper = TC::degreesTo(deg_angle_upper);
-  std::cout << "deg_angle_lower " << deg_angle_lower <<
-               " tc_angle_lower " << tc_angle_lower << "\n";
-  std::cout << "deg_angle_upper " << deg_angle_upper <<
-               " tc_angle_upper " << tc_angle_upper << "\n";
-  std::cout << "numPts " << geom.numVtx-geom.firstContourPt << " lastPt " << geom.numVtx << "\n";
 
   std::vector<double> angle;
   std::vector<int> isMdlVtx;
@@ -1022,7 +1029,7 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
   return {isPointOnCurve,isMdlVtxMod};
 }
 
-void createFaces(ModelTopo& mdlTopo, GeomInfo& geom) {
+void createFaces(ModelTopo& mdlTopo, GeomInfo& geom, bool debug) {
   auto planeBounds = getBoundingPlane(geom);
   // Now add the faces
   double corner[3], xPt[3], yPt[3]; // the points defining the surface of the face
@@ -1076,7 +1083,9 @@ void createFaces(ModelTopo& mdlTopo, GeomInfo& geom) {
           mdlTopo.faceDirs.data(),
           numLoopsOuterFace, loopFirstEdgeIdx,
           planarSurface, sameNormal));
-    std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
+    if(debug) {
+      std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
+    }
     assert(GF_area(mdlTopo.faces[0], 0.2) > 0);
   } else {
     int numLoopsOuterFace = 1;
@@ -1087,7 +1096,9 @@ void createFaces(ModelTopo& mdlTopo, GeomInfo& geom) {
           mdlTopo.faceDirs.data(),
           numLoopsOuterFace, loopFirstEdgeIdx,
           planarSurface, sameNormal));
-    std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
+    if(debug) {
+      std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
+    }
     assert(GF_area(mdlTopo.faces[0], 0.2) > 0);
   }
 
@@ -1112,7 +1123,9 @@ void createFaces(ModelTopo& mdlTopo, GeomInfo& geom) {
           mdlTopo.faceDirs.data(),
           numLoopsInnerFace, loopFirstEdgeIdx,
           planarSurface, sameNormal));
-    std::cout << "faces[1] area: " << GF_area(mdlTopo.faces[1], 0.2) << "\n";
+    if(debug) {
+      std::cout << "faces[1] area: " << GF_area(mdlTopo.faces[1], 0.2) << "\n";
+    }
     assert(GF_area(mdlTopo.faces[1], 0.2) > 0);
   }
 }

@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
             << "output prefix: " << prefix << " "
             << "angleTol: " << angleTol << " "
             << "onCurveAngleTol: " << onCurveAngleTol << " "
-            << "createMesh: " << doCreateMesh << "\n" << " "
+            << "createMesh: " << doCreateMesh << " "
             << "units: " << units << "\n";
 
   assert(units == "m" || units == "km");
@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
 
-  const auto debug = true;
+  const auto debug = false;
 
   // You will want to place a try/catch around all SimModSuite calls,
   // as errors are thrown.
@@ -84,8 +84,11 @@ int main(int argc, char **argv) {
     MS_init();
 
     Sim_setMessageHandler(messageHandler);
-    pProgress progress = Progress_new();
-    Progress_setDefaultCallback(progress);
+    pProgress progress = NULL;
+    if(debug) {
+      pProgress progress = Progress_new();
+      Progress_setDefaultCallback(progress);
+    }
 
     ModelTopo mdlTopo;
     mdlTopo.model = GM_new(1);
@@ -108,8 +111,6 @@ int main(int argc, char **argv) {
     if (!isValid) {
       fprintf(stderr, "ERROR: model is not valid... exiting\n");
       exit(EXIT_FAILURE);
-    } else {
-      std::cout << "Model is valid.\n";
     }
 
     if(doCreateMesh) {
@@ -118,7 +119,7 @@ int main(int argc, char **argv) {
 
     // cleanup
     GM_release(mdlTopo.model);
-    Progress_delete(progress);
+    if(debug) Progress_delete(progress);
     MS_exit();
     Sim_unregisterAllKeys();
     SimModel_stop();
