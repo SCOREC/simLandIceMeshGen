@@ -18,7 +18,7 @@ find_package(BLAS REQUIRED)
 
 
 add_library(splineInterp splineInterpolation.cc BSpline.cc Expression.cc PolyNomial.cc)
-target_link_libraries(splineInterp PRIVATE BLAS::BLAS)
+target_link_libraries(splineInterp PUBLIC BLAS::BLAS)
 
 if(USE_SIMMODSUITE)
   add_library(landIceMeshGen landIceMeshGen.cc)
@@ -171,7 +171,7 @@ if(USE_SIMMODSUITE)
     PASS_REGULAR_EXPRESSION "number of model vertices: 3")
 
   addExe(testSplineFitting)
-  target_link_libraries(testSplineFitting PRIVATE curveReader)
+  target_link_libraries(testSplineFitting PRIVATE curveReader splineInterp)
   
   add_test(NAME testSplineFitting_straight_edge
            COMMAND ./testSplineFitting ${testDataDir}/testCurveStraightLine.csv 9)
