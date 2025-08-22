@@ -21,13 +21,13 @@ add_library(splineInterp splineInterpolation.cc BSpline.cc Expression.cc PolyNom
 target_link_libraries(splineInterp PUBLIC BLAS::BLAS)
 
 if(USE_SIMMODSUITE)
-  add_library(landIceMeshGen simModelGen2d.cc)
-  target_include_directories(landIceMeshGen PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-  target_include_directories(landIceMeshGen PUBLIC ${SIMMODSUITE_INCLUDE_DIR})
-  target_include_directories(landIceMeshGen PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Quadtree/include)
-  target_link_libraries(landIceMeshGen PRIVATE ${SIMMODSUITE_LIBS})
-  target_link_libraries(landIceMeshGen PRIVATE splineInterp)
-  target_compile_definitions(landIceMeshGen PRIVATE USE_SIMMODSUITE)
+  add_library(simModelGen2d simModelGen2d.cc)
+  target_include_directories(simModelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+  target_include_directories(simModelGen2d PUBLIC ${SIMMODSUITE_INCLUDE_DIR})
+  target_include_directories(simModelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Quadtree/include)
+  target_link_libraries(simModelGen2d PRIVATE ${SIMMODSUITE_LIBS})
+  target_link_libraries(simModelGen2d PRIVATE splineInterp)
+  target_compile_definitions(simModelGen2d PRIVATE USE_SIMMODSUITE)
 endif()
 
 set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
@@ -35,44 +35,44 @@ set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
 if(USE_SIMMODSUITE)
   function(addExe name)
     add_executable(${name} ${name}.cc)
-    target_link_libraries(${name} PRIVATE landIceMeshGen)
+    target_link_libraries(${name} PRIVATE simModelGen2d)
   endfunction()
 
   addExe(modelGen)
 
-  add_test(NAME landIceMeshGen_gis
+  add_test(NAME simModelGen2d_gis
   COMMAND ./modelGen ${testDataDir}/gis.msh gis 1 100 100 1 "m")
-set_tests_properties(landIceMeshGen_gis PROPERTIES
+set_tests_properties(simModelGen2d_gis PROPERTIES
   PASS_REGULAR_EXPRESSION "Number of vertices in model: 925")
-set_tests_properties(landIceMeshGen_gis PROPERTIES
+set_tests_properties(simModelGen2d_gis PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 3326")
 
-add_test(NAME landIceMeshGen_ais
+add_test(NAME simModelGen2d_ais
   COMMAND ./modelGen ${testDataDir}/ais.vtk ais 1 100 100 1 "m")
 
-add_test(NAME landIceMeshGen_oneSquare_jig
+add_test(NAME simModelGen2d_oneSquare_jig
   COMMAND ./modelGen ${testDataDir}/oneSquare.msh one_jig 1e-6 100 100 1 "km")
-set_tests_properties(landIceMeshGen_oneSquare_jig PROPERTIES
+set_tests_properties(simModelGen2d_oneSquare_jig PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 4")
 
-add_test(NAME landIceMeshGen_twoSquares_jig
+add_test(NAME simModelGen2d_twoSquares_jig
   COMMAND ./modelGen ${testDataDir}/twoSquares.msh two_jig 1e-6 100 100 1 "km")
-set_tests_properties(landIceMeshGen_twoSquares_jig PROPERTIES
+set_tests_properties(simModelGen2d_twoSquares_jig PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
 
-add_test(NAME landIceMeshGen_oneSquare_vtk
+add_test(NAME simModelGen2d_oneSquare_vtk
   COMMAND ./modelGen ${testDataDir}/oneSquare.vtk one_vtk 1e-6 120 30 1 "km")
-set_tests_properties(landIceMeshGen_oneSquare_vtk PROPERTIES
+set_tests_properties(simModelGen2d_oneSquare_vtk PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 4")
 
-add_test(NAME landIceMeshGen_twoSquares_vtk
+add_test(NAME simModelGen2d_twoSquares_vtk
   COMMAND ./modelGen ${testDataDir}/twoSquares.vtk two_vtk 1e-6 120 30 1 "km")
-set_tests_properties(landIceMeshGen_twoSquares_vtk PROPERTIES
+set_tests_properties(simModelGen2d_twoSquares_vtk PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
 
-add_test(NAME landIceMeshGen_oval_vtk
+add_test(NAME simModelGen2d_oval_vtk
   COMMAND ./modelGen ${testDataDir}/oval_wBbox.vtk oval 1e-8 120 120 1 "km")
-set_tests_properties(landIceMeshGen_oval_vtk PROPERTIES
+set_tests_properties(simModelGen2d_oval_vtk PROPERTIES
   PASS_REGULAR_EXPRESSION "Number of vertices in model: 6")
 endif()
 
