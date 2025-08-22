@@ -1,4 +1,4 @@
-#include "landIceMeshGen.h"
+#include "simModelGen2d.h"
 #include "curveReader.h"
 
 void messageHandler(int type, const char *msg);
