@@ -21,7 +21,7 @@ add_library(splineInterp splineInterpolation.cc BSpline.cc Expression.cc PolyNom
 target_link_libraries(splineInterp PUBLIC BLAS::BLAS)
 
 if(USE_SIMMODSUITE)
-  add_library(landIceMeshGen landIceMeshGen.cc)
+  add_library(landIceMeshGen simModelGen2d.cc)
   target_include_directories(landIceMeshGen PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
   target_include_directories(landIceMeshGen PUBLIC ${SIMMODSUITE_INCLUDE_DIR})
   target_include_directories(landIceMeshGen PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Quadtree/include)
