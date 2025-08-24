@@ -38,40 +38,40 @@ if(USE_SIMMODSUITE)
     target_link_libraries(${name} PRIVATE simModelGen2d)
   endfunction()
 
-  addExe(modelGen)
+  addExe(generate2dModel)
 
   add_test(NAME simModelGen2d_gis
-  COMMAND ./modelGen ${testDataDir}/gis.msh gis 1 100 100 1 "m")
+    COMMAND ./generate2dModel ${testDataDir}/gis.msh gis 1 100 100 1 "m")
 set_tests_properties(simModelGen2d_gis PROPERTIES
   PASS_REGULAR_EXPRESSION "Number of vertices in model: 925")
 set_tests_properties(simModelGen2d_gis PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 3326")
 
 add_test(NAME simModelGen2d_ais
-  COMMAND ./modelGen ${testDataDir}/ais.vtk ais 1 100 100 1 "m")
+  COMMAND ./generate2dModel ${testDataDir}/ais.vtk ais 1 100 100 1 "m")
 
 add_test(NAME simModelGen2d_oneSquare_jig
-  COMMAND ./modelGen ${testDataDir}/oneSquare.msh one_jig 1e-6 100 100 1 "km")
+  COMMAND ./generate2dModel ${testDataDir}/oneSquare.msh one_jig 1e-6 100 100 1 "km")
 set_tests_properties(simModelGen2d_oneSquare_jig PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 4")
 
 add_test(NAME simModelGen2d_twoSquares_jig
-  COMMAND ./modelGen ${testDataDir}/twoSquares.msh two_jig 1e-6 100 100 1 "km")
+  COMMAND ./generate2dModel ${testDataDir}/twoSquares.msh two_jig 1e-6 100 100 1 "km")
 set_tests_properties(simModelGen2d_twoSquares_jig PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
 
 add_test(NAME simModelGen2d_oneSquare_vtk
-  COMMAND ./modelGen ${testDataDir}/oneSquare.vtk one_vtk 1e-6 120 30 1 "km")
+  COMMAND ./generate2dModel ${testDataDir}/oneSquare.vtk one_vtk 1e-6 120 30 1 "km")
 set_tests_properties(simModelGen2d_oneSquare_vtk PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 4")
 
 add_test(NAME simModelGen2d_twoSquares_vtk
-  COMMAND ./modelGen ${testDataDir}/twoSquares.vtk two_vtk 1e-6 120 30 1 "km")
+  COMMAND ./generate2dModel ${testDataDir}/twoSquares.vtk two_vtk 1e-6 120 30 1 "km")
 set_tests_properties(simModelGen2d_twoSquares_vtk PROPERTIES
   PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
 
 add_test(NAME simModelGen2d_oval_vtk
-  COMMAND ./modelGen ${testDataDir}/oval_wBbox.vtk oval 1e-8 120 120 1 "km")
+  COMMAND ./generate2dModel ${testDataDir}/oval_wBbox.vtk oval 1e-8 120 120 1 "km")
 set_tests_properties(simModelGen2d_oval_vtk PROPERTIES
   PASS_REGULAR_EXPRESSION "Number of vertices in model: 6")
 endif()
