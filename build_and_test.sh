@@ -4,14 +4,37 @@
 
 set -e  # Exit on any error
 
-usage="Usage: ./build_and_test.sh /path/to/simLandIceMeshGen /path/to/simmodsuite/env"
-[[ $# -ne 2 ]] && echo $usage && exit 1
+usage="Usage: ./build_and_test.sh /path/to/simLandIceMeshGen /path/to/simmodsuite/env [--asan]
+  --asan    Enable AddressSanitizer for memory error and leak detection"
+
+# Parse command line arguments
+USE_ASAN=false
+ARGS=()
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --asan)
+            USE_ASAN=true
+            shift
+            ;;
+        -h|--help)
+            echo "$usage"
+            exit 0
+            ;;
+        *)
+            ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+
+# Check required arguments
+[[ ${#ARGS[@]} -ne 2 ]] && echo "$usage" && exit 1
 
 PROJECT_DIR=$PWD
-SOURCE_DIR=$1
-SIMMODSUITE_ENV=$2
+SOURCE_DIR=${ARGS[0]}
+SIMMODSUITE_ENV=${ARGS[1]}
 [[ ! -d $SOURCE_DIR ]] && "SOURCE_DIR ${SOURCE_DIR} does not exist... exiting" && exit 1
-[[ ! -d $SIMMODSUITE_ENV ]] && "SIMMODSUITE_ENV ${SIMMODSUITE_ENV} does not exist... exiting" && exit 1
+[[ ! -e $SIMMODSUITE_ENV ]] && "SIMMODSUITE_ENV ${SIMMODSUITE_ENV} does not exist... exiting" && exit 1
 
 echo "=== Building and Testing simLandIceMeshGen ==="
 echo "Project directory: $PROJECT_DIR"
@@ -34,6 +57,14 @@ build_and_test() {
     local cmake_options=$3
     local env_setup=$4
     
+    # Add AddressSanitizer options if requested
+    cxxflags=""
+    if [ "$USE_ASAN" = true ]; then
+        config="$config (with AddressSanitizer)"
+        cxxflags="-fsanitize=address -fsanitize=leak -fno-omit-frame-pointer -g"
+        build_dir="${build_dir}_asan"
+    fi
+    
     echo "=== Building with $config ==="
     
     # Clean previous build
@@ -42,9 +73,13 @@ build_and_test() {
     # Configure
     echo "Configuring..."
     if [ -n "$env_setup" ]; then
-        eval "$env_setup && cmake -S \"$SOURCE_DIR\" -B \"$build_dir\" $cmake_options"
+        set -x
+        eval "$env_setup && cmake -S \"$SOURCE_DIR\" -B \"$build_dir\" $cmake_options -DCMAKE_CXX_FLAGS=\"${cxxflags}\""
+        set +x 
     else
-        cmake -S "$SOURCE_DIR" -B "$build_dir" $cmake_options
+        set -x
+        cmake -S "$SOURCE_DIR" -B "$build_dir" $cmake_options -DCMAKE_CXX_FLAGS="${cxxflags}"
+        set +x 
     fi
     
     # Build
@@ -74,5 +109,10 @@ build_and_test "SimModSuite ENABLED" "$PROJECT_DIR/buildSimLandIceMeshGenWithSim
 echo "🎉 All builds and tests completed successfully!"
 echo
 echo "Summary:"
-echo "- SimModSuite DISABLED: buildSimLandIceMeshGen/"
-echo "- SimModSuite ENABLED:  buildSimLandIceMeshGenWithSim/"
+if [ "$USE_ASAN" = true ]; then
+    echo "- SimModSuite DISABLED (with AddressSanitizer): buildSimLandIceMeshGen_asan/"
+    echo "- SimModSuite ENABLED (with AddressSanitizer):  buildSimLandIceMeshGenWithSim_asan/"
+else
+    echo "- SimModSuite DISABLED: buildSimLandIceMeshGen/"
+    echo "- SimModSuite ENABLED:  buildSimLandIceMeshGenWithSim/"
+fi
