@@ -1,4 +1,4 @@
-#include "modelGen.h"
+#include "modelGen2d.h"
 #include "Quadtree.h"
 #include <map>
 

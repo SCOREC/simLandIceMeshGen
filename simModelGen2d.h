@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-#include "modelGen.h"
+#include "modelGen2d.h"
 
 struct ModelTopo {
   std::vector<pGVertex> vertices;
