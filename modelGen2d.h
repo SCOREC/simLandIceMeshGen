@@ -1,5 +1,5 @@
-#ifndef MODELGEN_H
-#define MODELGEN_H
+#ifndef MODELGEN2D_H
+#define MODELGEN2D_H
 
 #include <algorithm> //[min|max]element
 #include <array>
