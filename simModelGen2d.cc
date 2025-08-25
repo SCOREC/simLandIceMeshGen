@@ -71,6 +71,227 @@ void printModelInfo(pGModel model) {
     << std::endl;
 }
 
+void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug) {
+  if(geom.numVtx <= geom.firstContourPt) { // no internal contour
+    return;
+  }
+
+  enum class State {MdlVtx = 0, OnCurve = 1, NotOnCurve = 2};
+  enum class Action {Init, Advance, Line, Curve, LinearSpline};
+  typedef std::pair<State,Action> psa; // next state, action
+  using func=std::function<psa(int pt)>;
+  using funcIntBool=std::function<psa(int pt, bool)>;
+
+  pGVertex firstMdlVtx;
+  int firstPtIdx;
+  int startingCurvePtIdx;
+  pGVertex startingMdlVtx;
+  std::vector<int> ptsOnCurve;
+  funcIntBool createCurve = [&](int pt, bool isLinearSpline=false) {
+    assert(ptsOnCurve.size() >= 2);
+    double vtx[3] = {geom.vtx_x[pt], geom.vtx_y[pt], 0};
+    pGVertex endMdlVtx;
+    if(pt == firstPtIdx) { //wrap around
+      endMdlVtx = firstMdlVtx;
+    } else {
+      endMdlVtx = GR_createVertex(mdlTopo.region, vtx);
+      mdlTopo.vertices.push_back(endMdlVtx);
+    }
+
+    std::vector<double> pts(ptsOnCurve.size()*3);
+    for(int i=0, j = 0; j<ptsOnCurve.size(); j++, i+=3) {
+      const int ptIdx = ptsOnCurve.at(j);
+      pts[i]   = geom.vtx_x[ptIdx];
+      pts[i+1] = geom.vtx_y[ptIdx];
+      pts[i+2] = 0;
+    }
+
+    double first[3];
+    GV_point(startingMdlVtx, first);
+    const double tol = 1e-12;
+    if( ! isPtCoincident(pts[0], pts[1], first[0], first[1], tol)) {
+      std::cerr << "first model vtx does not match first point on curve!... exiting\n";
+      exit(EXIT_FAILURE);
+    }
+
+    double last[3];
+    GV_point(endMdlVtx, last);
+    const int lpIdx = (ptsOnCurve.size()-1)*3;
+    if( ! isPtCoincident(pts[lpIdx], pts[lpIdx+1], last[0], last[1], tol) ) {
+      std::cerr << "last model vtx does not match last point on curve!... exiting\n";
+      exit(EXIT_FAILURE);
+    }
+
+    auto edge = fitCurveToContourSimInterp(isLinearSpline, mdlTopo.region, startingMdlVtx, endMdlVtx, pts, debug);
+    mdlTopo.edges.push_back(edge);
+
+    if (debug) {
+      std::cerr << "edge " << mdlTopo.edges.size()
+        << " isLinearSpline " << isLinearSpline << " "
+        << " range " << startingCurvePtIdx << " " << pt
+        << " numPts " << ptsOnCurve.size() << "\n";
+      std::cout << "start " << first[0] << " " << first[1] << "\n";
+      std::cout << "end " << last[0] << " " << last[1] << "\n";
+      std::cout << "x,y,z\n";
+      for(int j=0; j<pts.size(); j+=3) {
+        std::cerr << pts.at(j) << ", " << pts.at(j+1) << ", " << pts.at(j+2) << "\n";
+      }
+    }
+
+    startingMdlVtx = endMdlVtx;
+    startingCurvePtIdx = pt;
+    ptsOnCurve.clear();  //FIXME - find a cheaper way
+    ptsOnCurve.push_back(pt);
+    return psa{State::MdlVtx,Action::Curve};
+  };
+  func createLinearSpline = [&](int pt) {
+    return createCurve(pt,true);
+  };
+  func createBSpline = [&](int pt) {
+    return createCurve(pt,false);
+  };
+  func createLine = [&](int pt) {
+    assert(ptsOnCurve.size() == 1);
+    ptsOnCurve.push_back(pt);
+    auto ignored = createBSpline(pt);
+    return psa{State::MdlVtx,Action::Line};
+  };
+  func advance = [&](int pt) {
+    ptsOnCurve.push_back(pt);
+    return psa{State::OnCurve,Action::Advance};
+  };
+  func advanceLinearSpline = [&](int pt) {
+    ptsOnCurve.push_back(pt);
+    return psa{State::NotOnCurve,Action::Advance};
+  };
+  func createCurveFromPriorPt = [&](int pt) {
+    if(ptsOnCurve.size() == 1 ) {
+      return createLine(pt);
+    } else if (ptsOnCurve.size() >= 2 ) {
+      //we are not adding the current point yet, so there must be
+      //at least two points in the list to form a curve
+      auto ignored = createBSpline(ptsOnCurve.back());
+      ptsOnCurve.push_back(pt);
+      return psa{State::NotOnCurve,Action::LinearSpline};
+    } else {
+      std::cerr << "createCurveFromPriorPt: no points on the curve.... exiting\n";
+      exit(EXIT_FAILURE);
+    }
+  };
+  func createLinearSplineFromPriorPt = [&](int pt) {
+    if(ptsOnCurve.size() == 1 ) {
+      return createLine(pt);
+    } else if (ptsOnCurve.size() >= 2 ) {
+      //we are not adding the current point yet, so there must be
+      //at least two points in the list to form a curve
+      auto ignored = createLinearSpline(ptsOnCurve.back());
+      ptsOnCurve.push_back(pt);
+      return psa{State::OnCurve,Action::LinearSpline};
+    } else {
+      std::cerr << "createLinearSplineFromPriorPt: no points on the curve.... exiting\n";
+      exit(EXIT_FAILURE);
+    }
+  };
+  func createCurveFromCurrentPt = [&](int pt) {
+    ptsOnCurve.push_back(pt);
+    auto ret = createBSpline(pt);
+    return ret;
+  };
+  func createLinearSplineFromCurrentPt = [&](int pt) {
+    ptsOnCurve.push_back(pt);
+    auto ret = createLinearSpline(pt);
+    return ret;
+  };
+  func fail = [&](int pt) {
+    std::cerr << "bad state.... exiting\n";
+    exit(EXIT_FAILURE);
+    return psa{State::OnCurve,Action::Advance};
+  };
+  typedef std::pair<State,State> pss; // current state, next state
+  std::map<pss,func> machine = {
+    {{State::MdlVtx,State::MdlVtx}, createLine},
+    {{State::MdlVtx,State::OnCurve}, advance},
+    {{State::MdlVtx,State::NotOnCurve}, advanceLinearSpline},
+    {{State::OnCurve,State::MdlVtx}, createCurveFromCurrentPt},
+    {{State::OnCurve,State::OnCurve}, advance},
+    {{State::OnCurve,State::NotOnCurve}, createCurveFromPriorPt},
+    {{State::NotOnCurve,State::MdlVtx}, createLinearSplineFromCurrentPt},
+    {{State::NotOnCurve,State::OnCurve}, createLinearSplineFromPriorPt},
+    {{State::NotOnCurve,State::NotOnCurve}, advanceLinearSpline}
+  };
+
+  const int isVtx=1;
+  firstPtIdx = startingCurvePtIdx = findFirstPt(isMdlVtx, geom.firstContourPt, isVtx);
+  if(firstPtIdx == -1) {
+    std::cerr << "Error: at least one point must be marked as a model vertex... exiting\n";
+    exit(EXIT_FAILURE);
+  }
+  double vtx[3] = {geom.vtx_x[startingCurvePtIdx], geom.vtx_y[startingCurvePtIdx], 0};
+  firstMdlVtx = startingMdlVtx = GR_createVertex(mdlTopo.region, vtx);
+  mdlTopo.vertices.push_back(firstMdlVtx);
+  ptsOnCurve.push_back(startingCurvePtIdx);
+
+  State state = State::MdlVtx;
+  int ptsVisited = 0; //don't count the first vertex until we close the loop
+  int ptIdx = startingCurvePtIdx+1;
+  while(ptsVisited < isMdlVtx.size()-geom.firstContourPt) {
+    State nextState;
+    if(isMdlVtx[ptIdx] == 1) {
+      nextState = State::MdlVtx;
+    } else if (isPtOnCurve[ptIdx] == 1) {
+      nextState = State::OnCurve;
+    } else if (isPtOnCurve[ptIdx] == 0) {
+      nextState = State::NotOnCurve;
+    } else {
+      exit(EXIT_FAILURE);
+    }
+    psa res = machine[{state,nextState}](ptIdx);
+    state = res.first;
+    ptsVisited++;
+    ptIdx = geom.getNextPtIdx(ptIdx);
+  }
+}
+
+void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, bool debug) {
+  // TODO generalize face creation
+  if (geom.numEdges > 4) {
+    mdlTopo.faces.reserve(2);
+  } else {
+    mdlTopo.faces.reserve(1);
+  }
+
+  // First we'll add the vertices
+  int i;
+  for (i = 0; i < 4; i++) {
+    double vtx[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
+    mdlTopo.vertices.push_back(GR_createVertex(mdlTopo.region, vtx));
+    if (debug)
+      std::cout << "vtx " << i << " (" << vtx[0] << " , " << vtx[1] << ")\n";
+  }
+
+  std::vector<pGEdge> edges;
+  // Now we'll add the edges
+  double point0[3], point1[3]; // xyz locations of the two vertices
+  pCurve linearCurve;
+  for (i = 0; i < 4; i++) {
+    const auto startVertIdx = geom.edges[i][0];
+    const auto endVertIdx = geom.edges[i][1];
+    auto startVert = mdlTopo.vertices.at(startVertIdx);
+    auto endVert = mdlTopo.vertices.at(endVertIdx);
+    GV_point(startVert, point0);
+    GV_point(endVert, point1);
+    linearCurve = SCurve_createLine(point0, point1);
+    auto edge = GR_createEdge(mdlTopo.region, startVert, endVert, linearCurve, 1);
+    mdlTopo.edges.push_back(edge);
+    if (debug) {
+      std::cout << "edge " << i << " (" << point0[0] << " , " << point0[1]
+        << ")"
+        << ",(" << point1[0] << " , " << point1[1] << ")\n";
+    }
+  }
+
+}
+
 void createFaces(ModelTopo& mdlTopo, GeomInfo& geom, bool debug) {
   auto planeBounds = getBoundingPlane(geom);
   // Now add the faces
@@ -170,5 +391,56 @@ void createFaces(ModelTopo& mdlTopo, GeomInfo& geom, bool debug) {
     }
     assert(GF_area(mdlTopo.faces[1], 0.2) > 0);
   }
+}
+
+void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress, bool debug) {
+  pMesh mesh = M_new(0, mdlTopo.model);
+  pACase meshCase = MS_newMeshCase(mdlTopo.model);
+
+  pModelItem domain = GM_domain(mdlTopo.model);
+  // find the smallest size of the geometric model edges
+  auto minGEdgeLen = std::numeric_limits<double>::max();
+  for (int i = 0; i < mdlTopo.edges.size(); i++) {
+    auto len = GE_length(mdlTopo.edges.at(i));
+    if (len < minGEdgeLen)
+      minGEdgeLen = len;
+  }
+  const auto contourMeshSize = minGEdgeLen * 128;
+  const auto globMeshSize = contourMeshSize * 128;
+  if(debug) {
+    std::cout << "Min geometric model edge length: " << minGEdgeLen << std::endl;
+    std::cout << "Contour absolute mesh size target: " << contourMeshSize
+      << std::endl;
+    std::cout << "Global absolute mesh size target: " << globMeshSize
+      << std::endl;
+  }
+  MS_setMeshSize(meshCase, domain, 1, globMeshSize, NULL);
+  for (int i = 4; i < mdlTopo.edges.size(); i++)
+    MS_setMeshSize(meshCase, mdlTopo.edges.at(i), 1, contourMeshSize, NULL);
+
+  {
+    GFIter fIter = GM_faceIter(mdlTopo.model);
+    pGFace modelFace;
+    while (modelFace = GFIter_next(fIter)) {
+      const double area = GF_area(modelFace, 0.2);
+      if(debug) {
+        std::cout << "face area: " << area << "\n";
+      }
+      assert(area > 0);
+    }
+    GFIter_delete(fIter);
+  }
+
+  pSurfaceMesher surfMesh = SurfaceMesher_new(meshCase, mesh);
+  SurfaceMesher_execute(surfMesh, progress);
+  SurfaceMesher_delete(surfMesh);
+  std::cout << "Number of mesh faces in surface: " << M_numFaces(mesh)
+    << std::endl;
+
+  M_write(mesh, meshFileName.c_str(), 0, progress);
+  std::cout << "Number of mesh regions in volume: " << M_numRegions(mesh)
+    << std::endl;
+  MS_deleteMeshCase(meshCase);
+  M_release(mesh);
 }
 

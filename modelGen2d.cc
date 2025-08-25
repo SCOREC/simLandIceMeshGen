@@ -52,13 +52,6 @@ double degreesTo(double deg) {
 
 } //end namespace TC
 
-struct PlaneBounds {
-  double minX;
-  double maxX;
-  double minY;
-  double maxY;
-};
-
 typedef std::array<double, 2> Vec2d;
 
 double crossProduct2d(const Vec2d& ab, const Vec2d& cd) {
@@ -312,7 +305,7 @@ double getLengthSquared(double ax, double ay, double bx, double by) {
 }
 
 bool isPtCoincident(double ax, double ay, double bx, double by,
-                    double tolSquared = 1) {
+                    double tolSquared) {
   const double lengthSquared = getLengthSquared(ax, ay, bx, by);
   return (lengthSquared < tolSquared);
 }
@@ -430,7 +423,9 @@ GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
   // the first four edges form a loop
   assert(dirty.edges[0][0] == dirty.edges[3][1]);
   // the remaining edges form a loop
-  assert(dirty.edges[4][0] == dirty.edges[dirty.numEdges - 1][1]);
+  if(dirty.edges.size() > 4) {
+    assert(dirty.edges.at(4)[0] == dirty.edges.back()[1]);
+  }
 
   int numPtsRemoved = 0;
   GeomInfo clean;
