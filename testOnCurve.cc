@@ -1,4 +1,4 @@
-#include "landIceMeshGen.h"
+#include "modelGen2d.h"
 #include "curveReader.h"
 
 int main(int argc, char **argv) {
