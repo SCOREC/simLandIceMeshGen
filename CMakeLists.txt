@@ -1,5 +1,5 @@
 # This is the top level CMake file for the SCOREC build
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.10)
 project(simLandIceMeshGen VERSION 0.0.1 LANGUAGES CXX)
 
 enable_testing()
