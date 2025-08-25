@@ -430,7 +430,9 @@ GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
   // the first four edges form a loop
   assert(dirty.edges[0][0] == dirty.edges[3][1]);
   // the remaining edges form a loop
-  assert(dirty.edges[4][0] == dirty.edges[dirty.numEdges - 1][1]);
+  if(dirty.edges.size() > 4) {
+    assert(dirty.edges.at(4)[0] == dirty.edges.back()[1]);
+  }
 
   int numPtsRemoved = 0;
   GeomInfo clean;
