@@ -20,19 +20,21 @@ find_package(BLAS REQUIRED)
 add_library(splineInterp splineInterpolation.cc BSpline.cc Expression.cc PolyNomial.cc)
 target_link_libraries(splineInterp PUBLIC BLAS::BLAS)
 
-if(USE_SIMMODSUITE)
-  add_library(simModelGen2d simModelGen2d.cc)
-  target_include_directories(simModelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-  target_include_directories(simModelGen2d PUBLIC ${SIMMODSUITE_INCLUDE_DIR})
-  target_include_directories(simModelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Quadtree/include)
-  target_link_libraries(simModelGen2d PRIVATE ${SIMMODSUITE_LIBS})
-  target_link_libraries(simModelGen2d PRIVATE splineInterp)
-  target_compile_definitions(simModelGen2d PRIVATE USE_SIMMODSUITE)
-endif()
+add_library(modelGen2d modelGen2d.cc)
+target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Quadtree/include)
+target_link_libraries(modelGen2d PRIVATE splineInterp)
 
 set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
 
 if(USE_SIMMODSUITE)
+  add_library(simModelGen2d simModelGen2d.cc)
+  target_include_directories(simModelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+  target_include_directories(simModelGen2d PUBLIC ${SIMMODSUITE_INCLUDE_DIR})
+  target_link_libraries(simModelGen2d PRIVATE ${SIMMODSUITE_LIBS})
+  target_link_libraries(simModelGen2d PRIVATE splineInterp modelGen2d)
+  target_compile_definitions(simModelGen2d PRIVATE USE_SIMMODSUITE)
+
   function(addExe name)
     add_executable(${name} ${name}.cc)
     target_link_libraries(${name} PRIVATE simModelGen2d)
@@ -42,54 +44,46 @@ if(USE_SIMMODSUITE)
 
   add_test(NAME simModelGen2d_gis
     COMMAND ./generate2dModel ${testDataDir}/gis.msh gis 1 100 100 1 "m")
-set_tests_properties(simModelGen2d_gis PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of vertices in model: 925")
-set_tests_properties(simModelGen2d_gis PROPERTIES
-  PASS_REGULAR_EXPRESSION "mesh faces in surface: 3326")
-
-add_test(NAME simModelGen2d_ais
-  COMMAND ./generate2dModel ${testDataDir}/ais.vtk ais 1 100 100 1 "m")
-
-add_test(NAME simModelGen2d_oneSquare_jig
-  COMMAND ./generate2dModel ${testDataDir}/oneSquare.msh one_jig 1e-6 100 100 1 "km")
-set_tests_properties(simModelGen2d_oneSquare_jig PROPERTIES
-  PASS_REGULAR_EXPRESSION "mesh faces in surface: 4")
-
-add_test(NAME simModelGen2d_twoSquares_jig
-  COMMAND ./generate2dModel ${testDataDir}/twoSquares.msh two_jig 1e-6 100 100 1 "km")
-set_tests_properties(simModelGen2d_twoSquares_jig PROPERTIES
-  PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
-
-add_test(NAME simModelGen2d_oneSquare_vtk
-  COMMAND ./generate2dModel ${testDataDir}/oneSquare.vtk one_vtk 1e-6 120 30 1 "km")
-set_tests_properties(simModelGen2d_oneSquare_vtk PROPERTIES
-  PASS_REGULAR_EXPRESSION "mesh faces in surface: 4")
-
-add_test(NAME simModelGen2d_twoSquares_vtk
-  COMMAND ./generate2dModel ${testDataDir}/twoSquares.vtk two_vtk 1e-6 120 30 1 "km")
-set_tests_properties(simModelGen2d_twoSquares_vtk PROPERTIES
-  PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
-
-add_test(NAME simModelGen2d_oval_vtk
-  COMMAND ./generate2dModel ${testDataDir}/oval_wBbox.vtk oval 1e-8 120 120 1 "km")
-set_tests_properties(simModelGen2d_oval_vtk PROPERTIES
-  PASS_REGULAR_EXPRESSION "Number of vertices in model: 6")
+  set_tests_properties(simModelGen2d_gis PROPERTIES
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 925")
+  set_tests_properties(simModelGen2d_gis PROPERTIES
+    PASS_REGULAR_EXPRESSION "mesh faces in surface: 3326")
+  
+  add_test(NAME simModelGen2d_ais
+    COMMAND ./generate2dModel ${testDataDir}/ais.vtk ais 1 100 100 1 "m")
+  
+  add_test(NAME simModelGen2d_oneSquare_jig
+    COMMAND ./generate2dModel ${testDataDir}/oneSquare.msh one_jig 1e-6 100 100 1 "km")
+  set_tests_properties(simModelGen2d_oneSquare_jig PROPERTIES
+    PASS_REGULAR_EXPRESSION "mesh faces in surface: 4")
+  
+  add_test(NAME simModelGen2d_twoSquares_jig
+    COMMAND ./generate2dModel ${testDataDir}/twoSquares.msh two_jig 1e-6 100 100 1 "km")
+  set_tests_properties(simModelGen2d_twoSquares_jig PROPERTIES
+    PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
+  
+  add_test(NAME simModelGen2d_oneSquare_vtk
+    COMMAND ./generate2dModel ${testDataDir}/oneSquare.vtk one_vtk 1e-6 120 30 1 "km")
+  set_tests_properties(simModelGen2d_oneSquare_vtk PROPERTIES
+    PASS_REGULAR_EXPRESSION "mesh faces in surface: 4")
+  
+  add_test(NAME simModelGen2d_twoSquares_vtk
+    COMMAND ./generate2dModel ${testDataDir}/twoSquares.vtk two_vtk 1e-6 120 30 1 "km")
+  set_tests_properties(simModelGen2d_twoSquares_vtk PROPERTIES
+    PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
+  
+  add_test(NAME simModelGen2d_oval_vtk
+    COMMAND ./generate2dModel ${testDataDir}/oval_wBbox.vtk oval 1e-8 120 120 1 "km")
+  set_tests_properties(simModelGen2d_oval_vtk PROPERTIES
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 6")
 endif()
 
 add_library(curveReader curveReader.cc)
 target_include_directories(curveReader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-add_library(modelGen2d modelGen2d.cc)
-target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Quadtree/include)
-target_link_libraries(modelGen2d PRIVATE splineInterp)
-
 if(USE_SIMMODSUITE)
   addExe(testCreateEdges)
   target_link_libraries(testCreateEdges PRIVATE curveReader)
-endif()
 
-if(USE_SIMMODSUITE)
   add_test(NAME curve4277
     COMMAND ./testCreateEdges ${testDataDir}/testCurve4277.csv curve4277)
   set_tests_properties(curve4277 PROPERTIES
@@ -132,43 +126,6 @@ if(USE_SIMMODSUITE)
 
   add_test(NAME fjord
     COMMAND ./testCreateEdges ${testDataDir}/fjord.csv fjord)
-endif()
-
-# Create function for executables that only use curveReader and modelGen2d (no SimModSuite)
-function(addCurveExe name)
-  add_executable(${name} ${name}.cc)
-  target_link_libraries(${name} PRIVATE curveReader modelGen2d)
-endfunction()
-
-# Build curve-only executables when SimModSuite is disabled
-if(NOT USE_SIMMODSUITE)
-  addCurveExe(testOnCurve)
-  add_test(NAME onCurve_edge522
-    COMMAND ./testOnCurve ${testDataDir}/testEdge522.csv 4 0 150)
-  
-  addCurveExe(testDiscoverTopo)
-  add_test(NAME testDiscoverTopo_dblMdlVtx
-    COMMAND ./testDiscoverTopo ${testDataDir}/testDoubleMdlVtxWBbox.csv)
-  add_test(NAME testDiscoverTopo_L11pts
-    COMMAND ./testDiscoverTopo ${testDataDir}/L_11pts.csv)
-  set_tests_properties(testDiscoverTopo_L11pts PROPERTIES
-    PASS_REGULAR_EXPRESSION "number of model vertices: 3")
-endif()
-
-if(USE_SIMMODSUITE)
-  addExe(testOnCurve)
-  target_link_libraries(testOnCurve PRIVATE curveReader)
-  add_test(NAME onCurve_edge522
-    COMMAND ./testOnCurve ${testDataDir}/testEdge522.csv 4 0 150)
-
-  addExe(testDiscoverTopo)
-  target_link_libraries(testDiscoverTopo PRIVATE curveReader)
-  add_test(NAME testDiscoverTopo_dblMdlVtx
-    COMMAND ./testDiscoverTopo ${testDataDir}/testDoubleMdlVtxWBbox.csv)
-  add_test(NAME testDiscoverTopo_L11pts
-    COMMAND ./testDiscoverTopo ${testDataDir}/L_11pts.csv)
-  set_tests_properties(testDiscoverTopo_L11pts PROPERTIES
-    PASS_REGULAR_EXPRESSION "number of model vertices: 3")
 
   addExe(testSplineFitting)
   target_link_libraries(testSplineFitting PRIVATE curveReader splineInterp)
@@ -180,4 +137,23 @@ if(USE_SIMMODSUITE)
   add_test(NAME testSplineFitting_sine_edge
            COMMAND ./testSplineFitting ${testDataDir}/testCurveSineSegment.csv 10.24227846)
 endif()
+
+# Create function for executables that only use curveReader and modelGen2d (no SimModSuite)
+function(addCurveExe name)
+  add_executable(${name} ${name}.cc)
+  target_link_libraries(${name} PRIVATE curveReader modelGen2d)
+endfunction()
+
+# Build curve-only executables when SimModSuite is disabled
+addCurveExe(testOnCurve)
+add_test(NAME onCurve_edge522
+  COMMAND ./testOnCurve ${testDataDir}/testEdge522.csv 4 0 150)
+
+addCurveExe(testDiscoverTopo)
+add_test(NAME testDiscoverTopo_dblMdlVtx
+  COMMAND ./testDiscoverTopo ${testDataDir}/testDoubleMdlVtxWBbox.csv)
+add_test(NAME testDiscoverTopo_L11pts
+  COMMAND ./testDiscoverTopo ${testDataDir}/L_11pts.csv)
+set_tests_properties(testDiscoverTopo_L11pts PROPERTIES
+  PASS_REGULAR_EXPRESSION "number of model vertices: 3")
 

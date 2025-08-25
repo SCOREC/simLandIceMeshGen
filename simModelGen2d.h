@@ -1,5 +1,5 @@
-#ifndef LANDICEMESHGEN_H
-#define LANDICEMESHGEN_H
+#ifndef SIMMODELGEN2D_H
+#define SIMMODELGEN2D_H
 
 #include "MeshSim.h"
 #include "SimAdvModel.h"

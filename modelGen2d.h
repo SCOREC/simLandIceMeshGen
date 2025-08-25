@@ -1,5 +1,5 @@
-#ifndef MODELGEN_H
-#define MODELGEN_H
+#ifndef MODELGEN2D_H
+#define MODELGEN2D_H
 
 #include <algorithm> //[min|max]element
 #include <array>
@@ -45,8 +45,24 @@ struct GeomInfo {
   }
 };
 
+struct PlaneBounds {
+  double minX;
+  double maxX;
+  double minY;
+  double maxY;
+};
+
+PlaneBounds getBoundingPlane(GeomInfo &geom);
+
+
 GeomInfo readVtkGeom(std::string fname, bool debug = false);
 GeomInfo readJigGeom(std::string fname, bool debug = false);
+
+double getLengthSquared(double ax, double ay, double bx, double by);
+bool isPtCoincident(double ax, double ay, double bx, double by,
+                    double tolSquared = 1);
+
+int findFirstPt(std::vector<int>& prop, const int offset, const int match);
 
 void convertMetersToKm(GeomInfo &geom);
 GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
