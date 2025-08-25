@@ -66,35 +66,49 @@ double crossProduct2d(const Vec2d& ab, const Vec2d& cd) {
   return ab[0]*cd[1]-cd[0]*ab[1];
 }
 
-double getLengthSquared(double ax, double ay, double bx, double by) {
-  double xDelta = std::abs(ax - bx);
-  double yDelta = std::abs(ay - by);
-  double length = xDelta * xDelta + yDelta * yDelta;
-  return length;
+//return the vector from a to b
+Vec2d getVector(GeomInfo& geom, int a, int b) {
+  return {geom.vtx_x[b]-geom.vtx_x[a],
+          geom.vtx_y[b]-geom.vtx_y[a]};
 }
 
-bool isPtCoincident(double ax, double ay, double bx, double by,
-                    double tolSquared = 1) {
-  const double lengthSquared = getLengthSquared(ax, ay, bx, by);
-  return (lengthSquared < tolSquared);
-}
-
-bool checkVertexUse(GeomInfo &geom, bool debug = false) {
-  std::map<int, int> vtxCounter;
-  for (int i = 0; i < geom.numVtx; i++)
-    vtxCounter[i] = 0;
-  for (auto e : geom.edges) {
-    vtxCounter[e[0]]++;
-    vtxCounter[e[1]]++;
-  }
-  bool isOk = true;
-  for (auto p : vtxCounter) {
-    if (p.second != 2) {
-      std::cout << "vtx " << p.first << " uses " << p.second << "\n";
-      isOk = false;
+int getMinYPoint(GeomInfo& geom) {
+  double minY = std::numeric_limits<double>::max();
+  double minX = std::numeric_limits<double>::max();
+  int minIdx = -1;
+  for(int i=geom.firstContourPt; i<geom.vtx_y.size(); i++) {
+    const auto x = geom.vtx_x[i];
+    const auto y = geom.vtx_y[i];
+    if( y < minY ) {
+      minY = y;
+      minX = x;
+      minIdx = i;
+    } else if ( y == minY ) {
+      if ( x < minX ) {
+        minX = x;
+        minIdx = i;
+      }
     }
-  }
-  return isOk;
+  };
+  assert(minIdx != -1);
+  return minIdx;
+}
+
+bool isPositiveOrientation(GeomInfo& geom) {
+  //determine if the curve has positive orientation if a region R is on the left
+  //when traveling around the outside of R
+  //from http://www.faqs.org/faqs/graphics/algorithms-faq/ and related stack
+  //overflow discussion (https://stackoverflow.com/a/1180256)
+  //Find the point with smallest y (and largest x if there are ties). Let the
+  //point be A and the previous point in the list be B and the next point in
+  //the list be C. Now compute the sign of the cross product of AB and AC.
+  const int minYpt = getMinYPoint(geom);
+  int prevPt = geom.getPrevPtIdx(minYpt);
+  int nextPt = geom.getNextPtIdx(minYpt);
+  const auto ab = getVector(geom, minYpt, prevPt);
+  const auto ac = getVector(geom, minYpt, nextPt);
+  double cp = crossProduct2d(ab,ac);
+  return (cp < 0);
 }
 
 std::tuple<std::string, int> readKeyValue(std::ifstream &in,
@@ -290,91 +304,40 @@ GeomInfo readJigGeom(std::string fname, bool debug) {
   return geom;
 }
 
+double getLengthSquared(double ax, double ay, double bx, double by) {
+  double xDelta = std::abs(ax - bx);
+  double yDelta = std::abs(ay - by);
+  double length = xDelta * xDelta + yDelta * yDelta;
+  return length;
+}
+
+bool isPtCoincident(double ax, double ay, double bx, double by,
+                    double tolSquared = 1) {
+  const double lengthSquared = getLengthSquared(ax, ay, bx, by);
+  return (lengthSquared < tolSquared);
+}
+
+bool checkVertexUse(GeomInfo &geom, bool debug = false) {
+  std::map<int, int> vtxCounter;
+  for (int i = 0; i < geom.numVtx; i++)
+    vtxCounter[i] = 0;
+  for (auto e : geom.edges) {
+    vtxCounter[e[0]]++;
+    vtxCounter[e[1]]++;
+  }
+  bool isOk = true;
+  for (auto p : vtxCounter) {
+    if (p.second != 2) {
+      std::cout << "vtx " << p.first << " uses " << p.second << "\n";
+      isOk = false;
+    }
+  }
+  return isOk;
+}
+
 void convertMetersToKm(GeomInfo &geom) {
   std::transform(geom.vtx_x.cbegin(), geom.vtx_x.cend(), geom.vtx_x.begin(), [](double v) { return v * 0.001; });
   std::transform(geom.vtx_y.cbegin(), geom.vtx_y.cend(), geom.vtx_y.begin(), [](double v) { return v * 0.001; });
-}
-
-GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
-                      bool debug) {
-  assert(checkVertexUse(dirty));
-  // trying to check the the dirty geom has a chain of edges
-  assert(dirty.numEdges == dirty.numVtx);
-  // the first four edges form a loop
-  assert(dirty.edges[0][0] == dirty.edges[3][1]);
-  // the remaining edges form a loop
-  assert(dirty.edges[4][0] == dirty.edges[dirty.numEdges - 1][1]);
-
-  int numPtsRemoved = 0;
-  GeomInfo clean;
-  clean.vtx_x.reserve(dirty.numVtx);
-  clean.vtx_y.reserve(dirty.numVtx);
-  // Look for vertices that are nearly coincident
-  clean.vtx_x.push_back(dirty.vtx_x[0]);
-  clean.vtx_y.push_back(dirty.vtx_y[0]);
-  for (int i = 1; i < dirty.numVtx; i++) {
-    auto close =
-        isPtCoincident(dirty.vtx_x[i - 1], dirty.vtx_y[i - 1], dirty.vtx_x[i],
-                       dirty.vtx_y[i], coincidentVtxToleranceSquared);
-    if (!close) {
-      clean.vtx_x.push_back(dirty.vtx_x[i]);
-      clean.vtx_y.push_back(dirty.vtx_y[i]);
-    } else {
-      numPtsRemoved++;
-      if (debug) {
-        std::cout << "coincident pt " << i - 1 << " (" << dirty.vtx_x[i - 1]
-                  << ", " << dirty.vtx_y[i - 1] << ") " << i << " ("
-                  << dirty.vtx_x[i] << ", " << dirty.vtx_y[i] << ")\n";
-      }
-    }
-  }
-  clean.numVtx = clean.vtx_x.size();
-  if(debug)
-    std::cout << "removed " << numPtsRemoved << " coincident points\n";
-
-  // loops have an equal number of verts and edges
-  assert(dirty.numVtx >= 4); // there must be a bounding box
-  clean.edges.reserve(dirty.numVtx);
-  // the first loop is the rectangular boundary
-  for (int i = 0; i < 3; i++)
-    clean.edges.push_back({i, i + 1});
-  clean.edges.push_back({3, 0}); // close the loop
-  if (dirty.numVtx > 4) {        // there is another loop
-    // the second loop is the grounding line
-    for (int i = 4; i < clean.numVtx - 1; i++)
-      clean.edges.push_back({i, i + 1});
-    clean.edges.push_back({clean.numVtx - 1, 4}); // close the loop
-  }
-  clean.numEdges = clean.edges.size();
-  clean.firstContourPt = 4;
-
-  return clean;
-}
-
-OnCurve::OnCurve(double onCurveAngleTol, bool isDebug) :
-  deg_angle_lower(onCurveAngleTol),
-  deg_angle_upper(-onCurveAngleTol),
-  tc_angle_lower(TC::degreesTo(deg_angle_lower)),
-  tc_angle_upper(TC::degreesTo(deg_angle_upper)),
-  debug(isDebug)
-{
-  if(debug) {
-    std::cout << "OnCurve deg_angle_lower " << deg_angle_lower <<
-      " tc_angle_lower " << tc_angle_lower << "\n";
-    std::cout << "OnCurve deg_angle_upper " << deg_angle_upper <<
-      " tc_angle_upper " << tc_angle_upper << "\n";
-  }
-}
-
-//similar to scorec/tomms @ 2f97d13 (simapis-mod branch)
-int OnCurve::operator()(double tc_m1, double tc, double tc_p1) {
-  if ((tc_m1>tc_angle_lower) && (tc_m1<tc_angle_upper) &&
-      (tc   >tc_angle_lower) && (tc   <tc_angle_upper) &&
-      (tc_p1>tc_angle_lower) && (tc_p1<tc_angle_upper)) {
-    return 1;
-  } else {
-    return 0;
-  }
 }
 
 quadtree::Box<double> makeBoxAroundPt(double x, double y, double pad) {
@@ -459,6 +422,99 @@ std::map<int,int> findNarrowChannels(GeomInfo &g, double coincidentVtxToleranceS
   return longPairs;
 }
 
+GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
+                      bool debug) {
+  assert(checkVertexUse(dirty));
+  // trying to check the the dirty geom has a chain of edges
+  assert(dirty.numEdges == dirty.numVtx);
+  // the first four edges form a loop
+  assert(dirty.edges[0][0] == dirty.edges[3][1]);
+  // the remaining edges form a loop
+  assert(dirty.edges[4][0] == dirty.edges[dirty.numEdges - 1][1]);
+
+  int numPtsRemoved = 0;
+  GeomInfo clean;
+  clean.vtx_x.reserve(dirty.numVtx);
+  clean.vtx_y.reserve(dirty.numVtx);
+  // Look for vertices that are nearly coincident
+  clean.vtx_x.push_back(dirty.vtx_x[0]);
+  clean.vtx_y.push_back(dirty.vtx_y[0]);
+  for (int i = 1; i < dirty.numVtx; i++) {
+    auto close =
+        isPtCoincident(dirty.vtx_x[i - 1], dirty.vtx_y[i - 1], dirty.vtx_x[i],
+                       dirty.vtx_y[i], coincidentVtxToleranceSquared);
+    if (!close) {
+      clean.vtx_x.push_back(dirty.vtx_x[i]);
+      clean.vtx_y.push_back(dirty.vtx_y[i]);
+    } else {
+      numPtsRemoved++;
+      if (debug) {
+        std::cout << "coincident pt " << i - 1 << " (" << dirty.vtx_x[i - 1]
+                  << ", " << dirty.vtx_y[i - 1] << ") " << i << " ("
+                  << dirty.vtx_x[i] << ", " << dirty.vtx_y[i] << ")\n";
+      }
+    }
+  }
+  clean.numVtx = clean.vtx_x.size();
+  if(debug)
+    std::cout << "removed " << numPtsRemoved << " coincident points\n";
+
+  // loops have an equal number of verts and edges
+  assert(dirty.numVtx >= 4); // there must be a bounding box
+  clean.edges.reserve(dirty.numVtx);
+  // the first loop is the rectangular boundary
+  for (int i = 0; i < 3; i++)
+    clean.edges.push_back({i, i + 1});
+  clean.edges.push_back({3, 0}); // close the loop
+  if (dirty.numVtx > 4) {        // there is another loop
+    // the second loop is the grounding line
+    for (int i = 4; i < clean.numVtx - 1; i++)
+      clean.edges.push_back({i, i + 1});
+    clean.edges.push_back({clean.numVtx - 1, 4}); // close the loop
+  }
+
+  clean.numEdges = clean.edges.size();
+  assert(clean.numEdges == clean.numVtx);
+
+  clean.firstContourPt = 4; //only supports bounding rectangles - TODO move to geom ctor
+  if(clean.numVtx > 4) {
+    if( !isPositiveOrientation(clean) ) {
+      std::cerr << "orientation is not positive... reversing\n";
+      clean.reverseContourPoints();
+    }
+  }
+
+  return clean;
+}
+
+OnCurve::OnCurve(double onCurveAngleTol, bool isDebug) :
+  deg_angle_lower(onCurveAngleTol),
+  deg_angle_upper(-onCurveAngleTol),
+  tc_angle_lower(TC::degreesTo(deg_angle_lower)),
+  tc_angle_upper(TC::degreesTo(deg_angle_upper)),
+  debug(isDebug)
+{
+  if(debug) {
+    std::cout << "OnCurve deg_angle_lower " << deg_angle_lower <<
+      " tc_angle_lower " << tc_angle_lower << "\n";
+    std::cout << "OnCurve deg_angle_upper " << deg_angle_upper <<
+      " tc_angle_upper " << tc_angle_upper << "\n";
+  }
+}
+
+//similar to scorec/tomms @ 2f97d13 (simapis-mod branch)
+int OnCurve::operator()(double tc_m1, double tc, double tc_p1) {
+  if ((tc_m1>tc_angle_lower) && (tc_m1<tc_angle_upper) &&
+      (tc   >tc_angle_lower) && (tc   <tc_angle_upper) &&
+      (tc_p1>tc_angle_lower) && (tc_p1<tc_angle_upper)) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+
+
 void writeToCSV(std::string fname, GeomInfo& geom,
     std::vector<double>& angle,
     std::vector<int>& isPointOnCurve,
@@ -474,6 +530,31 @@ void writeToCSV(std::string fname, GeomInfo& geom,
   csv.close();
 }
 
+int findFirstPt(std::vector<int>& prop, const int offset, const int match) {
+  auto it = std::find(prop.begin()+offset, prop.end(), match);
+  if( it == prop.end()) {
+    return -1;
+  } else {
+    return it - prop.begin();
+  }
+}
+
+/**
+ * \brief determine where model vertices and smooth curves are along the contours
+ * \param geom (in) provides coordinates of input points along the contour
+ * \param coincidentPtTolSquared (in) tolerance in distance units (e.g., km for landice) for determining
+ *        if consecutive points along the contour should be considered as coincident, the value
+ *        is assumed to be squared
+ * \param angleTol (in) tolerance in degrees for determining if a model vertex
+ *        should be placed at a point
+ * \param onCurveAngleTol (in) tolerance in degrees for determining if points along the
+ *        contour should be considered as along a smooth curve - see onCurve(...) for
+ *        details
+ * \param debug (in) true to enable debug outputs
+ * \return two vectors whose length is equal to the number of points in geom
+ *         isPointOnCurve = 1: point is on a smooth curve - see onCurve(...) for details, 0: otherwise
+ *         isMdlVtx = 1: point bounds two edges which have a narrow angle (> angleTol or < -angleTol) between them
+ */
 std::tuple<std::vector<int>,std::vector<int>>
 discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug) {
   if(geom.numVtx <= geom.firstContourPt) { // no internal contour
@@ -555,5 +636,56 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
     writeToCSV("narrowChannels.csv", geom, angle, isPointOnCurve, isMdlVtx);
   }
 
-  return {isPointOnCurve, isMdlVtx};
+  //eliminate curve segments (consecutive points) that don't have at least four points
+  const int isOnCurve = 1;
+  int firstPtOnCurve = findFirstPt(isPointOnCurve, geom.firstContourPt, isOnCurve);
+  if(firstPtOnCurve != -1) { // at least one point marked as on a curve
+    int startingCurvePtIdx = firstPtOnCurve;
+    std::vector<int> ptsOnCurve;
+    ptsOnCurve.push_back(startingCurvePtIdx);
+    int ptsVisited = 0; //don't count the first vertex until we close the loop
+    int ptIdx = startingCurvePtIdx+1;
+    int maxSegment = 0;
+    int minSegment = std::numeric_limits<int>::max();
+    while(ptsVisited < isPointOnCurve.size()-geom.firstContourPt) {
+      if (isPointOnCurve.at(ptIdx) == 1) {
+        ptsOnCurve.push_back(ptIdx);
+      } else {
+        if(ptsOnCurve.size() > 0) {
+          if(ptsOnCurve.size() > maxSegment) {
+            maxSegment = ptsOnCurve.size();
+          }
+          if(ptsOnCurve.size() < minSegment) {
+            minSegment = ptsOnCurve.size();
+          }
+          if(ptsOnCurve.size() < 4) { //segment is too short
+            for(int i=0; i<ptsOnCurve.size(); i++) {
+              const auto pt = ptsOnCurve.at(i);
+              isPointOnCurve.at(pt) = 0; //mark as linear
+            }
+          }
+          ptsOnCurve.clear();
+        }
+      }
+      ptsVisited++;
+      ptIdx = geom.getNextPtIdx(ptIdx);
+    }
+    if(debug) {
+      std::cout << "onCurve minSegment " << minSegment << " maxSegment " << maxSegment << std::endl;
+    }
+  }
+
+  //if the last point on a curve does not have a model vertex then add one
+  std::vector<int> isMdlVtxMod(isMdlVtx);
+  for (int j = geom.firstContourPt;j < geom.numVtx; ++j) {
+    const int m1 = geom.getPrevPtIdx(j);
+    if( isPointOnCurve.at(m1) == 0 && isPointOnCurve.at(j) == 1 && isMdlVtx.at(m1) != 1) {
+      isMdlVtxMod.at(j) = 1;
+    }
+  }
+
+  if(debug) {
+    writeToCSV("rmvSegmentsAddVerts.csv", geom, angle, isPointOnCurve, isMdlVtxMod);
+  }
+  return {isPointOnCurve,isMdlVtxMod};
 }
