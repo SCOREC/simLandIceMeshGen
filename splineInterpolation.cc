@@ -31,8 +31,9 @@ bool curveOrientation(std::vector<double> &curvePts) {
 }
 
 BSpline2d attach_piecewise_linear_curve(std::vector<double> points) {
-  assert(points.size() % 2 == 0);
-  const auto numPts = points.size() / 2;
+  const int dim = 3;
+  assert(points.size() % dim == 0);
+  const auto numPts = points.size() / dim;
   const int order_p=2;
   const int knotsize=2*order_p+numPts-2;
   vector<double> knots(knotsize,0.);
@@ -43,8 +44,8 @@ BSpline2d attach_piecewise_linear_curve(std::vector<double> points) {
   double totalLength = 0.0; 
   std::vector <double> lengthVector;
   for( int i=1; i<numPts; i++) {
-    double l = getLengthSquared(points.at(2*i-2), points.at(2*i-1),
-                                points.at(2*i), points.at(2*i+1));
+    double l = getLengthSquared(points.at(dim*i-2), points.at(dim*i-1),
+                                points.at(dim*i), points.at(dim*i+1));
     double length = std::sqrt(l);
     totalLength += length;
     lengthVector.push_back(totalLength);
@@ -54,8 +55,8 @@ BSpline2d attach_piecewise_linear_curve(std::vector<double> points) {
     knots.at(order_p+i)=par;
   }
   for( int i=0; i<numPts; i++) {
-    ctrlPointsX.at(i)=points[2*i];
-    ctrlPointsY.at(i)=points[2*i+1];
+    ctrlPointsX.at(i)=points[dim*i];
+    ctrlPointsY.at(i)=points[dim*i+1];
   }
   Spline::BSpline xSpline(order_p, ctrlPointsX, knots, weight);
   Spline::BSpline ySpline(order_p, ctrlPointsY, knots, weight);
