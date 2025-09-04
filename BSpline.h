@@ -63,6 +63,10 @@ public:
   BSpline() : order(-1) {}
   ~BSpline(){};
   int getOrder() const { return order; }
+  int getNumCtrlPts() const { return ctrlPts.size(); }
+  int getNumKnots() const { return knots.size(); }
+  double getCtrlPt(std::size_t i) const { return ctrlPts.at(i); }
+  double getKnot(std::size_t i) const { return knots.at(i); }
   virtual double eval(double x) const;
   virtual double evalFirstDeriv(double x) const;
   virtual double evalSecondDeriv(double x) const;

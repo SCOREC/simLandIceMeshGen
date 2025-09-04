@@ -1,5 +1,6 @@
 #include "modelGen2d.h"
 #include "Omega_h_file.hpp"
+#include "Omega_h_int_scan.hpp"
 #include <cassert>
 #include <cmath> //sqrt
 #include <vector>
@@ -10,27 +11,62 @@ using std::vector;
 extern "C" void dgesv_(int *n, int *nrhs, double *a, int *lda, int *ipiv,
                        double *b, int *ldb, int *info);
 
+template<typename T>
+auto ohHostWriteToRead(Omega_h::HostWrite<T> hw) {
+  return Omega_h::read(Omega_h::Write(hw));
+}
+
 namespace SplineInterp {
 
 void SplineInfo::writeToOsh(std::string filename) {
     std::ofstream file(filename);
     assert(file.is_open());
-    Omega_h::HostWrite<Omega_h::LO> splineToCtrlPts_h(splines.size()+1, "splineToCtrlPts_h");
-    Omega_h::HostWrite<Omega_h::LO> splineToKnots_h(splines.size()+1, "splineToKnots_h");
-    Omega_h::HostWrite<Omega_h::LO> order_h(splines.size(), "order_h");
+    Omega_h::HostWrite<Omega_h::LO> numCtrlPts_h(splines.size());
+    Omega_h::HostWrite<Omega_h::LO> numKnots_h(splines.size());
+    Omega_h::HostWrite<Omega_h::LO> order_h(splines.size());
     int i=0;
     for(auto& spline : splines) {
       assert(spline.x.getOrder() == spline.y.getOrder());
       order_h[i] = spline.x.getOrder();
+      assert(spline.x.getNumCtrlPts() == spline.y.getNumCtrlPts());
+      assert(spline.x.getNumKnots() == spline.y.getNumKnots());
+      //store the number of ctrlPts/knots for each spline then build the offset array
+      numCtrlPts_h[i] = spline.x.getNumCtrlPts();
+      numKnots_h[i] = spline.x.getNumKnots();
+      i++;
     }
+    auto splineToCtrlPts = Omega_h::offset_scan( ohHostWriteToRead(numCtrlPts_h) );
+    auto splineToKnots = Omega_h::offset_scan( ohHostWriteToRead(numKnots_h) );
+
+    //fill in the arrays of all ctrlPts and knots
+    const auto totNumCtrlPts = splineToCtrlPts.last();
+    const auto totNumKnots = splineToKnots.last();
+    Omega_h::HostWrite<Omega_h::Real> ctrlPts_x(totNumCtrlPts);
+    Omega_h::HostWrite<Omega_h::Real> ctrlPts_y(totNumCtrlPts);
+    Omega_h::HostWrite<Omega_h::Real> knots_x(totNumKnots);
+    Omega_h::HostWrite<Omega_h::Real> knots_y(totNumKnots);
+    for(auto& spline : splines) {
+      for(std::size_t i=0;  i<spline.x.getNumCtrlPts(); i++) {
+        ctrlPts_x[i] = spline.x.getCtrlPt(i);
+        ctrlPts_y[i] = spline.y.getCtrlPt(i);
+      }
+      for(std::size_t i=0;  i<spline.x.getNumKnots(); i++) {
+        knots_x[i] = spline.x.getKnot(i);
+        knots_y[i] = spline.y.getKnot(i);
+      }
+      i++;
+    }
+
     bool compressed = true;
     bool needs_swapping = false;
-    //Omega_h::write_array(file, splineToCtrlPts);
-    //Omega_h::write_array(file, ctrlPts);
-    //Omega_h::write_array(file, splineToKnots);
-    //Omega_h::write_array(file, knots);
-    Omega_h::binary::write_array(file, Omega_h::read(Omega_h::Write(order_h)), compressed, needs_swapping);
-  }
+    Omega_h::binary::write_array(file, splineToCtrlPts, compressed, needs_swapping);
+    Omega_h::binary::write_array(file, splineToKnots, compressed, needs_swapping);
+    Omega_h::binary::write_array(file, ohHostWriteToRead(ctrlPts_x), compressed, needs_swapping);
+    Omega_h::binary::write_array(file, ohHostWriteToRead(ctrlPts_y), compressed, needs_swapping);
+    Omega_h::binary::write_array(file, ohHostWriteToRead(knots_x), compressed, needs_swapping);
+    Omega_h::binary::write_array(file, ohHostWriteToRead(knots_y), compressed, needs_swapping);
+    Omega_h::binary::write_array(file, ohHostWriteToRead(order_h), compressed, needs_swapping);
+}
 
 
 bool curveOrientation(std::vector<double> &curvePts) {
