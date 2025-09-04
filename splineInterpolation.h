@@ -13,6 +13,7 @@ public:
  * Interpolate a spline through the given points using a clamped
  * b-spline as underlying representation.
  */
+BSpline2d fitCubicSplineToPoints(std::vector<double> pts);
 BSpline2d fitCubicSplineToPoints(std::vector<double> xpts,
                                  std::vector<double> ypts);
 

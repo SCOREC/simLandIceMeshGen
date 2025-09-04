@@ -1,6 +1,7 @@
 #include "simModelGen2d.h"
 #include "Quadtree.h"
 #include <map>
+#include <numeric> //accumulate
 
 std::array<double, 3> subtractPts(double a[3], double b[3]) {
   return {b[0] - a[0], b[1] - a[1], b[2] - a[2]};
@@ -82,6 +83,10 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   using func=std::function<psa(int pt)>;
   using funcIntBool=std::function<psa(int pt, bool)>;
 
+  auto numMdlVerts = std::accumulate(isMdlVtx.begin()+geom.firstContourPt, isMdlVtx.end(), 0);
+  std::vector<SplineInterp::BSpline2d> splines;
+  splines.reserve(numMdlVerts+1);
+
   pGVertex firstMdlVtx;
   int firstPtIdx;
   int startingCurvePtIdx;
@@ -123,6 +128,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     }
 
     auto edge = fitCurveToContourSimInterp(isLinearSpline, mdlTopo.region, startingMdlVtx, endMdlVtx, pts, debug);
+    splines.emplace_back(SplineInterp::fitCubicSplineToPoints(pts));
     mdlTopo.edges.push_back(edge);
 
     if (debug) {
