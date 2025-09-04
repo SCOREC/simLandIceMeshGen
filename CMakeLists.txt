@@ -16,6 +16,7 @@ endif()
 
 find_package(BLAS REQUIRED)
 
+find_package(Omega_h REQUIRED)
 
 add_library(splineInterp splineInterpolation.cc BSpline.cc Expression.cc PolyNomial.cc)
 target_link_libraries(splineInterp PUBLIC BLAS::BLAS)
@@ -23,7 +24,7 @@ target_link_libraries(splineInterp PUBLIC BLAS::BLAS)
 add_library(modelGen2d modelGen2d.cc)
 target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Quadtree/include)
-target_link_libraries(modelGen2d PRIVATE splineInterp)
+target_link_libraries(modelGen2d PRIVATE splineInterp Omega_h::omega_h)
 
 set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
 

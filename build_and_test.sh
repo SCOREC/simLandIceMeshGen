@@ -4,7 +4,7 @@
 
 set -e  # Exit on any error
 
-usage="Usage: ./build_and_test.sh /path/to/simLandIceMeshGen /path/to/simmodsuite/env [--asan]
+usage="Usage: ./build_and_test.sh /path/to/simLandIceMeshGen /path/to/simmodsuite/env /path/to/omegah/install [--asan]
   --asan    Enable AddressSanitizer for memory error and leak detection"
 
 # Parse command line arguments
@@ -28,13 +28,16 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Check required arguments
-[[ ${#ARGS[@]} -ne 2 ]] && echo "$usage" && exit 1
+[[ ${#ARGS[@]} -ne 3 ]] && echo "$usage" && exit 1
 
 PROJECT_DIR=$PWD
 SOURCE_DIR=${ARGS[0]}
 SIMMODSUITE_ENV=${ARGS[1]}
 [[ ! -d $SOURCE_DIR ]] && "SOURCE_DIR ${SOURCE_DIR} does not exist... exiting" && exit 1
 [[ ! -e $SIMMODSUITE_ENV ]] && "SIMMODSUITE_ENV ${SIMMODSUITE_ENV} does not exist... exiting" && exit 1
+OMEGAH_DIR=${ARGS[2]}
+[[ ! -d $OMEGAH_DIR ]] && "OMEGAH_DIR ${OMEGAH_DIR} does not exist... exiting" && exit 1
+export CMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH:$OMEGAH_DIR
 
 echo "=== Building and Testing simLandIceMeshGen ==="
 echo "Project directory: $PROJECT_DIR"
