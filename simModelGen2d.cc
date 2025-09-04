@@ -128,7 +128,11 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     }
 
     auto edge = fitCurveToContourSimInterp(isLinearSpline, mdlTopo.region, startingMdlVtx, endMdlVtx, pts, debug);
-    splines.emplace_back(SplineInterp::fitCubicSplineToPoints(pts));
+    if(isLinearSpline) {
+      splines.emplace_back(SplineInterp::attach_piecewise_linear_curve(pts));
+    } else {
+      splines.emplace_back(SplineInterp::fitCubicSplineToPoints(pts));
+    }
     mdlTopo.edges.push_back(edge);
 
     if (debug) {

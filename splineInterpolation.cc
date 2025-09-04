@@ -1,5 +1,6 @@
-#include "splineInterpolation.h"
+#include "modelGen2d.h"
 #include <cassert>
+#include <cmath> //sqrt
 #include <vector>
 
 using std::vector;
@@ -29,42 +30,36 @@ bool curveOrientation(std::vector<double> &curvePts) {
   return false;
 }
 
-void attach_piecewise_linear_curve (std::vector<double> points) {
+BSpline2d attach_piecewise_linear_curve(std::vector<double> points) {
   assert(points.size() % 2 == 0);
   const auto numPts = points.size() / 2;
-  int order_p=2;
-  int knotsize=2*order_p+*numPts-2;
+  const int order_p=2;
+  const int knotsize=2*order_p+numPts-2;
   vector<double> knots(knotsize,0.);
-  vector<double> ctrlPointsX(*numPts),ctrlPointsY(*numPts),weight;
-  for( int i=0; i<order_p; i++) 
-  {
+  vector<double> ctrlPointsX(numPts),ctrlPointsY(numPts),weight;
+  for( int i=0; i<order_p; i++) {
     knots.at(knotsize-i-1)=1.0;
   }
-  double increment=1.0/(*numPts-1);
   double totalLength = 0.0; 
   std::vector <double> lengthVector;
-  for( int i=1; i<*numPts; i++) 
-  {
-    double pt1[2] = {points[2*i-2],points[2*i-1]};
-    double pt2[2] = {points[2*i],points[2*i+1]};
-    double length = getDist2D(pt1,pt2);
-    totalLength = length+totalLength;
+  for( int i=1; i<numPts; i++) {
+    double l = getLengthSquared(points.at(2*i-2), points.at(2*i-1),
+                                points.at(2*i), points.at(2*i+1));
+    double length = std::sqrt(l);
+    totalLength += length;
     lengthVector.push_back(totalLength);
   }
-  for (int i=0; i<*numPts-2; i++) 
-  {
+  for (int i=0; i<numPts-2; i++) {
     double par = lengthVector[i]/totalLength;
     knots.at(order_p+i)=par;
-    // knots.at(order_p+i)=knots.at(order_p+i-1)+increment;
   }
-  for( int i=0; i<*numPts; i++) 
-  {
+  for( int i=0; i<numPts; i++) {
     ctrlPointsX.at(i)=points[2*i];
     ctrlPointsY.at(i)=points[2*i+1];
   }
-  M3DC1::BSpline** data=new M3DC1::BSpline*[2];
-  data[0] = new M3DC1::BSpline(order_p,ctrlPointsX,knots, weight);
-  data[1] = new M3DC1::BSpline(order_p,ctrlPointsY,knots, weight);
+  Spline::BSpline xSpline(order_p, ctrlPointsX, knots, weight);
+  Spline::BSpline ySpline(order_p, ctrlPointsY, knots, weight);
+  return {xSpline, ySpline};
 }
 
 
@@ -121,7 +116,6 @@ void interpolateCubicBSpline(std::vector<double> &points, vector<double> &knots,
 
 BSpline2d fitCubicSplineToPoints(std::vector<double> xpts,
                                  std::vector<double> ypts) {
-  assert(xpts.size() > 2); //lots of failures here
   assert(xpts.size() == ypts.size());
   const auto numPts = xpts.size();
   int order_p = 4;
