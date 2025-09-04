@@ -62,6 +62,7 @@ public:
           std::vector<double> &knots_p, std::vector<double> &weight_p);
   BSpline() : order(-1) {}
   ~BSpline(){};
+  int getOrder() const { return order; }
   virtual double eval(double x) const;
   virtual double evalFirstDeriv(double x) const;
   virtual double evalSecondDeriv(double x) const;

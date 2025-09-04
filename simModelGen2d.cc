@@ -1,7 +1,7 @@
 #include "simModelGen2d.h"
 #include "Quadtree.h"
 #include <map>
-#include <numeric> //accumulate
+#include <numeric> //std::accumulate
 
 std::array<double, 3> subtractPts(double a[3], double b[3]) {
   return {b[0] - a[0], b[1] - a[1], b[2] - a[2]};
@@ -83,9 +83,8 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   using func=std::function<psa(int pt)>;
   using funcIntBool=std::function<psa(int pt, bool)>;
 
-  auto numMdlVerts = std::accumulate(isMdlVtx.begin()+geom.firstContourPt, isMdlVtx.end(), 0);
-  std::vector<SplineInterp::BSpline2d> splines;
-  splines.reserve(numMdlVerts+1);
+  const auto numMdlVerts = std::accumulate(isMdlVtx.begin()+geom.firstContourPt, isMdlVtx.end(), 0);
+  auto splines = SplineInterp::SplineInfo(numMdlVerts);
 
   pGVertex firstMdlVtx;
   int firstPtIdx;
@@ -129,9 +128,9 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
 
     auto edge = fitCurveToContourSimInterp(isLinearSpline, mdlTopo.region, startingMdlVtx, endMdlVtx, pts, debug);
     if(isLinearSpline) {
-      splines.emplace_back(SplineInterp::attach_piecewise_linear_curve(pts));
+      splines.addSpline(SplineInterp::attach_piecewise_linear_curve(pts));
     } else {
-      splines.emplace_back(SplineInterp::fitCubicSplineToPoints(pts));
+      splines.addSpline(SplineInterp::fitCubicSplineToPoints(pts));
     }
     mdlTopo.edges.push_back(edge);
 
@@ -260,6 +259,9 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     ptsVisited++;
     ptIdx = geom.getNextPtIdx(ptIdx);
   }
+
+  //write the bsplines to an omegah binary file
+  splines.writeToOsh("splines.oshb");
 }
 
 void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, bool debug) {

@@ -1,5 +1,6 @@
 #include "BSpline.h"
 #include <vector>
+#include <string>
 
 namespace SplineInterp {
 
@@ -7,6 +8,17 @@ class BSpline2d {
 public:
   Spline::BSpline x;
   Spline::BSpline y;
+};
+
+struct SplineInfo {
+  std::vector<SplineInterp::BSpline2d> splines;
+  SplineInfo(int numSplines) {
+    splines.reserve(numSplines);
+  }
+  void addSpline(SplineInterp::BSpline2d spline) {
+    splines.emplace_back(spline);
+  }
+  void writeToOsh(std::string filename);
 };
 
 /**

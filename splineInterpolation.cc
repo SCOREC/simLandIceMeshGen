@@ -1,4 +1,5 @@
 #include "modelGen2d.h"
+#include "Omega_h_file.hpp"
 #include <cassert>
 #include <cmath> //sqrt
 #include <vector>
@@ -10,6 +11,27 @@ extern "C" void dgesv_(int *n, int *nrhs, double *a, int *lda, int *ipiv,
                        double *b, int *ldb, int *info);
 
 namespace SplineInterp {
+
+void SplineInfo::writeToOsh(std::string filename) {
+    std::ofstream file(filename);
+    assert(file.is_open());
+    Omega_h::HostWrite<Omega_h::LO> splineToCtrlPts_h(splines.size()+1, "splineToCtrlPts_h");
+    Omega_h::HostWrite<Omega_h::LO> splineToKnots_h(splines.size()+1, "splineToKnots_h");
+    Omega_h::HostWrite<Omega_h::LO> order_h(splines.size(), "order_h");
+    int i=0;
+    for(auto& spline : splines) {
+      assert(spline.x.getOrder() == spline.y.getOrder());
+      order_h[i] = spline.x.getOrder();
+    }
+    bool compressed = true;
+    bool needs_swapping = false;
+    //Omega_h::write_array(file, splineToCtrlPts);
+    //Omega_h::write_array(file, ctrlPts);
+    //Omega_h::write_array(file, splineToKnots);
+    //Omega_h::write_array(file, knots);
+    Omega_h::binary::write_array(file, Omega_h::read(Omega_h::Write(order_h)), compressed, needs_swapping);
+  }
+
 
 bool curveOrientation(std::vector<double> &curvePts) {
   int numPts = curvePts.size() / 3;
