@@ -32,7 +32,7 @@ struct ModelTopo {
 void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, bool debug=false);
 
 
-void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug=false);
+void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, SplineInterp::SplineInfo& splines, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug=false);
 void createFaces(ModelTopo& mdlTopo, GeomInfo& geom, bool debug=false);
 void printModelInfo(pGModel model);
 void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress, bool debug=false);

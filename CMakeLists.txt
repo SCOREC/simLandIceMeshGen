@@ -16,9 +16,10 @@ endif()
 
 find_package(BLAS REQUIRED)
 
+find_package(Omega_h REQUIRED)
 
 add_library(splineInterp splineInterpolation.cc BSpline.cc Expression.cc PolyNomial.cc)
-target_link_libraries(splineInterp PUBLIC BLAS::BLAS)
+target_link_libraries(splineInterp PRIVATE BLAS::BLAS Omega_h::omega_h)
 
 add_library(modelGen2d modelGen2d.cc)
 target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

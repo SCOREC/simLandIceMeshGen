@@ -1,5 +1,8 @@
-#include "splineInterpolation.h"
+#include "modelGen2d.h"
+#include "Omega_h_file.hpp"
+#include "Omega_h_int_scan.hpp"
 #include <cassert>
+#include <cmath> //sqrt
 #include <vector>
 
 using std::vector;
@@ -8,7 +11,78 @@ using std::vector;
 extern "C" void dgesv_(int *n, int *nrhs, double *a, int *lda, int *ipiv,
                        double *b, int *ldb, int *info);
 
+template<typename T>
+auto ohHostWriteToRead(Omega_h::HostWrite<T> hw) {
+  return Omega_h::read(Omega_h::Write(hw));
+}
+
 namespace SplineInterp {
+
+void SplineInfo::writeSamplesToCsv(std::string filename) {
+  std::ofstream file(filename);
+  assert(file.is_open());
+  file << "splineId, x, y\n";
+  int i=0;
+  for(auto& spline : splines) {
+    auto numSamples = spline.x.getNumKnots() * 4;
+    for(int i = 0; i < numSamples; ++i) {
+      auto t = 1.0 * i / numSamples;
+      file << i << ", " << spline.x.eval(t) << ", " << spline.y.eval(t) << "\n";
+    }
+    i++;
+  }
+}
+
+void SplineInfo::writeToOsh(std::string filename) {
+    std::ofstream file(filename);
+    assert(file.is_open());
+    Omega_h::HostWrite<Omega_h::LO> numCtrlPts_h(splines.size());
+    Omega_h::HostWrite<Omega_h::LO> numKnots_h(splines.size());
+    Omega_h::HostWrite<Omega_h::LO> order_h(splines.size());
+    int i=0;
+    for(auto& spline : splines) {
+      assert(spline.x.getOrder() == spline.y.getOrder());
+      order_h[i] = spline.x.getOrder();
+      assert(spline.x.getNumCtrlPts() == spline.y.getNumCtrlPts());
+      assert(spline.x.getNumKnots() == spline.y.getNumKnots());
+      //store the number of ctrlPts/knots for each spline then build the offset array
+      numCtrlPts_h[i] = spline.x.getNumCtrlPts();
+      numKnots_h[i] = spline.x.getNumKnots();
+      i++;
+    }
+    auto splineToCtrlPts = Omega_h::offset_scan( ohHostWriteToRead(numCtrlPts_h) );
+    auto splineToKnots = Omega_h::offset_scan( ohHostWriteToRead(numKnots_h) );
+
+    //fill in the arrays of all ctrlPts and knots
+    const auto totNumCtrlPts = splineToCtrlPts.last();
+    const auto totNumKnots = splineToKnots.last();
+    Omega_h::HostWrite<Omega_h::Real> ctrlPts_x(totNumCtrlPts);
+    Omega_h::HostWrite<Omega_h::Real> ctrlPts_y(totNumCtrlPts);
+    Omega_h::HostWrite<Omega_h::Real> knots_x(totNumKnots);
+    Omega_h::HostWrite<Omega_h::Real> knots_y(totNumKnots);
+    for(auto& spline : splines) {
+      for(std::size_t i=0;  i<spline.x.getNumCtrlPts(); i++) {
+        ctrlPts_x[i] = spline.x.getCtrlPt(i);
+        ctrlPts_y[i] = spline.y.getCtrlPt(i);
+      }
+      for(std::size_t i=0;  i<spline.x.getNumKnots(); i++) {
+        knots_x[i] = spline.x.getKnot(i);
+        knots_y[i] = spline.y.getKnot(i);
+      }
+      i++;
+    }
+
+    bool compressed = true;
+    bool needs_swapping = false;
+    Omega_h::binary::write_array(file, splineToCtrlPts, compressed, needs_swapping);
+    Omega_h::binary::write_array(file, splineToKnots, compressed, needs_swapping);
+    Omega_h::binary::write_array(file, ohHostWriteToRead(ctrlPts_x), compressed, needs_swapping);
+    Omega_h::binary::write_array(file, ohHostWriteToRead(ctrlPts_y), compressed, needs_swapping);
+    Omega_h::binary::write_array(file, ohHostWriteToRead(knots_x), compressed, needs_swapping);
+    Omega_h::binary::write_array(file, ohHostWriteToRead(knots_y), compressed, needs_swapping);
+    Omega_h::binary::write_array(file, ohHostWriteToRead(order_h), compressed, needs_swapping);
+}
+
 
 bool curveOrientation(std::vector<double> &curvePts) {
   int numPts = curvePts.size() / 3;
@@ -29,7 +103,41 @@ bool curveOrientation(std::vector<double> &curvePts) {
   return false;
 }
 
-void interpolateCubicBSpline(vector<double> &points, vector<double> &knots,
+BSpline2d attach_piecewise_linear_curve(std::vector<double> points) {
+  const int dim = 3;
+  assert(points.size() % dim == 0);
+  const auto numPts = points.size() / dim;
+  const int order_p=2;
+  const int knotsize=2*order_p+numPts-2;
+  vector<double> knots(knotsize,0.);
+  vector<double> ctrlPointsX(numPts),ctrlPointsY(numPts),weight;
+  for( int i=0; i<order_p; i++) {
+    knots.at(knotsize-i-1)=1.0;
+  }
+  double totalLength = 0.0; 
+  std::vector <double> lengthVector;
+  for( int i=1; i<numPts; i++) {
+    double l = getLengthSquared(points.at(dim*i-2), points.at(dim*i-1),
+                                points.at(dim*i), points.at(dim*i+1));
+    double length = std::sqrt(l);
+    totalLength += length;
+    lengthVector.push_back(totalLength);
+  }
+  for (int i=0; i<numPts-2; i++) {
+    double par = lengthVector[i]/totalLength;
+    knots.at(order_p+i)=par;
+  }
+  for( int i=0; i<numPts; i++) {
+    ctrlPointsX.at(i)=points[dim*i];
+    ctrlPointsY.at(i)=points[dim*i+1];
+  }
+  Spline::BSpline xSpline(order_p, ctrlPointsX, knots, weight);
+  Spline::BSpline ySpline(order_p, ctrlPointsY, knots, weight);
+  return {xSpline, ySpline};
+}
+
+
+void interpolateCubicBSpline(std::vector<double> &points, vector<double> &knots,
                              vector<double> &ctrlPoints, int bc) {
   int numPts = points.size();
   int order_p = 4;
@@ -101,6 +209,21 @@ BSpline2d fitCubicSplineToPoints(std::vector<double> xpts,
   Spline::BSpline xSpline(order_p, ctrlPointsX, knots, weight);
   Spline::BSpline ySpline(order_p, ctrlPointsY, knots, weight);
   return {xSpline, ySpline};
+}
+
+BSpline2d fitCubicSplineToPoints(std::vector<double> pts) {
+  assert(pts.size() % 3 == 0);
+  const auto numPts = pts.size() / 3;
+  //TODO replace with mdspan
+  std::vector<double> xpts;
+  xpts.reserve(numPts);
+  std::vector<double> ypts;
+  ypts.reserve(numPts);
+  for(int i=0; i<numPts; i++) {
+     xpts.push_back(pts.at(i*3));
+     ypts.push_back(pts.at(i*3+1));
+  }
+  return fitCubicSplineToPoints(xpts,ypts);
 }
 
 } // namespace SplineInterp

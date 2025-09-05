@@ -28,6 +28,7 @@ void writeDefinition(std::string fileNameNoExt, SplineInterp::BSpline2d& bspline
       std::cerr << "Failed to open output file for splineinterp definition.\n";
       exit(EXIT_FAILURE);
     }
+    splineInterpDefinitionFile << "# Order " << order << std::endl;
     splineInterpDefinitionFile << "# Control Points" << std::endl << "X,Y,Z,Weight" << std::endl;
 
     const int numCtrlPts = ctrlPtsX.size();

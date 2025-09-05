@@ -71,7 +71,7 @@ void printModelInfo(pGModel model) {
     << std::endl;
 }
 
-void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug) {
+void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, SplineInterp::SplineInfo& splines, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug) {
   if(geom.numVtx <= geom.firstContourPt) { // no internal contour
     return;
   }
@@ -81,6 +81,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   typedef std::pair<State,Action> psa; // next state, action
   using func=std::function<psa(int pt)>;
   using funcIntBool=std::function<psa(int pt, bool)>;
+
 
   pGVertex firstMdlVtx;
   int firstPtIdx;
@@ -123,6 +124,11 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     }
 
     auto edge = fitCurveToContourSimInterp(isLinearSpline, mdlTopo.region, startingMdlVtx, endMdlVtx, pts, debug);
+    if(isLinearSpline) {
+      splines.addSpline(SplineInterp::attach_piecewise_linear_curve(pts));
+    } else {
+      splines.addSpline(SplineInterp::fitCubicSplineToPoints(pts));
+    }
     mdlTopo.edges.push_back(edge);
 
     if (debug) {
@@ -250,6 +256,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     ptsVisited++;
     ptIdx = geom.getNextPtIdx(ptIdx);
   }
+
 }
 
 void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, bool debug) {
