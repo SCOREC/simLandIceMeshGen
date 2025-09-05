@@ -1,5 +1,6 @@
 #include "simModelGen2d.h"
 #include "curveReader.h"
+#include <numeric> //std::accumulate
 
 void messageHandler(int type, const char *msg);
 
@@ -51,7 +52,9 @@ int main(int argc, char **argv) {
     geom.vtx_x = curveInfo.x;
     geom.vtx_y = curveInfo.y;
     geom.firstContourPt = 0;
-    createEdges(mdlTopo, geom, curveInfo.isOnCurve, curveInfo.isMdlVtx,
+    const auto numMdlVerts = std::accumulate(curveInfo.isMdlVtx.begin(), curveInfo.isMdlVtx.end(), 0);
+    auto splines = SplineInterp::SplineInfo(numMdlVerts);
+    createEdges(mdlTopo, geom, splines, curveInfo.isOnCurve, curveInfo.isMdlVtx,
                 debug);
 
     auto isValid = GM_isValid(mdlTopo.model, 2, NULL);

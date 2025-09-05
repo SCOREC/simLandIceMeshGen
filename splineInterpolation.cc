@@ -18,6 +18,21 @@ auto ohHostWriteToRead(Omega_h::HostWrite<T> hw) {
 
 namespace SplineInterp {
 
+void SplineInfo::writeSamplesToCsv(std::string filename) {
+  std::ofstream file(filename);
+  assert(file.is_open());
+  file << "splineId, x, y\n";
+  int i=0;
+  for(auto& spline : splines) {
+    auto numSamples = spline.x.getNumKnots() * 4;
+    for(int i = 0; i < numSamples; ++i) {
+      auto t = 1.0 * i / numSamples;
+      file << i << ", " << spline.x.eval(t) << ", " << spline.y.eval(t) << "\n";
+    }
+    i++;
+  }
+}
+
 void SplineInfo::writeToOsh(std::string filename) {
     std::ofstream file(filename);
     assert(file.is_open());

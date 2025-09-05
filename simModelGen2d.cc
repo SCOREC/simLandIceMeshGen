@@ -1,7 +1,6 @@
 #include "simModelGen2d.h"
 #include "Quadtree.h"
 #include <map>
-#include <numeric> //std::accumulate
 
 std::array<double, 3> subtractPts(double a[3], double b[3]) {
   return {b[0] - a[0], b[1] - a[1], b[2] - a[2]};
@@ -72,7 +71,7 @@ void printModelInfo(pGModel model) {
     << std::endl;
 }
 
-void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug) {
+void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, SplineInterp::SplineInfo& splines, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug) {
   if(geom.numVtx <= geom.firstContourPt) { // no internal contour
     return;
   }
@@ -83,8 +82,6 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
   using func=std::function<psa(int pt)>;
   using funcIntBool=std::function<psa(int pt, bool)>;
 
-  const auto numMdlVerts = std::accumulate(isMdlVtx.begin()+geom.firstContourPt, isMdlVtx.end(), 0);
-  auto splines = SplineInterp::SplineInfo(numMdlVerts);
 
   pGVertex firstMdlVtx;
   int firstPtIdx;
@@ -260,8 +257,6 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, std::vector<int>& isPtOnCur
     ptIdx = geom.getNextPtIdx(ptIdx);
   }
 
-  //write the bsplines to an omegah binary file
-  splines.writeToOsh("splines.oshb");
 }
 
 void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, bool debug) {

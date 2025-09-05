@@ -1,4 +1,5 @@
 #include "simModelGen2d.h"
+#include <numeric> //std::accumulate
 
 void messageHandler(int type, const char *msg);
 
@@ -99,7 +100,14 @@ int main(int argc, char **argv) {
 
     auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
 
-    createEdges(mdlTopo, geom, isPointOnCurve, isMdlVtx, debug);
+    const auto numMdlVerts = std::accumulate(isMdlVtx.begin()+geom.firstContourPt, isMdlVtx.end(), 0);
+    auto splines = SplineInterp::SplineInfo(numMdlVerts);
+    createEdges(mdlTopo, geom, splines, isPointOnCurve, isMdlVtx, debug);
+
+    //write the bsplines to an omegah binary file
+    splines.writeToOsh(modelFileName + "_splines.oshb");
+    //write the sampled bsplines to a csv file
+    splines.writeSamplesToCsv(modelFileName + "_splines.csv");
 
     createFaces(mdlTopo, geom);
 

@@ -19,6 +19,7 @@ struct SplineInfo {
     splines.emplace_back(spline);
   }
   void writeToOsh(std::string filename);
+  void writeSamplesToCsv(std::string fileName);
 };
 
 /**
