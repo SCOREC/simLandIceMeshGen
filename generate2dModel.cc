@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
 
     auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
 
-    const auto numMdlVerts = std::accumulate(isMdlVtx.begin()+geom.firstContourPt, isMdlVtx.end(), 0);
+    const auto numMdlVerts = isMdlVtx.size() ? std::accumulate(isMdlVtx.begin()+geom.firstContourPt, isMdlVtx.end(), 0) : 0;
     auto splines = SplineInterp::SplineInfo(numMdlVerts);
     createEdges(mdlTopo, geom, splines, isPointOnCurve, isMdlVtx, debug);
 
