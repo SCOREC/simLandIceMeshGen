@@ -259,7 +259,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, SplineInterp::SplineInfo& s
 
 }
 
-void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, bool debug) {
+void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, SplineInterp::SplineInfo& splines, bool debug) {
   // TODO generalize face creation
   if (geom.numEdges > 4) {
     mdlTopo.faces.reserve(2);
@@ -290,6 +290,12 @@ void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, bool debug) {
     linearCurve = SCurve_createLine(point0, point1);
     auto edge = GR_createEdge(mdlTopo.region, startVert, endVert, linearCurve, 1);
     mdlTopo.edges.push_back(edge);
+    {
+    std::vector<double> pts(2*3);
+    pts[0] = point0[0]; pts[1] = point0[1]; pts[2] = point0[2];
+    pts[3] = point1[0]; pts[4] = point1[1]; pts[5] = point1[2];
+    splines.addSpline(SplineInterp::attach_piecewise_linear_curve(pts));
+    }
     if (debug) {
       std::cout << "edge " << i << " (" << point0[0] << " , " << point0[1]
         << ")"

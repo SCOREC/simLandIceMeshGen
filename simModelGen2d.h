@@ -29,7 +29,7 @@ struct ModelTopo {
 
 
 
-void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, bool debug=false);
+void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, SplineInterp::SplineInfo& splines, bool debug=false);
 
 
 void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, SplineInterp::SplineInfo& splines, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug=false);

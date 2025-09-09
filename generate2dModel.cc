@@ -96,12 +96,12 @@ int main(int argc, char **argv) {
     mdlTopo.part = GM_rootPart(mdlTopo.model);
     mdlTopo.region = GIP_outerRegion(mdlTopo.part);
 
-    createBoundingBoxGeom(mdlTopo,geom);
-
     auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
 
     const auto numMdlVerts = isMdlVtx.size() ? std::accumulate(isMdlVtx.begin()+geom.firstContourPt, isMdlVtx.end(), 0) : 0;
-    auto splines = SplineInterp::SplineInfo(numMdlVerts);
+    auto splines = SplineInterp::SplineInfo(numMdlVerts+4); //+4 splines for the bounding box
+    createBoundingBoxGeom(mdlTopo, geom, splines);
+
     createEdges(mdlTopo, geom, splines, isPointOnCurve, isMdlVtx, debug);
 
     //write the bsplines to an omegah binary file
