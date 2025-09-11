@@ -1,6 +1,7 @@
 #include "modelGen2d.h"
 #include "Omega_h_file.hpp"
 #include "Omega_h_int_scan.hpp"
+#include "Omega_h_for.hpp" //parallel_for
 #include <cassert>
 #include <cmath> //sqrt
 #include <vector>
@@ -14,6 +15,17 @@ extern "C" void dgesv_(int *n, int *nrhs, double *a, int *lda, int *ipiv,
 template<typename T>
 auto ohHostWriteToRead(Omega_h::HostWrite<T> hw) {
   return Omega_h::read(Omega_h::Write(hw));
+}
+
+bool areKnotsIncreasing(Omega_h::LOs splineToKnots, Omega_h::Reals x, Omega_h::Reals y) {
+  assert(x.size() == y.size());
+  Omega_h::parallel_for(splineToKnots.size()-1, OMEGA_H_LAMBDA(Omega_h::LO i) {
+    for (auto j = splineToKnots[i]; j < splineToKnots[i+1]-1; j++) {
+      OMEGA_H_CHECK(x[j] <= x[j+1]);
+      OMEGA_H_CHECK(y[j] <= y[j+1]);
+    }
+  });
+  return true;
 }
 
 namespace SplineInterp {
@@ -60,17 +72,24 @@ void SplineInfo::writeToOsh(std::string filename) {
     Omega_h::HostWrite<Omega_h::Real> ctrlPts_y(totNumCtrlPts);
     Omega_h::HostWrite<Omega_h::Real> knots_x(totNumKnots);
     Omega_h::HostWrite<Omega_h::Real> knots_y(totNumKnots);
+    int cpIdx = 0;
+    int knotIdx = 0;
     for(auto& spline : splines) {
-      for(std::size_t i=0;  i<spline.x.getNumCtrlPts(); i++) {
-        ctrlPts_x[i] = spline.x.getCtrlPt(i);
-        ctrlPts_y[i] = spline.y.getCtrlPt(i);
+      for(std::size_t j=0;  j<spline.x.getNumCtrlPts(); j++) {
+        ctrlPts_x[cpIdx] = spline.x.getCtrlPt(j);
+        ctrlPts_y[cpIdx] = spline.y.getCtrlPt(j);
+        cpIdx++;
       }
-      for(std::size_t i=0;  i<spline.x.getNumKnots(); i++) {
-        knots_x[i] = spline.x.getKnot(i);
-        knots_y[i] = spline.y.getKnot(i);
+      for(std::size_t j=0;  j<spline.x.getNumKnots(); j++) {
+        knots_x[knotIdx] = spline.x.getKnot(j);
+        knots_y[knotIdx] = spline.y.getKnot(j);
+        knotIdx++;
       }
-      i++;
     }
+    assert(totNumCtrlPts == cpIdx);
+    assert(totNumKnots == knotIdx);
+
+    areKnotsIncreasing(splineToKnots, ohHostWriteToRead(knots_x), ohHostWriteToRead(knots_y));
 
     bool compressed = true;
     bool needs_swapping = false;
