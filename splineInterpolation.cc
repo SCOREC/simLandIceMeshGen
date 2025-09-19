@@ -36,10 +36,14 @@ void SplineInfo::writeSamplesToCsv(std::string filename) {
   file << "splineId, x, y\n";
   int id=0;
   for(auto& spline : splines) {
-    auto numSamples = spline.x.getNumKnots() * 4;
+    printf("writeSamples spline %d\n", id);
+    auto numSamples = 4;
+    auto step = 1.0/(numSamples-1);
     for(int i = 0; i < numSamples; ++i) {
-      auto t = 1.0 * i / numSamples;
-      file << id << ", " << spline.x.eval(t) << ", " << spline.y.eval(t) << "\n";
+      auto t = step * i;
+      double x = spline.x.eval(t,true);
+      double y = spline.y.eval(t,true);
+      file << id << ", " << x << ", " << y << "\n";
     }
     id++;
   }
@@ -48,6 +52,7 @@ void SplineInfo::writeSamplesToCsv(std::string filename) {
 void SplineInfo::writeToOsh(std::string filename) {
     std::ofstream file(filename);
     assert(file.is_open());
+
     Omega_h::HostWrite<Omega_h::LO> numCtrlPts_h(splines.size());
     Omega_h::HostWrite<Omega_h::LO> numKnots_h(splines.size());
     Omega_h::HostWrite<Omega_h::LO> order_h(splines.size());
@@ -91,8 +96,21 @@ void SplineInfo::writeToOsh(std::string filename) {
 
     areKnotsIncreasing(splineToKnots, ohHostWriteToRead(knots_x), ohHostWriteToRead(knots_y));
 
-    bool compressed = true;
-    bool needs_swapping = false;
+    for(int i=0; i<knots_x.size(); i++) {
+      printf("knots_x %d %f\n", i, knots_x[i]);
+    }
+
+    for(int i=0; i<knots_y.size(); i++) {
+      printf("knots_y %d %f\n", i, knots_y[i]);
+    }
+
+    const int compressed = 0;
+    //the following is from src/Omega_h_file.cpp write(...)
+    unsigned char const magic[2] = {0xa1, 0x1a};
+    file.write(reinterpret_cast<const char*>(magic), sizeof(magic));
+    bool needs_swapping = !Omega_h::is_little_endian_cpu();
+    Omega_h::binary::write_value(file, compressed, needs_swapping);
+
     Omega_h::binary::write_array(file, splineToCtrlPts, compressed, needs_swapping);
     Omega_h::binary::write_array(file, splineToKnots, compressed, needs_swapping);
     Omega_h::binary::write_array(file, ohHostWriteToRead(ctrlPts_x), compressed, needs_swapping);
