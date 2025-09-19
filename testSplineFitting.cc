@@ -174,19 +174,19 @@ int main(int argc, char **argv) {
   std::string fileNameNoExt = curveFilename.substr(slashPos + 1, extensionPos);
   double expectedCurveLength = std::stod(argv[2]);
 
-    auto curve = CurveReader::readCurveInfo(curveFilename);
+  auto curve = CurveReader::readCurveInfo(curveFilename);
 
-    //Fit curve using Spline2D Implementation
-    auto bspline = SplineInterp::fitCubicSplineToPoints(curve.x, curve.y);
-    writeDefinition(fileNameNoExt, bspline);
-    writeSamples(fileNameNoExt, curve, bspline);
+  //Fit curve using Spline2D Implementation
+  auto bspline = SplineInterp::fitCubicSplineToPoints(curve.x, curve.y);
+  writeDefinition(fileNameNoExt, bspline);
+  writeSamples(fileNameNoExt, curve, bspline);
 
-    //Fit curve using the simmetrix APIs
-    auto length = createSimModelEdge(curve, bspline);
+  //Fit curve using the simmetrix APIs
+  auto length = createSimModelEdge(curve, bspline);
 
-    //compare length
-    std::cout << " Expected Length: " << expectedCurveLength << std::endl;
-    assert(std::fabs(length - expectedCurveLength) <= 1e-5);
+  //compare length
+  std::cout << " Expected Length: " << expectedCurveLength << std::endl;
+  assert(std::fabs(length - expectedCurveLength) <= 1e-5);
   return 0;
 }
 
