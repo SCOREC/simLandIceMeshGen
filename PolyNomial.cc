@@ -57,7 +57,7 @@ void PolyNomial::print() {
   }
   cout << endl;
 }
-double PolyNomial::eval(double x) const {
+double PolyNomial::eval(double x, bool debug) const {
   double result = 0;
   vector<double> x_n(degree, 1.0);
   for (int i = degree - 2; i >= 0; i--) {

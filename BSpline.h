@@ -21,7 +21,7 @@ c. second deriviative and curvatur
 */
 class Expression {
 public:
-  virtual double eval(double x) const = 0;
+  virtual double eval(double x, bool debug=false) const = 0;
   virtual double evalFirstDeriv(double x) const = 0;
   virtual double evalSecondDeriv(double x) const = 0;
 };
@@ -40,7 +40,7 @@ public:
   explicit PolyNomial(int degree_p, std::vector<double> &coffs_p);
   ~PolyNomial(){};
   void getcoeffs(std::vector<double> &coffs_p) const;
-  virtual double eval(double x) const;
+  virtual double eval(double x, bool debug=false) const;
   virtual double evalFirstDeriv(double x) const;
   virtual double evalSecondDeriv(double x) const;
   void print();
@@ -67,7 +67,7 @@ public:
   int getNumKnots() const { return knots.size(); }
   double getCtrlPt(std::size_t i) const { return ctrlPts.at(i); }
   double getKnot(std::size_t i) const { return knots.at(i); }
-  virtual double eval(double x) const;
+  virtual double eval(double x, bool debug=false) const;
   virtual double evalFirstDeriv(double x) const;
   virtual double evalSecondDeriv(double x) const;
   void print();

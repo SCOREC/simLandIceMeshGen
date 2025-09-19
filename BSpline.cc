@@ -42,7 +42,7 @@ void BSpline::calcuDerivCoeff() {
   if (order > 1)
     assert(ctrlPts_2nd.size() == ctrlPts.size() - 2);
 }
-double BSpline::eval(double x) const {
+double BSpline::eval(double x, bool debug) const {
   // first find the interval of x in knots
   int leftKnot = order - 1;
   int leftPt = 0;
@@ -51,6 +51,15 @@ double BSpline::eval(double x) const {
     leftPt++;
     if (leftKnot == knots.size() - 1)
       break;
+  }
+
+  if(debug) {
+    for(int i=0; i<knots.size(); i++)
+      printf("knots(%d) %f\n", i, knots[i]);
+    for(int i=0; i<ctrlPts.size(); i++)
+      printf("ctrlPts(%d) %f\n", i, ctrlPts[i]);
+    printf("order %d coord %.2f leftPt %d leftKnot %d\n",
+        order, x, leftPt, leftKnot);
   }
   vector<double> pts(&(ctrlPts[leftPt]), &ctrlPts[leftPt + order]);
   vector<double> localKnots(&(knots[leftKnot - order + 2]),
