@@ -43,10 +43,12 @@ void SplineInfo::writeSamplesToCsv(std::string filename) {
       auto t = step * i;
       double x = spline.x.eval(t,true);
       double y = spline.y.eval(t,true);
+      printf("coords %f %f\n", x, y);
       file << id << ", " << x << ", " << y << "\n";
     }
     id++;
   }
+  file.close();
 }
 
 void SplineInfo::writeToOsh(std::string filename) {

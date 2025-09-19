@@ -64,6 +64,7 @@ CurveReader::CurveInfo CurveReader::readCurveInfo(const std::string& filename) {
     std::getline(ss, token, ','); c.tcAngle.push_back(std::stod(token));
     std::getline(ss, token, ','); c.isMdlVtx.push_back(parseBool(trim(token)));
   }
+  file.close();
 
   return c;
 }

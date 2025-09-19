@@ -293,6 +293,7 @@ GeomInfo readJigGeom(std::string fname, bool debug) {
       std::cout << "edge " << geom.edges[i][0] << ", " << geom.edges[i][1]
                 << std::endl;
   }
+  mshFile.close();
 
   return geom;
 }
