@@ -18,6 +18,9 @@ struct SplineInfo {
   void addSpline(SplineInterp::BSpline2d spline) {
     splines.emplace_back(spline);
   }
+  int size() {
+    return splines.size();
+  }
   void writeToOsh(std::string filename);
   void writeSamplesToCsv(std::string fileName);
 };

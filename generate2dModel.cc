@@ -1,5 +1,6 @@
 #include "simModelGen2d.h"
 #include <numeric> //std::accumulate
+#include "Omega_h_file.hpp"
 
 void messageHandler(int type, const char *msg);
 
@@ -9,6 +10,31 @@ std::string getFileExtension(const std::string &filename) {
     return filename.substr(dotPos);
   }
   return "";
+}
+
+void writePointParametricCoords(const GeomInfo& geom, const PointClassification& ptClass, const SplineInterp::SplineInfo& sinfo, std::string filename) {
+  assert(ptClass.splineIdx.size() == geom.numVtx);
+  Omega_h::HostWrite<Omega_h::Real> paraCoords(geom.numVtx*2);
+  for(int i=0; i<geom.numVtx; i++) {
+    const auto sIdx = ptClass.splineIdx[i];
+    const auto bspline = sinfo.splines[sIdx];
+    const auto x = geom.vtx_x.at(i); 
+    const auto y = geom.vtx_y.at(i); 
+    paraCoords[i*2] = bspline.x.invEval(x);
+    paraCoords[i*2+1] = bspline.y.invEval(y);
+  }
+  auto paraCoords_d = Omega_h::read(paraCoords.write());
+
+  std::ofstream file(filename);
+  assert(file.is_open());
+  const int compressed = 0;
+  //the following is from src/Omega_h_file.cpp write(...)
+  unsigned char const magic[2] = {0xa1, 0x1a};
+  file.write(reinterpret_cast<const char*>(magic), sizeof(magic));
+  bool needs_swapping = !Omega_h::is_little_endian_cpu();
+  Omega_h::binary::write_value(file, compressed, needs_swapping);
+  Omega_h::binary::write_array(file, paraCoords_d, compressed, needs_swapping);
+  file.close();
 }
 
 int main(int argc, char **argv) {
@@ -102,9 +128,10 @@ int main(int argc, char **argv) {
     auto splines = SplineInterp::SplineInfo(numMdlVerts+4); //+4 splines for the bounding box
     createBoundingBoxGeom(mdlTopo, geom, splines);
 
-    PointClassification ptClass;
+    PointClassification ptClass(geom.numVtx);
     createEdges(mdlTopo, geom, ptClass, splines, isPointOnCurve, isMdlVtx, debug);
 
+    writePointParametricCoords(geom, ptClass, splines, modelFileName + "_parametric.oshb");
     //write the point classification to an omegah binary file
     ptClass.writeToOsh(modelFileName + "_class.oshb");
     //write the bsplines to an omegah binary file

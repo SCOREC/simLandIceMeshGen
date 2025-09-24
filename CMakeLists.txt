@@ -38,7 +38,7 @@ if(USE_SIMMODSUITE)
 
   function(addExe name)
     add_executable(${name} ${name}.cc)
-    target_link_libraries(${name} PRIVATE simModelGen2d)
+    target_link_libraries(${name} PRIVATE simModelGen2d Omega_h::omega_h)
   endfunction()
 
   addExe(generate2dModel)

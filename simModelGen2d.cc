@@ -71,18 +71,28 @@ void printModelInfo(pGModel model) {
     << std::endl;
 }
 
-void setClassification(PointClassification& ptClass, const int firstPt, const int numPts, pGVertex startingMdlVtx, pGVertex endMdlVtx, pGEdge edge) {
+void setClassification(GeomInfo& geom, PointClassification& ptClass, const int firstPt, const int numPts, pGVertex startingMdlVtx, pGVertex endMdlVtx, pGEdge edge, const int splineIdx) {
   const auto vtxDim = 0;
-  ptClass.id.push_back(GEN_tag(startingMdlVtx));
-  ptClass.dim.push_back(vtxDim);
+  ptClass.id.at(firstPt) = GEN_tag(startingMdlVtx);
+  ptClass.dim.at(firstPt) = vtxDim;
+  ptClass.splineIdx.at(firstPt) = splineIdx;
+
   const auto edgeTag = GEN_tag(edge);
   const auto edgeDim = 1;
-  for(int ptIdx = firstPt+1; ptIdx < firstPt+numPts-1; ptIdx++) {
-    ptClass.id.push_back(edgeTag);
-    ptClass.dim.push_back(edgeDim);
+  auto ptCount = 1;
+  auto ptIdx = geom.getNextPtIdx(firstPt); //FIXME - on twoSquares, calling this with 8 returns 4, the bounding box is not understood as a seperate loop from the interior contour
+  while(ptCount < numPts-1) {
+    ptClass.id.at(ptIdx) = edgeTag;
+    ptClass.dim.at(ptIdx) = edgeDim;
+    ptClass.splineIdx.at(ptIdx) = splineIdx;
+    ptIdx = geom.getNextPtIdx(ptIdx);
+    ptCount++;
   }
-  ptClass.id.push_back(GEN_tag(endMdlVtx));
-  ptClass.dim.push_back(vtxDim);
+
+  const auto lastPt = firstPt+numPts-1;
+  ptClass.id.at(lastPt) = GEN_tag(endMdlVtx);
+  ptClass.dim.at(lastPt) = vtxDim;
+  ptClass.splineIdx.at(lastPt) = splineIdx;
 }
 
 void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, PointClassification& ptClass, SplineInterp::SplineInfo& splines, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug) {
@@ -138,7 +148,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, PointClassification& ptClas
     }
 
     auto edge = fitCurveToContourSimInterp(isLinearSpline, mdlTopo.region, startingMdlVtx, endMdlVtx, pts, debug);
-    setClassification(ptClass, startingCurvePtIdx, ptsOnCurve.size(), startingMdlVtx, endMdlVtx, edge);
+    setClassification(geom, ptClass, startingCurvePtIdx, ptsOnCurve.size(), startingMdlVtx, endMdlVtx, edge, splines.size());
     if(isLinearSpline) {
       splines.addSpline(SplineInterp::attach_piecewise_linear_curve(pts));
     } else {

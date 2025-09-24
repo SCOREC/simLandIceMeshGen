@@ -19,7 +19,9 @@
 struct PointClassification {
   std::vector<int> dim;
   std::vector<int> id;
+  std::vector<int> splineIdx;
   void writeToOsh(std::string filename);
+  PointClassification(int n) : dim(n), id(n), splineIdx(n) {}
 };
 
 //FIXME - make this a class
