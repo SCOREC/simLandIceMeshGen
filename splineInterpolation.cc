@@ -98,14 +98,6 @@ void SplineInfo::writeToOsh(std::string filename) {
 
     areKnotsIncreasing(splineToKnots, ohHostWriteToRead(knots_x), ohHostWriteToRead(knots_y));
 
-    for(int i=0; i<knots_x.size(); i++) {
-      printf("knots_x %d %f\n", i, knots_x[i]);
-    }
-
-    for(int i=0; i<knots_y.size(); i++) {
-      printf("knots_y %d %f\n", i, knots_y[i]);
-    }
-
     const int compressed = 0;
     //the following is from src/Omega_h_file.cpp write(...)
     unsigned char const magic[2] = {0xa1, 0x1a};
