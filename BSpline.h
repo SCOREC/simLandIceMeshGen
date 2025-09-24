@@ -70,12 +70,16 @@ public:
   virtual double eval(double x, bool debug=false) const;
   virtual double evalFirstDeriv(double x) const;
   virtual double evalSecondDeriv(double x) const;
+  double invEval(double targetPt) const;
   void print();
   void getpara(int &order_p, std::vector<double> &ctrlPts_p,
                std::vector<double> &knots_p, std::vector<double> &weight_p);
   BSpline &operator=(const PolyNomial &pn);
 
 private:
+  double invEval_impl(const double targetPt, const double initialGuess,
+                      const double tolerance, const int maxIterations,
+                      const double tMin, const double tMax) const;
   void calcuDerivCoeff();
   int order;
   std::vector<double> ctrlPts;

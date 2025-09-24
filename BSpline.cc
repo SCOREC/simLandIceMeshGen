@@ -15,6 +15,13 @@ using std::cout;
 using std::endl;
 using std::vector;
 using namespace Spline;
+
+namespace {
+  double norm(double x, double y) {
+    return std::sqrt(x * x + y * y);
+  }
+}
+
 BSpline::BSpline(int order_p, vector<double> &ctrlPts_p,
                  vector<double> &knots_p, vector<double> &weight_p) {
   assert(order_p > 1);
@@ -153,6 +160,78 @@ void BSpline::getpara(int &order_p, vector<double> &ctrlPts_p,
   ctrlPts_p = ctrlPts;
   knots_p = knots;
   weight_p = weight;
+}
+//draft provided by Claude Sonnet 4 from prompt:
+// Given a 2d point along a bspline, specified in cartesian coordinates,
+// how do I determine its parametric coordinate on the spline?
+/**
+ * Find parametric location of a given point using Newton-Raphson method
+ * @param targetPt (in) The cartesian point to find parameter for
+ * @param initialGuess (in) initial guess of parametric location
+ * @param tolerance (in) Convergence tolerance
+ * @param maxIterations (in) Maximum number of iterations
+ * @param tMin (in) Minimum valid parameter value
+ * @param tMax (in) Maximum valid parameter value
+ * @return parametric location, or NaN if failed to converge
+ */
+double BSpline::invEval_impl(const double targetPt, const double initialGuess,
+                             const double tolerance, const int maxIterations,
+                             const double tMin, const double tMax) const {
+  double t = initialGuess;
+
+  for (int i = 0; i < maxIterations; ++i) {
+    // Evaluate spline and derivative at current t
+    double currentPt = eval(t);
+    double derivative = evalFirstDeriv(t);
+
+    // Calculate error
+    double error = currentPt - targetPt;
+
+    // Check convergence
+    if (std::abs(error) < tolerance) {
+      return t;
+    }
+
+    // Check if derivative is too small (avoid division by zero)
+    double derivNormSq = derivative*derivative;
+    if (std::abs(derivNormSq) < 1e-12) {
+      break; // Derivative too small, cannot continue
+    }
+
+    // Newton-Raphson update: dt = -(error · derivative) / (derivative · derivative)
+    double dt = -(error*derivative) / derivNormSq;
+    t += dt;
+
+    // Clamp t to valid range
+    t = std::max(tMin, std::min(tMax, t));
+  }
+
+  return std::numeric_limits<double>::quiet_NaN(); // Failed to converge
+}
+double BSpline::invEval(double targetPt) const {
+  const int numSamples = 20;
+  const double tolerance = 1e-10;
+  const int maxIterations = 50;
+  const double tMin = 0.0;
+  const double tMax = 1.0;
+
+  // Find best initial guess by sampling
+  double bestT = tMin;
+  double minDistance = std::numeric_limits<double>::max();
+
+  for (int i = 0; i <= numSamples; ++i) {
+    double t = tMin + (tMax - tMin) * i / numSamples;
+    double point = eval(t);
+    double distance = std::abs(point - targetPt);
+
+    if (distance < minDistance) {
+      minDistance = distance;
+      bestT = t;
+    }
+  }
+
+  // Use Newton-Raphson with best initial guess
+  return invEval_impl(targetPt, bestT, tolerance, maxIterations, tMin, tMax);
 }
 // H.Prautzsch Springer,2002
 BSpline &BSpline::operator=(const PolyNomial &pn) {

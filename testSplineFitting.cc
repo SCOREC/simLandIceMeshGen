@@ -12,6 +12,14 @@
 #include <string>
 #include <fstream>
 
+bool isClose(double x, double y) {
+  if( x == y || std::abs(x-y) < 1e-10 ) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 using namespace std;
 
 void messageHandler(int type, const char *msg);
@@ -158,6 +166,17 @@ double createSimModelEdge(const CurveReader::CurveInfo& curve, SplineInterp::BSp
   return length;
 }
 
+void checkInvEval(SplineInterp::BSpline2d& bspline, double x_in, double y_in) {
+  const auto paraX = bspline.x.invEval(x_in);
+  const auto paraY = bspline.y.invEval(y_in);
+  assert(paraX != std::numeric_limits<double>::quiet_NaN());
+  assert(paraY != std::numeric_limits<double>::quiet_NaN());
+  const auto x = bspline.x.eval(paraX);
+  const auto y = bspline.y.eval(paraY);
+  assert(isClose(x,x_in));
+  assert(isClose(y,y_in));
+}
+
 int main(int argc, char **argv) {
   const int numExpectedArgs = 3;
   if (argc != numExpectedArgs) {
@@ -180,6 +199,10 @@ int main(int argc, char **argv) {
   auto bspline = SplineInterp::fitCubicSplineToPoints(curve.x, curve.y);
   writeDefinition(fileNameNoExt, bspline);
   writeSamples(fileNameNoExt, curve, bspline);
+
+  for(int i=0; i<curve.x.size(); i++) {
+    checkInvEval(bspline, curve.x[i], curve.y[i]);
+  }
 
   //Fit curve using the simmetrix APIs
   auto length = createSimModelEdge(curve, bspline);
