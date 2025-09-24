@@ -36,14 +36,12 @@ void SplineInfo::writeSamplesToCsv(std::string filename) {
   file << "splineId, x, y\n";
   int id=0;
   for(auto& spline : splines) {
-    printf("writeSamples spline %d\n", id);
     auto numSamples = 4;
     auto step = 1.0/(numSamples-1);
     for(int i = 0; i < numSamples; ++i) {
       auto t = step * i;
-      double x = spline.x.eval(t,true);
-      double y = spline.y.eval(t,true);
-      printf("coords %f %f\n", x, y);
+      double x = spline.x.eval(t);
+      double y = spline.y.eval(t);
       file << id << ", " << x << ", " << y << "\n";
     }
     id++;
