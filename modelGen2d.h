@@ -16,6 +16,12 @@
 
 #include "splineInterpolation.h"
 
+struct PointClassification {
+  std::vector<int> dim;
+  std::vector<int> id;
+  void writeToOsh(std::string filename);
+};
+
 //FIXME - make this a class
 struct GeomInfo {
   int numVtx;

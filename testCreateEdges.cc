@@ -54,7 +54,8 @@ int main(int argc, char **argv) {
     geom.firstContourPt = 0;
     const auto numMdlVerts = std::accumulate(curveInfo.isMdlVtx.begin(), curveInfo.isMdlVtx.end(), 0);
     auto splines = SplineInterp::SplineInfo(numMdlVerts);
-    createEdges(mdlTopo, geom, splines, curveInfo.isOnCurve, curveInfo.isMdlVtx,
+    PointClassification ptClass;
+    createEdges(mdlTopo, geom, ptClass, splines, curveInfo.isOnCurve, curveInfo.isMdlVtx,
                 debug);
 
     auto isValid = GM_isValid(mdlTopo.model, 2, NULL);

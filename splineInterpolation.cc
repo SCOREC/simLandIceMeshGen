@@ -120,6 +120,8 @@ void SplineInfo::writeToOsh(std::string filename) {
     Omega_h::binary::write_array(file, ohHostWriteToRead(knots_x), compressed, needs_swapping);
     Omega_h::binary::write_array(file, ohHostWriteToRead(knots_y), compressed, needs_swapping);
     Omega_h::binary::write_array(file, ohHostWriteToRead(order_h), compressed, needs_swapping);
+
+    file.close();
 }
 
 

@@ -102,8 +102,11 @@ int main(int argc, char **argv) {
     auto splines = SplineInterp::SplineInfo(numMdlVerts+4); //+4 splines for the bounding box
     createBoundingBoxGeom(mdlTopo, geom, splines);
 
-    createEdges(mdlTopo, geom, splines, isPointOnCurve, isMdlVtx, debug);
+    PointClassification ptClass;
+    createEdges(mdlTopo, geom, ptClass, splines, isPointOnCurve, isMdlVtx, debug);
 
+    //write the point classification to an omegah binary file
+    ptClass.writeToOsh(modelFileName + "_class.oshb");
     //write the bsplines to an omegah binary file
     splines.writeToOsh(modelFileName + "_splines.oshb");
     //write the sampled bsplines to a csv file

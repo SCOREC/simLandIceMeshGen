@@ -1,6 +1,36 @@
 #include "modelGen2d.h"
 #include "Quadtree.h"
 #include <map>
+#include "Omega_h_file.hpp"
+
+void PointClassification::writeToOsh(std::string filename) {
+    std::ofstream file(filename);
+    assert(file.is_open());
+
+    assert(id.size()==dim.size());
+    const auto n = id.size();
+    Omega_h::HostWrite<Omega_h::LO> classId(n);
+    Omega_h::HostWrite<Omega_h::LO> classDim(n);
+
+    for(int i=0; i<n; i++) {
+      classId[i] = id.at(i);
+      classDim[i] = dim.at(i);
+    }
+
+    auto classId_d = Omega_h::read(classId.write());
+    auto classDim_d = Omega_h::read(classDim.write());
+
+    const int compressed = 0;
+    //the following is from src/Omega_h_file.cpp write(...)
+    unsigned char const magic[2] = {0xa1, 0x1a};
+    file.write(reinterpret_cast<const char*>(magic), sizeof(magic));
+    bool needs_swapping = !Omega_h::is_little_endian_cpu();
+    Omega_h::binary::write_value(file, compressed, needs_swapping);
+    Omega_h::binary::write_array(file, classId_d, compressed, needs_swapping);
+    Omega_h::binary::write_array(file, classDim_d, compressed, needs_swapping);
+
+    file.close();
+}
 
 namespace TC {
 void normalize(double x, double y, double& nx, double& ny) {

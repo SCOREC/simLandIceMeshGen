@@ -71,7 +71,21 @@ void printModelInfo(pGModel model) {
     << std::endl;
 }
 
-void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, SplineInterp::SplineInfo& splines, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug) {
+void setClassification(PointClassification& ptClass, const int firstPt, const int numPts, pGVertex startingMdlVtx, pGVertex endMdlVtx, pGEdge edge) {
+  const auto vtxDim = 0;
+  ptClass.id.push_back(GEN_tag(startingMdlVtx));
+  ptClass.dim.push_back(vtxDim);
+  const auto edgeTag = GEN_tag(edge);
+  const auto edgeDim = 1;
+  for(int ptIdx = firstPt+1; ptIdx < firstPt+numPts-1; ptIdx++) {
+    ptClass.id.push_back(edgeTag);
+    ptClass.dim.push_back(edgeDim);
+  }
+  ptClass.id.push_back(GEN_tag(endMdlVtx));
+  ptClass.dim.push_back(vtxDim);
+}
+
+void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, PointClassification& ptClass, SplineInterp::SplineInfo& splines, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug) {
   if(geom.numVtx <= geom.firstContourPt) { // no internal contour
     return;
   }
@@ -124,6 +138,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, SplineInterp::SplineInfo& s
     }
 
     auto edge = fitCurveToContourSimInterp(isLinearSpline, mdlTopo.region, startingMdlVtx, endMdlVtx, pts, debug);
+    setClassification(ptClass, startingCurvePtIdx, ptsOnCurve.size(), startingMdlVtx, endMdlVtx, edge);
     if(isLinearSpline) {
       splines.addSpline(SplineInterp::attach_piecewise_linear_curve(pts));
     } else {
