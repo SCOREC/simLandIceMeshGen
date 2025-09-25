@@ -77,22 +77,23 @@ void setClassification(GeomInfo& geom, PointClassification& ptClass, const int f
   ptClass.dim.at(firstPt) = vtxDim;
   ptClass.splineIdx.at(firstPt) = splineIdx;
 
-  const auto edgeTag = GEN_tag(edge);
-  const auto edgeDim = 1;
-  auto ptCount = 1;
-  auto ptIdx = geom.getNextPtIdx(firstPt); //FIXME - on twoSquares, calling this with 8 returns 4, the bounding box is not understood as a seperate loop from the interior contour
-  while(ptCount < numPts-1) {
-    ptClass.id.at(ptIdx) = edgeTag;
-    ptClass.dim.at(ptIdx) = edgeDim;
-    ptClass.splineIdx.at(ptIdx) = splineIdx;
-    ptIdx = geom.getNextPtIdx(ptIdx);
-    ptCount++;
+  auto ptIdx = geom.getNextPtIdx(firstPt); //handle wrap around in indexing
+  if(numPts > 2) {
+    const auto edgeTag = GEN_tag(edge);
+    const auto edgeDim = 1;
+    auto ptCount = 1;
+    while(ptCount < numPts-1) {
+      ptClass.id.at(ptIdx) = edgeTag;
+      ptClass.dim.at(ptIdx) = edgeDim;
+      ptClass.splineIdx.at(ptIdx) = splineIdx;
+      ptIdx = geom.getNextPtIdx(ptIdx);
+      ptCount++;
+    }
   }
 
-  const auto lastPt = firstPt+numPts-1;
-  ptClass.id.at(lastPt) = GEN_tag(endMdlVtx);
-  ptClass.dim.at(lastPt) = vtxDim;
-  ptClass.splineIdx.at(lastPt) = splineIdx;
+  ptClass.id.at(ptIdx) = GEN_tag(endMdlVtx);
+  ptClass.dim.at(ptIdx) = vtxDim;
+  ptClass.splineIdx.at(ptIdx) = splineIdx;
 }
 
 void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, PointClassification& ptClass, SplineInterp::SplineInfo& splines, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug) {
