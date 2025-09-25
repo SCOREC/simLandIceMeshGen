@@ -1,7 +1,7 @@
 #include "modelGen2d.h"
 #include "Quadtree.h"
 #include <map>
-#include "Omega_h_file.hpp"
+#include <Omega_h_file.hpp>
 
 void PointClassification::writeToOsh(std::string filename) {
     std::ofstream file(filename);

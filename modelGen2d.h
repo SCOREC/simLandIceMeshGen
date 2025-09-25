@@ -32,6 +32,11 @@ struct GeomInfo {
   std::vector<double> vtx_y;
   std::vector<std::array<int, 2>> edges;
   int firstContourPt;
+  void addVtx(double x, double y) {
+    numVtx++;
+    vtx_x.push_back(x);
+    vtx_y.push_back(y);
+  }
   int getPrevPtIdx(int i) {
     if(i == firstContourPt) {
       return vtx_x.size()-1;
@@ -63,6 +68,7 @@ struct PlaneBounds {
 PlaneBounds getBoundingPlane(GeomInfo &geom);
 
 
+GeomInfo readOmegahGeom(std::string fname, bool debug = false);
 GeomInfo readVtkGeom(std::string fname, bool debug = false);
 GeomInfo readJigGeom(std::string fname, bool debug = false);
 

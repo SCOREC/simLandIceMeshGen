@@ -21,7 +21,7 @@ find_package(Omega_h REQUIRED)
 add_library(splineInterp splineInterpolation.cc BSpline.cc Expression.cc PolyNomial.cc)
 target_link_libraries(splineInterp PRIVATE BLAS::BLAS Omega_h::omega_h)
 
-add_library(modelGen2d modelGen2d.cc)
+add_library(modelGen2d modelGen2d.cc geomReaders.cc)
 target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Quadtree/include)
 target_link_libraries(modelGen2d PRIVATE splineInterp Omega_h::omega_h)
