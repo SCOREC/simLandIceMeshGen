@@ -42,7 +42,10 @@ if(USE_SIMMODSUITE)
   endfunction()
 
   addExe(generate2dModel)
+  addExe(generate2dModelFromMesh)
 
+  add_test(NAME simModelGen2dFromMesh_thwaites
+    COMMAND ./generate2dModelFromMesh ${testDataDir}/thwaites_basal_effectiveStrain.osh thwaites 1 100 100 1 "m")
   add_test(NAME simModelGen2d_gis
     COMMAND ./generate2dModel ${testDataDir}/gis.msh gis 1 100 100 1 "m")
   set_tests_properties(simModelGen2d_gis PROPERTIES
