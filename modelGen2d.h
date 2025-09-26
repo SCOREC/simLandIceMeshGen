@@ -30,10 +30,12 @@ struct GeomInfo {
   int numEdges;
   std::vector<double> vtx_x;
   std::vector<double> vtx_y;
+  std::vector<int> verts;
   std::vector<std::array<int, 2>> edges;
   int firstContourPt;
-  void addVtx(double x, double y) {
+  void addVtx(int id, double x, double y) {
     numVtx++;
+    verts.push_back(id);
     vtx_x.push_back(x);
     vtx_y.push_back(y);
   }

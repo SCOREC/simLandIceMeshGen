@@ -72,7 +72,7 @@ void addVtx(GeomInfo& geom, Omega_h::HostRead<Omega_h::Real> coords, Omega_h::LO
   assert(vtx*2+1 < coords.size());
   const auto x = coords[vtx*2];
   const auto y = coords[vtx*2+1];
-  geom.addVtx(x,y);
+  geom.addVtx(vtx,x,y);
 }
 
 GeomInfo readOmegahGeom(std::string fname, bool debug) {

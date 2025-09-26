@@ -343,8 +343,9 @@ bool isPtCoincident(double ax, double ay, double bx, double by,
 
 bool checkVertexUse(GeomInfo &geom, bool debug = false) {
   std::map<int, int> vtxCounter;
+  //FIXME the following requires vertices with a continuous numbering
   for (int i = 0; i < geom.numVtx; i++)
-    vtxCounter[i] = 0;
+    vtxCounter[geom.verts[i]] = 0;
   for (auto e : geom.edges) {
     vtxCounter[e[0]]++;
     vtxCounter[e[1]]++;
