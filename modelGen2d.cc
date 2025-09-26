@@ -457,7 +457,7 @@ GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
   // trying to check the the dirty geom has a chain of edges
   assert(dirty.numEdges == dirty.numVtx);
   // the first four edges form a loop
-  assert(dirty.edges[0][0] == dirty.edges[3][1]);
+  assert(dirty.edges[0][0] == dirty.edges[3][1]); //FIXME - thwaites doesn't have a bbox, need to generically support contours that may be loops
   // the remaining edges form a loop
   if(dirty.edges.size() > 4) {
     assert(dirty.edges.at(4)[0] == dirty.edges.back()[1]);
