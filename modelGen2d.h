@@ -37,6 +37,10 @@ struct GeomInfo {
     vtx_x.push_back(x);
     vtx_y.push_back(y);
   }
+  void addEdge(int vtxA, int vtxB) {
+    numEdges++;
+    edges.push_back({vtxA,vtxB});
+  }
   int getPrevPtIdx(int i) {
     if(i == firstContourPt) {
       return vtx_x.size()-1;

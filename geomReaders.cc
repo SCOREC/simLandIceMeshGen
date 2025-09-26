@@ -101,11 +101,16 @@ GeomInfo readOmegahGeom(std::string fname, bool debug) {
   auto edge = findFirstEdge(edgeClassDim);
   auto vtx = getDownVtx(edgeToVtx, edge, 0);
   geom.firstContourPt = 0; //using geom indexing, not omegah's 
+  const auto firstVtx = vtx;
   addVtx(geom, coords, vtx);
   while( -1 != (edge = getNextEdge(edge, vtx, vtxToEdge, edgeToVtx, edgeClassDim, visitedEdges)) ) {
     markAsVisited(visitedEdges, edge);
-    vtx = getOtherVtx(edgeToVtx, edge, vtx);
-    addVtx(geom, coords, vtx);
+    auto nextVtx = getOtherVtx(edgeToVtx, edge, vtx);
+    if(nextVtx != firstVtx) { //don't add the first vtx twice
+      addVtx(geom, coords, nextVtx);
+    }
+    geom.addEdge(vtx, nextVtx);
+    vtx = nextVtx;
   }
   return geom;
 }
