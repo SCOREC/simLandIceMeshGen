@@ -243,10 +243,12 @@ GeomInfo readVtkGeom(std::string fname, bool debug) {
   // DID not change
   geom.vtx_x.reserve(geom.numVtx);
   geom.vtx_y.reserve(geom.numVtx);
+  geom.verts.reserve(geom.numVtx);
 
   // point coordinates
   for (int i = 0; i < geom.numVtx; i++) {
     auto pt = readPointVtk(vtkFile, debug);
+    geom.verts.push_back(i);
     geom.vtx_x.push_back(pt[0]);
     geom.vtx_y.push_back(pt[1]);
     if (debug)
@@ -298,11 +300,13 @@ GeomInfo readJigGeom(std::string fname, bool debug) {
       std::cout << "key: " << key << " val: " << value << std::endl;
     geom.numVtx = value;
   }
+  geom.verts.reserve(geom.numVtx);
   geom.vtx_x.reserve(geom.numVtx);
   geom.vtx_y.reserve(geom.numVtx);
   // point coordinates
   for (int i = 0; i < geom.numVtx; i++) {
     auto pt = readPoint(mshFile, debug);
+    geom.verts.push_back(i);
     geom.vtx_x.push_back(pt[0]);
     geom.vtx_y.push_back(pt[1]);
     if (debug)
