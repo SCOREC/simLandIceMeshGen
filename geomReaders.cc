@@ -20,17 +20,19 @@ void markAsVisited(std::set<Omega_h::LO>& visitedEdges,
 // returns the index of the found edge or -1 otherwise
 Omega_h::LO getNextEdge(Omega_h::LO edge, Omega_h::LO vtx,
     HostGraph& vtxToEdge, 
-    Omega_h::HostRead<Omega_h::LO> edgeToVtx,
-    Omega_h::HostRead<Omega_h::I8> edgeClassDim,
+    Omega_h::HostRead<Omega_h::LO>& edgeToVtx,
+    Omega_h::HostRead<Omega_h::I8>& edgeClassDim,
     std::set<Omega_h::LO>& visitedEdges) {
   Omega_h::LO nextEdge = -1;
   for (auto edgeIdx = vtxToEdge.offsets[vtx]; 
             edgeIdx < vtxToEdge.offsets[vtx + 1]; 
             ++edgeIdx) {
-    if( edgeIdx != edge && //not the current edge
-        visitedEdges.count(edgeIdx) == 0 && //not visited
-        edgeClassDim[edgeIdx] == 1 ) { //classified on a model edge
-      nextEdge = edgeIdx;
+    const auto otherEdge = vtxToEdge.values[edgeIdx];
+    const auto isDifferentEdge = (otherEdge != edge);
+    const auto isNotVisited = (visitedEdges.count(otherEdge) == 0);
+    const auto isClassifiedOnEdge = (edgeClassDim[otherEdge] == 1);
+    if( isDifferentEdge && isNotVisited && isClassifiedOnEdge ) {
+      nextEdge = otherEdge;
       break;
     }
   }
@@ -64,7 +66,6 @@ Omega_h::LO getOtherVtx(Omega_h::HostRead<Omega_h::LO> edgeToVtx,
   }
 }
 
-
 void addVtx(GeomInfo& geom, Omega_h::HostRead<Omega_h::Real> coords, Omega_h::LO vtx) {
   assert(vtx >= 0);
   assert(vtx*2 < coords.size());
@@ -96,6 +97,7 @@ GeomInfo readOmegahGeom(std::string fname, bool debug) {
 
   //HACK - the following won't work for all meshes
   GeomInfo geom; 
+  geom.numVtx = geom.numEdges = 0;
   auto edge = findFirstEdge(edgeClassDim);
   auto vtx = getDownVtx(edgeToVtx, edge, 0);
   geom.firstContourPt = 0; //using geom indexing, not omegah's 
