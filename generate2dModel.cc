@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
   }
   assert(argc == numExpectedArgs);
 
-  GeomInfo dirty;
+  ModelFeatures mdl;
 
   std::string filename = argv[1];
   std::string ext = getFileExtension(filename);
@@ -81,18 +81,24 @@ int main(int argc, char **argv) {
   assert(units == "m" || units == "km");
 
   if (ext == ".vtk") {
-    dirty = readVtkGeom(filename);
+    mdl = readVtkGeom(filename);
   } else if (ext == ".msh") {
-    dirty = readJigGeom(filename);
+    mdl = readJigGeom(filename);
   } else {
     std::cerr << "Unsupported file extension: " << ext << "\n";
     return 1;
   }
   if(units == "m") {
-    convertMetersToKm(dirty);
+    convertMetersToKm(mdl);
   }
   const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
-  auto geom = cleanGeom(dirty, coincidentPtTolSquared, false);
+  //FIXME For a mesh input, all input points need to be classified on the resulting
+  //model and have parametetric coordinates assigned to them.  Otherwise, those
+  //points would have to be marked as on the interior which would not be valid.
+  //Some of the 'cleanup' can be skipped given the more robust discoverTopology
+  //procedure.  Specifically, consecutative points that are very close to each
+  //other don't need to be removed.
+  cleanGeom(mdl, coincidentPtTolSquared, false); 
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
 
@@ -122,14 +128,28 @@ int main(int argc, char **argv) {
     mdlTopo.part = GM_rootPart(mdlTopo.model);
     mdlTopo.region = GIP_outerRegion(mdlTopo.part);
 
-    auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
+    for(auto& geom : mdl.geom) {
+      auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
 
-    const auto numMdlVerts = isMdlVtx.size() ? std::accumulate(isMdlVtx.begin()+geom.firstContourPt, isMdlVtx.end(), 0) : 0;
-    auto splines = SplineInterp::SplineInfo(numMdlVerts+4); //+4 splines for the bounding box
-    createBoundingBoxGeom(mdlTopo, geom, splines);
+      const auto numMdlVerts = isMdlVtx.size() ? std::accumulate(isMdlVtx.begin()+geom.firstContourPt, isMdlVtx.end(), 0) : 0;
+      auto splines = SplineInterp::SplineInfo(numMdlVerts+4); //+4 splines for the bounding box
+      createBoundingBoxGeom(mdlTopo, geom, splines);
 
-    PointClassification ptClass(geom.numVtx);
-    createEdges(mdlTopo, geom, ptClass, splines, isPointOnCurve, isMdlVtx, debug);
+      PointClassification ptClass(geom.numVtx);
+      createEdges(mdlTopo, geom, ptClass, splines, isPointOnCurve, isMdlVtx, debug);
+    }
+
+    //For now, assume that there is are no near tangencies or contact between
+    //features in ModelFeatures.
+    //TODO - identify contact and/or near tangencies and fail
+    //     - process the geometry to close near tangencies
+    //     - process the topology to make it valid - e.g., model edges that
+    //       intersect have a model vertex at the point of intersection
+    //     - ...
+    //     - For the above processing the linkage between the ModelTopo and
+    //       ModelFeatures info needs to be such that modification of the 
+    //       geometry is easily supported
+    //       
 
     writePointParametricCoords(geom, ptClass, splines, modelFileName + "_parametric.oshb");
     //write the point classification to an omegah binary file

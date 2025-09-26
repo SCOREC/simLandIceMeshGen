@@ -64,6 +64,10 @@ struct GeomInfo {
   }
 };
 
+struct ModelFeatures { //FIXME - need a better name?
+  std::vector<GeomInfo> geom;
+};
+
 struct PlaneBounds {
   double minX;
   double maxX;
