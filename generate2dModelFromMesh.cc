@@ -84,6 +84,12 @@ int main(int argc, char **argv) {
   }
   const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
   auto geom = cleanGeom(dirty, coincidentPtTolSquared, false);
+
+  ModelFeatures features;
+  features.inner = geom; //FIXME - the mesh boundary is really the outer contour, 
+                         //  but the repo isn't setup to support that yet,
+                         //  also try to avoid the copy
+
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
 
@@ -113,9 +119,9 @@ int main(int argc, char **argv) {
     mdlTopo.part = GM_rootPart(mdlTopo.model);
     mdlTopo.region = GIP_outerRegion(mdlTopo.part);
 
-    auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
+    auto [isPointOnCurve, isMdlVtx] = discoverTopology(features, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
 
-    const auto numMdlVerts = isMdlVtx.size() ? std::accumulate(isMdlVtx.begin()+geom.firstContourPt, isMdlVtx.end(), 0) : 0;
+    const auto numMdlVerts = isMdlVtx.size() ? std::accumulate(isMdlVtx.begin(), isMdlVtx.end(), 0) : 0;
     auto splines = SplineInterp::SplineInfo(numMdlVerts+4); //+4 splines for the bounding box
     createBoundingBoxGeom(mdlTopo, geom, splines);
 

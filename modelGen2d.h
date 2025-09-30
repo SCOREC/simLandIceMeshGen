@@ -95,7 +95,7 @@ GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
                       bool debug = false);
 
 std::tuple<std::vector<int>,std::vector<int>>
-discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug = false);
+discoverTopology(ModelFeatures& geom, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug = false);
 
 class OnCurve {
   public:

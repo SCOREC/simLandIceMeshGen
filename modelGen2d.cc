@@ -422,8 +422,9 @@ bool isNumEdgesBtwnPtsGreaterThanOne(size_t small, size_t large, size_t firstPt,
 //find pairs of points that are not consecutative, but are within some length
 //tolerance of each other - mark these points as model vertices to help prevent
 //intersecting bsplines
-std::map<int,int> findNarrowChannels(GeomInfo &g, double coincidentVtxToleranceSquared, bool debug=false) {
-  assert(g.vtx_x.size() >= g.firstContourPt);
+std::map<int,int> findNarrowChannels(ModelFeatures& features, double coincidentVtxToleranceSquared, bool debug=false) {
+  assert(features.outer.numVtx >= 0);
+  assert(features.inner.numVtx >= 0);
 
   //use a quadtree
   struct Node
@@ -431,19 +432,19 @@ std::map<int,int> findNarrowChannels(GeomInfo &g, double coincidentVtxToleranceS
     quadtree::Box<double> box;
     std::size_t id;
   };
-  auto n = std::size_t(g.vtx_x.size());
+  auto n = std::size_t(features.inner.numVtx);
   auto getBox = [](Node* node)
   {
     return node->box;
   };
-  const auto bbox = getBoundingPlane(g);
+  const auto bbox = getBoundingPlane(features.outer);
   auto domain = quadtree::Box<double>(bbox.minX, bbox.minY, bbox.maxX-bbox.minX, bbox.maxY-bbox.minY);
   auto quadtree = quadtree::Quadtree<Node*, decltype(getBox), std::equal_to<Node*>, double>(domain, getBox);
 
   double padding = std::sqrt(coincidentVtxToleranceSquared)/2;
   std::vector<Node> nodes;
-  for(size_t i = 4; i < g.vtx_x.size(); i++) {
-    auto box = makeBoxAroundPt(g.vtx_x.at(i),g.vtx_y.at(i),padding);
+  for(size_t i = 0; i < features.inner.numVtx; i++) {
+    auto box = makeBoxAroundPt(features.inner.vtx_x.at(i),features.inner.vtx_y.at(i),padding);
     nodes.push_back({box,i});
   }
   for(auto& node : nodes) {
@@ -455,19 +456,19 @@ std::map<int,int> findNarrowChannels(GeomInfo &g, double coincidentVtxToleranceS
     std::cout << "pt0_id, pt0_x, pt0_y, pt1_id, pt1_x, pt1_y\n";
     for(auto& [a,b] : intersections) {
       const int distance = std::abs(static_cast<int>(a->id)-static_cast<int>(b->id));
-      std::cout << a->id << ", " << g.vtx_x.at(a->id) << ", " << g.vtx_y.at(a->id) << ", "
-        << b->id << ", " << g.vtx_x.at(b->id) << ", " << g.vtx_y.at(b->id) << ", "
+      std::cout << a->id << ", " << features.inner.vtx_x.at(a->id) << ", " << features.inner.vtx_y.at(a->id) << ", "
+        << b->id << ", " << features.inner.vtx_x.at(b->id) << ", " << features.inner.vtx_y.at(b->id) << ", "
         << distance << "\n";
     }
     std::cout << "done\n";
   }
   //remove consecutative pairs
   std::map<int,int> longPairs;
-  const int lastPt = g.vtx_x.size()-1;
+  const int lastPt = features.inner.vtx_x.size()-1;
   for(auto& [a,b] : intersections) {
     const auto small = std::min(a->id, b->id);
     const auto large = std::max(a->id, b->id);
-    if(isNumEdgesBtwnPtsGreaterThanOne(small, large, g.firstContourPt, lastPt)) {
+    if(isNumEdgesBtwnPtsGreaterThanOne(small, large, features.inner.firstContourPt, lastPt)) {
       assert(longPairs.count(small) == 0);
       longPairs.insert({small, large});
     }
@@ -620,8 +621,9 @@ int findFirstPt(std::vector<int>& prop, const int offset, const int match) {
  *         isMdlVtx = 1: point bounds two edges which have a narrow angle (> angleTol or < -angleTol) between them
  */
 std::tuple<std::vector<int>,std::vector<int>>
-discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug) {
-  if(geom.numVtx <= geom.firstContourPt) { // no internal contour
+discoverTopology(ModelFeatures& features, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug) {
+  auto& geom = features.inner;
+  if(geom.numVtx <= 0) { // no internal contour
     return {std::vector<int>(), std::vector<int>()};
   }
   const double deg_angle_lower = angleTol;
@@ -662,10 +664,10 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
   for(int i=geom.firstContourPt; i<geom.numVtx; i++) {
     const int m1 = geom.getPrevPtIdx(i);
     const int p1 = geom.getNextPtIdx(i);
-    const double norm_prev_x = geom.vtx_x[m1] - geom.vtx_x[i];
-    const double norm_prev_y = geom.vtx_y[m1] - geom.vtx_y[i];
-    const double norm_next_x = geom.vtx_x[p1] - geom.vtx_x[i];
-    const double norm_next_y = geom.vtx_y[p1] - geom.vtx_y[i];
+    const double norm_prev_x = geom.vtx_x.at(m1) - geom.vtx_x.at(i);
+    const double norm_prev_y = geom.vtx_y.at(m1) - geom.vtx_y.at(i);
+    const double norm_next_x = geom.vtx_x.at(p1) - geom.vtx_x.at(i);
+    const double norm_next_y = geom.vtx_y.at(p1) - geom.vtx_y.at(i);
     const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
     angle.push_back(tc_angle);
     isMdlVtx.push_back(tc_angle < tc_angle_lower || tc_angle > tc_angle_upper);
@@ -690,7 +692,7 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
 
   //mark pairs of points that are within a tolerance of each other as not on
   //smooth curves to force a linear spline through them
-  auto narrowPtPairs = findNarrowChannels(geom, coincidentPtTolSquared);
+  auto narrowPtPairs = findNarrowChannels(features, coincidentPtTolSquared);
   for(auto& [a,b] : narrowPtPairs) {
     isPointOnCurve.at(a) = 0;
     isPointOnCurve.at(b) = 0;

@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
     mdlTopo.part = GM_rootPart(mdlTopo.model);
     mdlTopo.region = GIP_outerRegion(mdlTopo.part);
 
-    auto [isPointOnCurve, isMdlVtx] = discoverTopology(features.inner, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
+    auto [isPointOnCurve, isMdlVtx] = discoverTopology(features, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
 
     const auto numMdlVerts = isMdlVtx.size() ? std::accumulate(isMdlVtx.begin()+features.inner.firstContourPt, isMdlVtx.end(), 0) : 0;
     auto splines = SplineInterp::SplineInfo(numMdlVerts+4); //+4 splines for the bounding box

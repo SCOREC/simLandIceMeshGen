@@ -17,20 +17,24 @@ int main(int argc, char **argv) {
 
   auto curveInfo = CurveReader::readCurveInfo(filename);
   CurveReader::printCurveInfo(curveInfo);
-  GeomInfo geom;
-  geom.numVtx = curveInfo.isMdlVtx.size()-4;
-  for(int i=0, j=4; j < curveInfo.isMdlVtx.size(); j++, i++) {
-    geom.vtx_x[i] = curveInfo.x[j];
-    geom.vtx_y[i]  = curveInfo.y[j];
+  ModelFeatures features;
+  features.outer.numVtx = 4;
+  for(int i=0; i < 4; i++) {
+    features.outer.vtx_x.push_back(curveInfo.x[i]);
+    features.outer.vtx_y.push_back(curveInfo.y[i]);
   }
-  assert(geom.numVtx > 4);
+  features.inner.numVtx = curveInfo.isMdlVtx.size()-4;
+  for(int i=0, j=4; j < curveInfo.isMdlVtx.size(); j++, i++) {
+    features.inner.vtx_x.push_back(curveInfo.x[j]);
+    features.inner.vtx_y.push_back(curveInfo.y[j]);
+  }
 
   auto coincidentPtTolSquared = 1.0;
   auto angleTol = 120.0;
   auto onCurveAngleTol = 40.0;
   auto debug = true;
-  auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
-  auto numMdlVerts = std::accumulate(isMdlVtx.begin()+geom.firstContourPt, isMdlVtx.end(), 0); //don't count the bbox verts
+  auto [isPointOnCurve, isMdlVtx] = discoverTopology(features, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
+  auto numMdlVerts = std::accumulate(isMdlVtx.begin(), isMdlVtx.end(), 0);
   std::cout << "number of model vertices: " << numMdlVerts << std::endl;
   return 0;
 }
