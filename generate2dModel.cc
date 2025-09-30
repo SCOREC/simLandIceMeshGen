@@ -106,6 +106,7 @@ int main(int argc, char **argv) {
   const auto bbox = getBoundingPlane(features.outer);
   const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
   features.inner = cleanGeom(features.inner, coincidentPtTolSquared, false);
+  makeOrientationPositive(features.inner);
 
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";

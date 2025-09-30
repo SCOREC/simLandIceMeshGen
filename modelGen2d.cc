@@ -486,15 +486,14 @@ std::map<int,int> findNarrowChannels(ModelFeatures& features, double coincidentV
 
 GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
                       bool debug) {
+  if(dirty.numVtx == 0) {
+    return dirty;
+  }
   assert(checkVertexUse(dirty));
   // trying to check the the dirty geom has a chain of edges
   assert(dirty.numEdges == dirty.numVtx);
-  // the first four edges form a loop
-  assert(dirty.edges[0][0] == dirty.edges[3][1]); //FIXME - thwaites doesn't have a bbox, need to generically support contours that may be loops
-  // the remaining edges form a loop
-  if(dirty.edges.size() > 4) {
-    assert(dirty.edges.at(4)[0] == dirty.edges.back()[1]);
-  }
+  // the edges form a loop
+  assert(dirty.edges.at(0)[0] == dirty.edges.back()[1]);
 
   int numPtsRemoved = 0;
   GeomInfo clean;
@@ -524,31 +523,22 @@ GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
     std::cout << "removed " << numPtsRemoved << " coincident points\n";
 
   // loops have an equal number of verts and edges
-  assert(dirty.numVtx >= 4); // there must be a bounding box
   clean.edges.reserve(dirty.numVtx);
-  // the first loop is the rectangular boundary
-  for (int i = 0; i < 3; i++)
+  for (int i = 0; i < clean.numVtx - 1; i++)
     clean.edges.push_back({i, i + 1});
-  clean.edges.push_back({3, 0}); // close the loop
-  if (dirty.numVtx > 4) {        // there is another loop
-    // the second loop is the grounding line
-    for (int i = 4; i < clean.numVtx - 1; i++)
-      clean.edges.push_back({i, i + 1});
-    clean.edges.push_back({clean.numVtx - 1, 4}); // close the loop
-  }
+  clean.edges.push_back({clean.numVtx - 1, 0}); // close the loop
 
   clean.numEdges = clean.edges.size();
   assert(clean.numEdges == clean.numVtx);
 
-//  clean.firstContourPt = 4; //only supports bounding rectangles - TODO move to geom ctor // FIXME
-  if(clean.numVtx > 4) {
-    if( !isPositiveOrientation(clean) ) {
-      std::cerr << "orientation is not positive... reversing\n";
-      clean.reverseContourPoints();
-    }
-  }
-
   return clean;
+}
+
+void makeOrientationPositive(GeomInfo& geom) {
+  if( !isPositiveOrientation(geom) ) {
+    std::cerr << "orientation is not positive... reversing\n";
+    geom.reverseContourPoints();
+  }
 }
 
 OnCurve::OnCurve(double onCurveAngleTol, bool isDebug) :

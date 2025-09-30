@@ -84,6 +84,7 @@ int main(int argc, char **argv) {
   }
   const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
   auto geom = cleanGeom(dirty, coincidentPtTolSquared, false);
+  makeOrientationPositive(geom);
 
   ModelFeatures features;
   features.inner = geom; //FIXME - the mesh boundary is really the outer contour, 
