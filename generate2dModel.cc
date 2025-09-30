@@ -71,8 +71,6 @@ int main(int argc, char **argv) {
   }
   assert(argc == numExpectedArgs);
 
-  ModelFeatures features;
-
   std::string filename = argv[1];
   std::string ext = getFileExtension(filename);
   const auto prefix = std::string(argv[2]);
@@ -91,10 +89,11 @@ int main(int argc, char **argv) {
 
   assert(units == "m" || units == "km");
 
+  ModelFeatures features;
   if (ext == ".vtk") {
     features = readVtkGeom(filename);
-//  } else if (ext == ".msh") {
-//    dirty = readJigGeom(filename);
+  } else if (ext == ".msh") {
+    features = readJigGeom(filename);
   } else {
     std::cerr << "Unsupported file extension: " << ext << "\n";
     return 1;

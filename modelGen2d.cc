@@ -164,6 +164,39 @@ PlaneBounds getBoundingPlane(GeomInfo &geom) {
   return {*minX, *maxX, *minY, *maxY};
 }
 
+ModelFeatures splitIntoInnerAndOuter(GeomInfo& geom) {
+  GeomInfo outer;
+  //if the fourth edge's second point is the same
+  //as the first edge's first point then we have
+  //a bbox defined by four points
+  if( geom.edges[0][0] == geom.edges[3][1] ) {
+    //move the points and edges that define the bbox
+    //to its own GeomInfo
+    outer.numVtx = 4;
+    outer.numEdges = 4;
+    for(int i=0; i<4; i++)  {
+      outer.verts.push_back(i);
+      outer.vtx_x.push_back(geom.vtx_x[i]);
+      outer.vtx_y.push_back(geom.vtx_y[i]);
+      outer.edges.push_back({geom.edges[i][0], geom.edges[i][1]});
+    }
+    //shift back the remaining points
+    for(int i=0, j=4; j<geom.numVtx; i++, j++) {
+      geom.verts[i] = i;
+      geom.vtx_x[i] = geom.vtx_x[j];
+      geom.vtx_y[i] = geom.vtx_y[j];
+      geom.edges[i][0] = geom.edges[j][0] - 4;
+      geom.edges[i][1] = geom.edges[j][1] - 4;
+    }
+    geom.numVtx-=4;
+    geom.numEdges-=4;
+    geom.vtx_x.resize(geom.numVtx);
+    geom.vtx_y.resize(geom.numVtx);
+    geom.edges.resize(geom.numEdges);
+  }
+  return {geom,outer};
+}
+
 std::array<double, 3> readPoint(std::ifstream &in, bool debug = true) {
   std::array<double, 3> pt;
   std::string value;
@@ -275,40 +308,10 @@ ModelFeatures readVtkGeom(std::string fname, bool debug) {
                 << std::endl;
   }
 
-  GeomInfo outer;
-  //if the fourth edge's second point is the same
-  //as the first edge's first point then we have
-  //a bbox defined by four points
-  if( geom.edges[0][0] == geom.edges[3][1] ) {
-    //move the points and edges that define the bbox
-    //to its own GeomInfo
-    outer.numVtx = 4;
-    outer.numEdges = 4;
-    for(int i=0; i<4; i++)  {
-      outer.verts.push_back(i);
-      outer.vtx_x.push_back(geom.vtx_x[i]);
-      outer.vtx_y.push_back(geom.vtx_y[i]);
-      outer.edges.push_back({geom.edges[i][0], geom.edges[i][1]});
-    }
-    //shift back the remaining points
-    for(int i=0, j=4; j<geom.numVtx; i++, j++) {
-      geom.verts[i] = i;
-      geom.vtx_x[i] = geom.vtx_x[j];
-      geom.vtx_y[i] = geom.vtx_y[j];
-      geom.edges[i][0] = geom.edges[j][0] - 4;
-      geom.edges[i][1] = geom.edges[j][1] - 4;
-    }
-    geom.numVtx-=4;
-    geom.numEdges-=4;
-    geom.vtx_x.resize(geom.numVtx);
-    geom.vtx_y.resize(geom.numVtx);
-    geom.edges.resize(geom.numEdges);
-  }
-
-  return {geom,outer};
+  return splitIntoInnerAndOuter(geom);
 }
 
-GeomInfo readJigGeom(std::string fname, bool debug) {
+ModelFeatures readJigGeom(std::string fname, bool debug) {
   std::ifstream mshFile(fname);
   if (!mshFile.is_open()) {
     fprintf(stderr, "failed to open jigsaw geom file %s\n", fname.c_str());
@@ -364,7 +367,7 @@ GeomInfo readJigGeom(std::string fname, bool debug) {
   }
   mshFile.close();
 
-  return geom;
+  return splitIntoInnerAndOuter(geom);
 }
 
 double getLengthSquared(double ax, double ay, double bx, double by) {
@@ -538,6 +541,7 @@ GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
 }
 
 void makeOrientationPositive(GeomInfo& geom) {
+  if(geom.numVtx == 0) return;
   if( !isPositiveOrientation(geom) ) {
     std::cerr << "orientation is not positive... reversing\n";
     geom.reverseContourPoints();

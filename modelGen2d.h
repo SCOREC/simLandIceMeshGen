@@ -82,7 +82,7 @@ PlaneBounds getBoundingPlane(GeomInfo &geom);
 
 GeomInfo readOmegahGeom(std::string fname, bool debug = false);
 ModelFeatures readVtkGeom(std::string fname, bool debug = false);
-GeomInfo readJigGeom(std::string fname, bool debug = false);
+ModelFeatures readJigGeom(std::string fname, bool debug = false);
 
 double getLengthSquared(double ax, double ay, double bx, double by);
 bool isPtCoincident(double ax, double ay, double bx, double by,
