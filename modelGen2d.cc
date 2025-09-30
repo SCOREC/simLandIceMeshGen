@@ -205,7 +205,7 @@ std::array<int, 2> readEdgeVtk(std::ifstream &in, bool debug = true) {
   return edge;
 }
 
-GeomInfo readVtkGeom(std::string fname, bool debug) {
+ModelFeatures readVtkGeom(std::string fname, bool debug) {
   std::ifstream vtkFile(fname);
   if (!vtkFile.is_open()) {
     fprintf(stderr, "failed to open VTK geom file %s\n", fname.c_str());
@@ -270,7 +270,38 @@ GeomInfo readVtkGeom(std::string fname, bool debug) {
       std::cout << "edge " << geom.edges[i][0] << ", " << geom.edges[i][1]
                 << std::endl;
   }
-  return geom;
+
+  GeomInfo outer;
+  //if the forth edge's second point is the same
+  //as the first edge's first point then we have
+  //a bbox defined by four points
+  if( geom.edges[0][0] == geom.edges[3][1] ) {
+    //move the points and edges that define the bbox
+    //to its own GeomInfo
+    geom.numVtx = 4;
+    geom.numEdges = 4;
+    outer.vtx_x.reserve(4);
+    outer.vtx_y.reserve(4);
+    outer.verts.reserve(4);
+    outer.edges.reserve(4)
+    for(int i=0; i<4; i++)  {
+      outer.verts[i] = i;
+      outer.vtx_x[i] = geom.vtx_x[i];
+      outer.vtx_y[i] = geom.vtx_y[i];
+      outer.edges[i][0] = geom.edges[i][0];
+      outer.edges[i][1] = geom.edges[i][1];
+    }
+    //shift back the remaining points
+    for(int i=0, j=4; j<geom.numVtx; i++, j++) {
+      geom.verts[i] = i;
+      geom.vtx_x[i] = geom.vtx_x[j];
+      geom.vtx_y[i] = geom.vtx_y[j];
+      geom.edges[i][0] = geom.edges[j][0] - 4;
+      geom.edges[i][1] = geom.edges[j][1] - 4;
+    }
+  }
+
+  return {geom,outer};
 }
 
 GeomInfo readJigGeom(std::string fname, bool debug) {

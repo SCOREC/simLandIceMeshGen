@@ -24,6 +24,7 @@ struct PointClassification {
   PointClassification(int n) : dim(n), id(n), splineIdx(n) {}
 };
 
+
 //FIXME - make this a class
 struct GeomInfo {
   int numVtx;
@@ -32,7 +33,7 @@ struct GeomInfo {
   std::vector<double> vtx_y;
   std::vector<int> verts;
   std::vector<std::array<int, 2>> edges;
-  int firstContourPt;
+  const int firstContourPt = 0;
   void addVtx(int id, double x, double y) {
     numVtx++;
     verts.push_back(id);
@@ -64,6 +65,11 @@ struct GeomInfo {
   }
 };
 
+struct ModelFeatures {
+  GeomInfo inner;
+  GeomInfo outer;
+};
+
 struct PlaneBounds {
   double minX;
   double maxX;
@@ -75,7 +81,7 @@ PlaneBounds getBoundingPlane(GeomInfo &geom);
 
 
 GeomInfo readOmegahGeom(std::string fname, bool debug = false);
-GeomInfo readVtkGeom(std::string fname, bool debug = false);
+ModelFeatures readVtkGeom(std::string fname, bool debug = false);
 GeomInfo readJigGeom(std::string fname, bool debug = false);
 
 double getLengthSquared(double ax, double ay, double bx, double by);

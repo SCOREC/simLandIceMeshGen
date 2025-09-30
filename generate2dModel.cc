@@ -12,17 +12,28 @@ std::string getFileExtension(const std::string &filename) {
   return "";
 }
 
-void writePointParametricCoords(const GeomInfo& geom, const PointClassification& ptClass, const SplineInterp::SplineInfo& sinfo, std::string filename) {
-  assert(ptClass.splineIdx.size() == geom.numVtx);
-  Omega_h::HostWrite<Omega_h::Real> paraCoords(geom.numVtx*2);
+void setPara(const GeomInfo& geom,
+    const PointClassification& ptClass,
+    const SplineInterp::SplineInfo& sinfo,
+    Omega_h::HostWrite<Omega_h::Real>& paraCoords,
+    int startIdx) {
   for(int i=0; i<geom.numVtx; i++) {
-    const auto sIdx = ptClass.splineIdx[i];
+    const auto sIdx = ptClass.splineIdx[startIdx+i]; //CHECK
     const auto bspline = sinfo.splines[sIdx];
     const auto x = geom.vtx_x.at(i); 
     const auto y = geom.vtx_y.at(i); 
-    paraCoords[i*2] = bspline.x.invEval(x);
-    paraCoords[i*2+1] = bspline.y.invEval(y);
+    paraCoords[(startIdx+i)*2] = bspline.x.invEval(x);
+    paraCoords[(startIdx+i)*2+1] = bspline.y.invEval(y);
   }
+}
+
+void writePointParametricCoords(const ModelFeatures& features, const PointClassification& ptClass, const SplineInterp::SplineInfo& sinfo, std::string filename) {
+  const int numVtx = features.inner.numVtx+features.outer.numEdges;
+  assert(ptClass.splineIdx.size() == numVtx);
+
+  Omega_h::HostWrite<Omega_h::Real> paraCoords(numVtx*2);
+  setPara(features.inner, ptClass, sinfo, paraCoords, 0);
+  setPara(features.outer, ptClass, sinfo, paraCoords, features.inner.numVtx);
   auto paraCoords_d = Omega_h::read(paraCoords.write());
 
   std::ofstream file(filename);
@@ -60,7 +71,7 @@ int main(int argc, char **argv) {
   }
   assert(argc == numExpectedArgs);
 
-  GeomInfo dirty;
+  ModelFeatures features;
 
   std::string filename = argv[1];
   std::string ext = getFileExtension(filename);
@@ -81,18 +92,20 @@ int main(int argc, char **argv) {
   assert(units == "m" || units == "km");
 
   if (ext == ".vtk") {
-    dirty = readVtkGeom(filename);
-  } else if (ext == ".msh") {
-    dirty = readJigGeom(filename);
+    features = readVtkGeom(filename);
+//  } else if (ext == ".msh") {
+//    dirty = readJigGeom(filename);
   } else {
     std::cerr << "Unsupported file extension: " << ext << "\n";
     return 1;
   }
   if(units == "m") {
-    convertMetersToKm(dirty);
+    convertMetersToKm(features.inner);
+    convertMetersToKm(features.outer);
   }
   const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
-  auto geom = cleanGeom(dirty, coincidentPtTolSquared, false);
+  features.inner = cleanGeom(features.inner, coincidentPtTolSquared, false);
+
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
 
@@ -122,14 +135,15 @@ int main(int argc, char **argv) {
     mdlTopo.part = GM_rootPart(mdlTopo.model);
     mdlTopo.region = GIP_outerRegion(mdlTopo.part);
 
-    auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
+    auto [isPointOnCurve, isMdlVtx] = discoverTopology(features.inner, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
 
-    const auto numMdlVerts = isMdlVtx.size() ? std::accumulate(isMdlVtx.begin()+geom.firstContourPt, isMdlVtx.end(), 0) : 0;
+    const auto numMdlVerts = isMdlVtx.size() ? std::accumulate(isMdlVtx.begin()+features.inner.firstContourPt, isMdlVtx.end(), 0) : 0;
     auto splines = SplineInterp::SplineInfo(numMdlVerts+4); //+4 splines for the bounding box
-    createBoundingBoxGeom(mdlTopo, geom, splines);
+    createBoundingBoxGeom(mdlTopo, features.outer, splines);
 
-    PointClassification ptClass(geom.numVtx);
-    createEdges(mdlTopo, geom, ptClass, splines, isPointOnCurve, isMdlVtx, debug);
+    //where is the classification set for the bbox?
+    PointClassification ptClass(features.inner.numVtx+features.outer.numVtx);
+    createEdges(mdlTopo, features.inner, ptClass, splines, isPointOnCurve, isMdlVtx, debug);
 
     writePointParametricCoords(geom, ptClass, splines, modelFileName + "_parametric.oshb");
     //write the point classification to an omegah binary file
