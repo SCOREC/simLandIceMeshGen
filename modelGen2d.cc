@@ -300,6 +300,9 @@ ModelFeatures readVtkGeom(std::string fname, bool debug) {
     }
     geom.numVtx-=4;
     geom.numEdges-=4;
+    geom.vtx_x.resize(geom.numVtx);
+    geom.vtx_y.resize(geom.numVtx);
+    geom.edges.resize(geom.numEdges);
   }
 
   return {geom,outer};
