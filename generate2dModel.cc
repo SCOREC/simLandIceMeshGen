@@ -103,6 +103,7 @@ int main(int argc, char **argv) {
     convertMetersToKm(features.inner);
     convertMetersToKm(features.outer);
   }
+  const auto bbox = getBoundingPlane(features.outer);
   const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
   features.inner = cleanGeom(features.inner, coincidentPtTolSquared, false);
 
