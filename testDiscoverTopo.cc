@@ -18,10 +18,11 @@ int main(int argc, char **argv) {
   auto curveInfo = CurveReader::readCurveInfo(filename);
   CurveReader::printCurveInfo(curveInfo);
   GeomInfo geom;
-  geom.numVtx = curveInfo.isMdlVtx.size();
-  geom.vtx_x = curveInfo.x;
-  geom.vtx_y = curveInfo.y;
-  geom.firstContourPt = 4;
+  geom.numVtx = curveInfo.isMdlVtx.size()-4;
+  for(int i=0, j=4; j < curveInfo.isMdlVtx.size(); j++, i++) {
+    geom.vtx_x[i] = curveInfo.x[j];
+    geom.vtx_y[i]  = curveInfo.y[j];
+  }
   assert(geom.numVtx > 4);
 
   auto coincidentPtTolSquared = 1.0;

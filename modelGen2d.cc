@@ -272,18 +272,18 @@ ModelFeatures readVtkGeom(std::string fname, bool debug) {
   }
 
   GeomInfo outer;
-  //if the forth edge's second point is the same
+  //if the fourth edge's second point is the same
   //as the first edge's first point then we have
   //a bbox defined by four points
   if( geom.edges[0][0] == geom.edges[3][1] ) {
     //move the points and edges that define the bbox
     //to its own GeomInfo
-    geom.numVtx = 4;
-    geom.numEdges = 4;
+    outer.numVtx = 4;
+    outer.numEdges = 4;
     outer.vtx_x.reserve(4);
     outer.vtx_y.reserve(4);
     outer.verts.reserve(4);
-    outer.edges.reserve(4)
+    outer.edges.reserve(4);
     for(int i=0; i<4; i++)  {
       outer.verts[i] = i;
       outer.vtx_x[i] = geom.vtx_x[i];
@@ -292,6 +292,8 @@ ModelFeatures readVtkGeom(std::string fname, bool debug) {
       outer.edges[i][1] = geom.edges[i][1];
     }
     //shift back the remaining points
+    geom.numVtx-=4;
+    geom.numEdges-=4;
     for(int i=0, j=4; j<geom.numVtx; i++, j++) {
       geom.verts[i] = i;
       geom.vtx_x[i] = geom.vtx_x[j];
@@ -538,7 +540,7 @@ GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
   clean.numEdges = clean.edges.size();
   assert(clean.numEdges == clean.numVtx);
 
-  clean.firstContourPt = 4; //only supports bounding rectangles - TODO move to geom ctor
+//  clean.firstContourPt = 4; //only supports bounding rectangles - TODO move to geom ctor // FIXME
   if(clean.numVtx > 4) {
     if( !isPositiveOrientation(clean) ) {
       std::cerr << "orientation is not positive... reversing\n";

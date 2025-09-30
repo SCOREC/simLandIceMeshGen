@@ -331,8 +331,7 @@ void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, SplineInterp::Spl
 
 }
 
-void createFaces(ModelTopo& mdlTopo, GeomInfo& geom, bool debug) {
-  auto planeBounds = getBoundingPlane(geom);
+void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
   // Now add the faces
   double corner[3], xPt[3], yPt[3]; // the points defining the surface of the face
 

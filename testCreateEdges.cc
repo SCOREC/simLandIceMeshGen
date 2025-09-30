@@ -51,7 +51,6 @@ int main(int argc, char **argv) {
     geom.numVtx = curveInfo.isMdlVtx.size();
     geom.vtx_x = curveInfo.x;
     geom.vtx_y = curveInfo.y;
-    geom.firstContourPt = 0;
     const auto numMdlVerts = std::accumulate(curveInfo.isMdlVtx.begin(), curveInfo.isMdlVtx.end(), 0);
     auto splines = SplineInterp::SplineInfo(numMdlVerts);
     PointClassification ptClass(geom.numVtx);

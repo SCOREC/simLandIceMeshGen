@@ -33,7 +33,7 @@ struct GeomInfo {
   std::vector<double> vtx_y;
   std::vector<int> verts;
   std::vector<std::array<int, 2>> edges;
-  const int firstContourPt = 0;
+  static const int firstContourPt = 0; //FIXME - remove this
   void addVtx(int id, double x, double y) {
     numVtx++;
     verts.push_back(id);

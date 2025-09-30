@@ -145,7 +145,7 @@ int main(int argc, char **argv) {
     PointClassification ptClass(features.inner.numVtx+features.outer.numVtx);
     createEdges(mdlTopo, features.inner, ptClass, splines, isPointOnCurve, isMdlVtx, debug);
 
-    writePointParametricCoords(geom, ptClass, splines, modelFileName + "_parametric.oshb");
+    writePointParametricCoords(features, ptClass, splines, modelFileName + "_parametric.oshb");
     //write the point classification to an omegah binary file
     ptClass.writeToOsh(modelFileName + "_class.oshb");
     //write the bsplines to an omegah binary file
@@ -153,7 +153,8 @@ int main(int argc, char **argv) {
     //write the sampled bsplines to a csv file
     splines.writeSamplesToCsv(modelFileName + "_splines.csv");
 
-    createFaces(mdlTopo, geom);
+    auto planeBounds = getBoundingPlane(features.outer);
+    createFaces(mdlTopo, planeBounds);
 
     printModelInfo(mdlTopo.model);
 
