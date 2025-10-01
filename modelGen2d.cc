@@ -427,9 +427,8 @@ bool isNumEdgesBtwnPtsGreaterThanOne(size_t small, size_t large, size_t firstPt,
 //find pairs of points that are not consecutative, but are within some length
 //tolerance of each other - mark these points as model vertices to help prevent
 //intersecting bsplines
-std::map<int,int> findNarrowChannels(ModelFeatures& features, double coincidentVtxToleranceSquared, bool debug=false) {
-  assert(features.outer.numVtx >= 0);
-  assert(features.inner.numVtx >= 0);
+std::map<int,int> findNarrowChannels(GeomInfo& geom, PlaneBounds& bbox, double coincidentVtxToleranceSquared, bool debug=false) {
+  assert(geom.numVtx >= 0);
 
   //use a quadtree
   struct Node
@@ -437,19 +436,18 @@ std::map<int,int> findNarrowChannels(ModelFeatures& features, double coincidentV
     quadtree::Box<double> box;
     std::size_t id;
   };
-  auto n = std::size_t(features.inner.numVtx);
+  auto n = std::size_t(geom.numVtx);
   auto getBox = [](Node* node)
   {
     return node->box;
   };
-  const auto bbox = getBoundingPlane(features.outer);
   auto domain = quadtree::Box<double>(bbox.minX, bbox.minY, bbox.maxX-bbox.minX, bbox.maxY-bbox.minY);
   auto quadtree = quadtree::Quadtree<Node*, decltype(getBox), std::equal_to<Node*>, double>(domain, getBox);
 
   double padding = std::sqrt(coincidentVtxToleranceSquared)/2;
   std::vector<Node> nodes;
-  for(size_t i = 0; i < features.inner.numVtx; i++) {
-    auto box = makeBoxAroundPt(features.inner.vtx_x.at(i),features.inner.vtx_y.at(i),padding);
+  for(size_t i = 0; i < geom.numVtx; i++) {
+    auto box = makeBoxAroundPt(geom.vtx_x.at(i),geom.vtx_y.at(i),padding);
     nodes.push_back({box,i});
   }
   for(auto& node : nodes) {
@@ -461,19 +459,19 @@ std::map<int,int> findNarrowChannels(ModelFeatures& features, double coincidentV
     std::cout << "pt0_id, pt0_x, pt0_y, pt1_id, pt1_x, pt1_y\n";
     for(auto& [a,b] : intersections) {
       const int distance = std::abs(static_cast<int>(a->id)-static_cast<int>(b->id));
-      std::cout << a->id << ", " << features.inner.vtx_x.at(a->id) << ", " << features.inner.vtx_y.at(a->id) << ", "
-        << b->id << ", " << features.inner.vtx_x.at(b->id) << ", " << features.inner.vtx_y.at(b->id) << ", "
+      std::cout << a->id << ", " << geom.vtx_x.at(a->id) << ", " << geom.vtx_y.at(a->id) << ", "
+        << b->id << ", " << geom.vtx_x.at(b->id) << ", " << geom.vtx_y.at(b->id) << ", "
         << distance << "\n";
     }
     std::cout << "done\n";
   }
   //remove consecutative pairs
   std::map<int,int> longPairs;
-  const int lastPt = features.inner.vtx_x.size()-1;
+  const int lastPt = geom.vtx_x.size()-1;
   for(auto& [a,b] : intersections) {
     const auto small = std::min(a->id, b->id);
     const auto large = std::max(a->id, b->id);
-    if(isNumEdgesBtwnPtsGreaterThanOne(small, large, features.inner.firstContourPt, lastPt)) {
+    if(isNumEdgesBtwnPtsGreaterThanOne(small, large, geom.firstContourPt, lastPt)) {
       assert(longPairs.count(small) == 0);
       longPairs.insert({small, large});
     }
@@ -602,7 +600,8 @@ int findFirstPt(std::vector<int>& prop, const int offset, const int match) {
 
 /**
  * \brief determine where model vertices and smooth curves are along the contours
- * \param geom (in) provides coordinates of input points along the contour
+ * \param geom (in) provides coordinates of input points on the contour
+ * \param bbox (in) provides bounding box used for quad tree
  * \param coincidentPtTolSquared (in) tolerance in distance units (e.g., km for landice) for determining
  *        if consecutive points along the contour should be considered as coincident, the value
  *        is assumed to be squared
@@ -617,8 +616,7 @@ int findFirstPt(std::vector<int>& prop, const int offset, const int match) {
  *         isMdlVtx = 1: point bounds two edges which have a narrow angle (> angleTol or < -angleTol) between them
  */
 std::tuple<std::vector<int>,std::vector<int>>
-discoverTopology(ModelFeatures& features, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug) {
-  auto& geom = features.inner;
+discoverTopology(GeomInfo& geom, PlaneBounds& bbox, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug) {
   if(geom.numVtx <= 0) { // no internal contour
     return {std::vector<int>(), std::vector<int>()};
   }
@@ -688,7 +686,7 @@ discoverTopology(ModelFeatures& features, double coincidentPtTolSquared, double 
 
   //mark pairs of points that are within a tolerance of each other as not on
   //smooth curves to force a linear spline through them
-  auto narrowPtPairs = findNarrowChannels(features, coincidentPtTolSquared);
+  auto narrowPtPairs = findNarrowChannels(geom, bbox, coincidentPtTolSquared);
   for(auto& [a,b] : narrowPtPairs) {
     isPointOnCurve.at(a) = 0;
     isPointOnCurve.at(b) = 0;

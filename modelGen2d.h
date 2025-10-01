@@ -96,7 +96,7 @@ GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
 void makeOrientationPositive(GeomInfo& geom);
 
 std::tuple<std::vector<int>,std::vector<int>>
-discoverTopology(ModelFeatures& geom, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug = false);
+discoverTopology(GeomInfo& geom, PlaneBounds& bbox, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug = false);
 
 class OnCurve {
   public:

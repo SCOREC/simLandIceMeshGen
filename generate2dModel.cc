@@ -102,7 +102,6 @@ int main(int argc, char **argv) {
     convertMetersToKm(features.inner);
     convertMetersToKm(features.outer);
   }
-  const auto bbox = getBoundingPlane(features.outer);
   const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
   features.inner = cleanGeom(features.inner, coincidentPtTolSquared, false);
   makeOrientationPositive(features.inner);
@@ -136,13 +135,14 @@ int main(int argc, char **argv) {
     mdlTopo.part = GM_rootPart(mdlTopo.model);
     mdlTopo.region = GIP_outerRegion(mdlTopo.part);
 
-    auto [isPointOnCurve, isMdlVtx] = discoverTopology(features, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
+    auto planeBounds = getBoundingPlane(features.outer);
+    auto [isPointOnCurve, isMdlVtx] = discoverTopology(features.inner, planeBounds, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
 
     const auto numMdlVerts = isMdlVtx.size() ? std::accumulate(isMdlVtx.begin()+features.inner.firstContourPt, isMdlVtx.end(), 0) : 0;
-    auto splines = SplineInterp::SplineInfo(numMdlVerts+4); //+4 splines for the bounding box
+    auto splines = SplineInterp::SplineInfo(numMdlVerts+features.outer.numVtx);
     createBoundingBoxGeom(mdlTopo, features.outer, splines);
 
-    //where is the classification set for the bbox?
+    //FIXME - set classification for the bbox
     PointClassification ptClass(features.inner.numVtx+features.outer.numVtx);
     createEdges(mdlTopo, features.inner, ptClass, splines, isPointOnCurve, isMdlVtx, debug);
 
@@ -154,7 +154,6 @@ int main(int argc, char **argv) {
     //write the sampled bsplines to a csv file
     splines.writeSamplesToCsv(modelFileName + "_splines.csv");
 
-    auto planeBounds = getBoundingPlane(features.outer);
     createFaces(mdlTopo, planeBounds);
 
     printModelInfo(mdlTopo.model);

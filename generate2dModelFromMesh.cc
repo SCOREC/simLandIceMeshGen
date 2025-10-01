@@ -120,7 +120,8 @@ int main(int argc, char **argv) {
     mdlTopo.part = GM_rootPart(mdlTopo.model);
     mdlTopo.region = GIP_outerRegion(mdlTopo.part);
 
-    auto [isPointOnCurve, isMdlVtx] = discoverTopology(features, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
+    auto planeBounds = getBoundingPlane(features.inner);
+    auto [isPointOnCurve, isMdlVtx] = discoverTopology(features.inner, planeBounds, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
 
     const auto numMdlVerts = isMdlVtx.size() ? std::accumulate(isMdlVtx.begin(), isMdlVtx.end(), 0) : 0;
     auto splines = SplineInterp::SplineInfo(numMdlVerts+4); //+4 splines for the bounding box
@@ -137,7 +138,6 @@ int main(int argc, char **argv) {
     //write the sampled bsplines to a csv file
     splines.writeSamplesToCsv(modelFileName + "_splines.csv");
 
-    //auto planeBounds = getBoundingPlane(features.outer); //FIXME
     //createFaces(mdlTopo, geom); //FIXME
 
     printModelInfo(mdlTopo.model);

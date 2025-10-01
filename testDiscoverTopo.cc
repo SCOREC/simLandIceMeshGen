@@ -33,7 +33,8 @@ int main(int argc, char **argv) {
   auto angleTol = 120.0;
   auto onCurveAngleTol = 40.0;
   auto debug = true;
-  auto [isPointOnCurve, isMdlVtx] = discoverTopology(features, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
+  auto bbox = getBoundingPlane(features.outer);
+  auto [isPointOnCurve, isMdlVtx] = discoverTopology(features.inner, bbox, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
   auto numMdlVerts = std::accumulate(isMdlVtx.begin(), isMdlVtx.end(), 0);
   std::cout << "number of model vertices: " << numMdlVerts << std::endl;
   return 0;
