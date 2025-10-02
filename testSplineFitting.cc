@@ -68,8 +68,12 @@ void writeSamples(std::string fileNameNoExt, const CurveReader::CurveInfo& curve
     splineInterpSampleFile << "x, y, isVertex\n";
     splineInterpSampleFile << curve.x[0] << ", " << curve.y[0] << ", 1\n";
     for(int i = 0; i < numSamples; ++i) {
-      auto t = 1.0 * i / numSamples;
-      splineInterpSampleFile << bspline.x.eval(t) << ", " << bspline.y.eval(t) << ", 0\n";
+      const auto t = 1.0 * i / numSamples;
+      const auto evalX = bspline.x.eval(t);
+      const auto evalY = bspline.y.eval(t);
+      assert(!std::isnan(evalX));
+      assert(!std::isnan(evalY));
+      splineInterpSampleFile << evalX << ", " << evalY << ", 0\n";
     }
     splineInterpSampleFile << curve.x.back() << ", " << curve.y.back() << ", 1\n";
     splineInterpSampleFile.close();
@@ -196,7 +200,12 @@ int main(int argc, char **argv) {
   auto curve = CurveReader::readCurveInfo(curveFilename);
 
   //Fit curve using Spline2D Implementation
-  auto bspline = SplineInterp::fitCubicSplineToPoints(curve.x, curve.y);
+  SplineInterp::BSpline2d bspline;
+  if(curve.x.size() == 2) {
+    bspline = SplineInterp::attach_piecewise_linear_curve(curve.x, curve.y);
+  } else {
+    bspline = SplineInterp::fitCubicSplineToPoints(curve.x, curve.y);
+  }
   writeDefinition(fileNameNoExt, bspline);
   writeSamples(fileNameNoExt, curve, bspline);
 

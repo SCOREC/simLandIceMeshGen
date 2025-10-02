@@ -133,6 +133,17 @@ bool curveOrientation(std::vector<double> &curvePts) {
 
   return false;
 }
+BSpline2d attach_piecewise_linear_curve(std::vector<double> xpts, std::vector<double> ypts) {
+  assert(xpts.size() == ypts.size());
+  std::vector<double> pts;
+  pts.reserve(xpts.size()*3);
+  for(int i=0; i<xpts.size(); i++) {
+    pts.push_back(xpts.at(i));
+    pts.push_back(ypts.at(i));
+    pts.push_back(0);
+  }
+  return attach_piecewise_linear_curve(pts);
+}
 
 BSpline2d attach_piecewise_linear_curve(std::vector<double> points) {
   const int dim = 3;

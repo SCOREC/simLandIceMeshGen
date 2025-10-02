@@ -36,6 +36,7 @@ BSpline2d fitCubicSplineToPoints(std::vector<double> xpts,
  * create a PWL curve through the given points
  */
 BSpline2d attach_piecewise_linear_curve(std::vector<double> points);
+BSpline2d attach_piecewise_linear_curve(std::vector<double> xpts, std::vector<double> ypts);
 
 /**
  * Check the orientation of a curve. The method is applicable

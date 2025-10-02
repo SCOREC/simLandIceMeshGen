@@ -25,6 +25,8 @@ void setPara(const GeomInfo& geom,
     paraCoords[(startIdx+i)*2] = bspline.x.invEval(x);
     paraCoords[(startIdx+i)*2+1] = bspline.y.invEval(y);
     std::cout << sIdx << ", " << paraCoords[(startIdx+i)*2] << ", " << paraCoords[(startIdx+i)*2+1] << "\n";
+    assert(!std::isnan(paraCoords[(startIdx+i)*2]));
+    assert(!std::isnan(paraCoords[(startIdx+i)*2+1]));
   }
 }
 

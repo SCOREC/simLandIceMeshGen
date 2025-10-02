@@ -136,6 +136,8 @@ if(USE_SIMMODSUITE)
   
   add_test(NAME testSplineFitting_straight_edge
            COMMAND ./testSplineFitting ${testDataDir}/testCurveStraightLine.csv 9)
+  add_test(NAME testSplineFitting_edge_2pts
+           COMMAND ./testSplineFitting ${testDataDir}/testCurve2pts.csv 1)
   add_test(NAME testSplineFitting_single_edge
            COMMAND ./testSplineFitting ${testDataDir}/testCurveSplineFitting.csv 12.2685)
   add_test(NAME testSplineFitting_sine_edge
