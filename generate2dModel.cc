@@ -135,16 +135,17 @@ int main(int argc, char **argv) {
     mdlTopo.part = GM_rootPart(mdlTopo.model);
     mdlTopo.region = GIP_outerRegion(mdlTopo.part);
 
-    auto planeBounds = getBoundingPlane(features.outer);
-    auto [isPointOnCurve, isMdlVtx] = discoverTopology(features.inner, planeBounds, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
+    auto [isPointOnCurveInner, isMdlVtxInner] = discoverTopology(features.inner, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
+    auto [isPointOnCurveOuter, isMdlVtxOuter] = discoverTopology(features.outer, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
 
-    const auto numMdlVerts = isMdlVtx.size() ? std::accumulate(isMdlVtx.begin()+features.inner.firstContourPt, isMdlVtx.end(), 0) : 0;
-    auto splines = SplineInterp::SplineInfo(numMdlVerts+features.outer.numVtx);
-    createBoundingBoxGeom(mdlTopo, features.outer, splines);
+    const auto numInnerMdlVerts = isMdlVtxInner.size() ? std::accumulate(isMdlVtxInner.begin(), isMdlVtxInner.end(), 0) : 0;
+    const auto numOuterMdlVerts = isMdlVtxInner.size() ? std::accumulate(isMdlVtxInner.begin(), isMdlVtxInner.end(), 0) : 0;
+    auto splines = SplineInterp::SplineInfo(numInnerMdlVerts+numOuterMdlVerts);
+    createBoundingBoxGeom(mdlTopo, features.outer, splines); //REMOVING THIS
 
     //FIXME - set classification for the bbox
     PointClassification ptClass(features.inner.numVtx+features.outer.numVtx);
-    createEdges(mdlTopo, features.inner, ptClass, splines, isPointOnCurve, isMdlVtx, debug);
+    createEdges(mdlTopo, features.inner, ptClass, splines, isPointOnCurveInner, isMdlVtxInner, debug);
 
     writePointParametricCoords(features, ptClass, splines, modelFileName + "_parametric.oshb");
     //write the point classification to an omegah binary file
@@ -154,6 +155,7 @@ int main(int argc, char **argv) {
     //write the sampled bsplines to a csv file
     splines.writeSamplesToCsv(modelFileName + "_splines.csv");
 
+    auto planeBounds = getBoundingPlane(features.outer);
     createFaces(mdlTopo, planeBounds);
 
     printModelInfo(mdlTopo.model);

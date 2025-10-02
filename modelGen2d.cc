@@ -427,7 +427,7 @@ bool isNumEdgesBtwnPtsGreaterThanOne(size_t small, size_t large, size_t firstPt,
 //find pairs of points that are not consecutative, but are within some length
 //tolerance of each other - mark these points as model vertices to help prevent
 //intersecting bsplines
-std::map<int,int> findNarrowChannels(GeomInfo& geom, PlaneBounds& bbox, double coincidentVtxToleranceSquared, bool debug=false) {
+std::map<int,int> findNarrowChannels(GeomInfo& geom, double coincidentVtxToleranceSquared, bool debug=false) {
   assert(geom.numVtx >= 0);
 
   //use a quadtree
@@ -441,10 +441,20 @@ std::map<int,int> findNarrowChannels(GeomInfo& geom, PlaneBounds& bbox, double c
   {
     return node->box;
   };
-  auto domain = quadtree::Box<double>(bbox.minX, bbox.minY, bbox.maxX-bbox.minX, bbox.maxY-bbox.minY);
+  //As the bbox is defined by the limits of the contour (geom)
+  // then, we need to pad the bbox to support contour points
+  // that form an axis aligned rectangle.
+  //Since the contour points are enclosed by a bbox that is
+  // 'padding' wide and tall, then we need to pad the bbox by
+  // 2*padding on each side.
+  auto bbox = getBoundingPlane(geom);
+  double padding = std::sqrt(coincidentVtxToleranceSquared)/2;
+  auto domain = quadtree::Box<double>(bbox.minX-(2*padding),
+                                      bbox.minY-(2*padding),
+                                      bbox.maxX-bbox.minX+(4*padding),
+                                      bbox.maxY-bbox.minY+(4*padding));
   auto quadtree = quadtree::Quadtree<Node*, decltype(getBox), std::equal_to<Node*>, double>(domain, getBox);
 
-  double padding = std::sqrt(coincidentVtxToleranceSquared)/2;
   std::vector<Node> nodes;
   for(size_t i = 0; i < geom.numVtx; i++) {
     auto box = makeBoxAroundPt(geom.vtx_x.at(i),geom.vtx_y.at(i),padding);
@@ -601,7 +611,6 @@ int findFirstPt(std::vector<int>& prop, const int offset, const int match) {
 /**
  * \brief determine where model vertices and smooth curves are along the contours
  * \param geom (in) provides coordinates of input points on the contour
- * \param bbox (in) provides bounding box used for quad tree
  * \param coincidentPtTolSquared (in) tolerance in distance units (e.g., km for landice) for determining
  *        if consecutive points along the contour should be considered as coincident, the value
  *        is assumed to be squared
@@ -616,7 +625,7 @@ int findFirstPt(std::vector<int>& prop, const int offset, const int match) {
  *         isMdlVtx = 1: point bounds two edges which have a narrow angle (> angleTol or < -angleTol) between them
  */
 std::tuple<std::vector<int>,std::vector<int>>
-discoverTopology(GeomInfo& geom, PlaneBounds& bbox, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug) {
+discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug) {
   if(geom.numVtx <= 0) { // no internal contour
     return {std::vector<int>(), std::vector<int>()};
   }
@@ -686,7 +695,7 @@ discoverTopology(GeomInfo& geom, PlaneBounds& bbox, double coincidentPtTolSquare
 
   //mark pairs of points that are within a tolerance of each other as not on
   //smooth curves to force a linear spline through them
-  auto narrowPtPairs = findNarrowChannels(geom, bbox, coincidentPtTolSquared);
+  auto narrowPtPairs = findNarrowChannels(geom, coincidentPtTolSquared);
   for(auto& [a,b] : narrowPtPairs) {
     isPointOnCurve.at(a) = 0;
     isPointOnCurve.at(b) = 0;
