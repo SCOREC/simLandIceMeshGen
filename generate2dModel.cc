@@ -140,11 +140,10 @@ int main(int argc, char **argv) {
 
     const auto numInnerMdlVerts = isMdlVtxInner.size() ? std::accumulate(isMdlVtxInner.begin(), isMdlVtxInner.end(), 0) : 0;
     const auto numOuterMdlVerts = isMdlVtxInner.size() ? std::accumulate(isMdlVtxInner.begin(), isMdlVtxInner.end(), 0) : 0;
-    auto splines = SplineInterp::SplineInfo(numInnerMdlVerts+numOuterMdlVerts);
-    createBoundingBoxGeom(mdlTopo, features.outer, splines); //REMOVING THIS
 
-    //FIXME - set classification for the bbox
+    auto splines = SplineInterp::SplineInfo(numInnerMdlVerts+numOuterMdlVerts);
     PointClassification ptClass(features.inner.numVtx+features.outer.numVtx);
+    createEdges(mdlTopo, features.outer, ptClass, splines, isPointOnCurveOuter, isMdlVtxOuter, debug);
     createEdges(mdlTopo, features.inner, ptClass, splines, isPointOnCurveInner, isMdlVtxInner, debug);
 
     writePointParametricCoords(features, ptClass, splines, modelFileName + "_parametric.oshb");

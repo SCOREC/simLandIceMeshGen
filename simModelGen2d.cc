@@ -97,7 +97,7 @@ void setClassification(GeomInfo& geom, PointClassification& ptClass, const int f
 }
 
 void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, PointClassification& ptClass, SplineInterp::SplineInfo& splines, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug) {
-  if(geom.numVtx <= geom.firstContourPt) { // no internal contour
+  if(geom.numVtx <= 0) { //no contour
     return;
   }
 
@@ -281,52 +281,6 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, PointClassification& ptClas
     state = res.first;
     ptsVisited++;
     ptIdx = geom.getNextPtIdx(ptIdx);
-  }
-
-}
-
-void createBoundingBoxGeom(ModelTopo& mdlTopo, GeomInfo& geom, SplineInterp::SplineInfo& splines, bool debug) {
-  // TODO generalize face creation
-  if (geom.numEdges > 4) {
-    mdlTopo.faces.reserve(2);
-  } else {
-    mdlTopo.faces.reserve(1);
-  }
-
-  // First we'll add the vertices
-  int i;
-  for (i = 0; i < 4; i++) {
-    double vtx[3] = {geom.vtx_x[i], geom.vtx_y[i], 0};
-    mdlTopo.vertices.push_back(GR_createVertex(mdlTopo.region, vtx));
-    if (debug)
-      std::cout << "vtx " << i << " (" << vtx[0] << " , " << vtx[1] << ")\n";
-  }
-
-  std::vector<pGEdge> edges;
-  // Now we'll add the edges
-  double point0[3], point1[3]; // xyz locations of the two vertices
-  pCurve linearCurve;
-  for (i = 0; i < 4; i++) {
-    const auto startVertIdx = geom.edges[i][0];
-    const auto endVertIdx = geom.edges[i][1];
-    auto startVert = mdlTopo.vertices.at(startVertIdx);
-    auto endVert = mdlTopo.vertices.at(endVertIdx);
-    GV_point(startVert, point0);
-    GV_point(endVert, point1);
-    linearCurve = SCurve_createLine(point0, point1);
-    auto edge = GR_createEdge(mdlTopo.region, startVert, endVert, linearCurve, 1);
-    mdlTopo.edges.push_back(edge);
-    {
-    std::vector<double> pts(2*3);
-    pts[0] = point0[0]; pts[1] = point0[1]; pts[2] = point0[2];
-    pts[3] = point1[0]; pts[4] = point1[1]; pts[5] = point1[2];
-    splines.addSpline(SplineInterp::attach_piecewise_linear_curve(pts));
-    }
-    if (debug) {
-      std::cout << "edge " << i << " (" << point0[0] << " , " << point0[1]
-        << ")"
-        << ",(" << point1[0] << " , " << point1[1] << ")\n";
-    }
   }
 
 }
