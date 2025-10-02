@@ -32,8 +32,8 @@ Omega_h::Reals setParametricCoords(ModelFeatures& features, const PointClassific
   const int numVtx = features.inner.numVtx+features.outer.numVtx;
   assert(ptClass.splineIdx.size() == numVtx);
   Omega_h::HostWrite<Omega_h::Real> paraCoords(numVtx*2);
-  setPara(features.outer, ptClass, sinfo, paraCoords, features.outer.numVtx);
-  setPara(features.inner, ptClass, sinfo, paraCoords, 0);
+  setPara(features.outer, ptClass, sinfo, paraCoords, 0);
+  setPara(features.inner, ptClass, sinfo, paraCoords, features.outer.numVtx);
   auto paraCoords_d = Omega_h::read(paraCoords.write());
   return paraCoords_d;
 }
