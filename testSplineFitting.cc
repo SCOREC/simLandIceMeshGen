@@ -173,8 +173,8 @@ double createSimModelEdge(const CurveReader::CurveInfo& curve, SplineInterp::BSp
 void checkInvEval(SplineInterp::BSpline2d& bspline, double x_in, double y_in) {
   const auto paraX = bspline.x.invEval(x_in);
   const auto paraY = bspline.y.invEval(y_in);
-  assert(paraX != std::numeric_limits<double>::quiet_NaN());
-  assert(paraY != std::numeric_limits<double>::quiet_NaN());
+  assert(!std::isnan(paraX));
+  assert(!std::isnan(paraY));
   const auto x = bspline.x.eval(paraX);
   const auto y = bspline.y.eval(paraY);
   assert(isClose(x,x_in));
