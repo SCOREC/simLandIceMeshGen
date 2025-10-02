@@ -18,24 +18,27 @@ void setPara(const GeomInfo& geom,
     Omega_h::HostWrite<Omega_h::Real>& paraCoords,
     int startIdx) {
   for(int i=0; i<geom.numVtx; i++) {
-    const auto sIdx = ptClass.splineIdx[startIdx+i]; //CHECK
-    const auto bspline = sinfo.splines[sIdx];
+    const auto sIdx = ptClass.splineIdx.at(startIdx+i); //CHECK
+    const auto bspline = sinfo.splines.at(sIdx);
     const auto x = geom.vtx_x.at(i); 
     const auto y = geom.vtx_y.at(i); 
     paraCoords[(startIdx+i)*2] = bspline.x.invEval(x);
     paraCoords[(startIdx+i)*2+1] = bspline.y.invEval(y);
+    std::cout << sIdx << ", " << paraCoords[(startIdx+i)*2] << ", " << paraCoords[(startIdx+i)*2+1] << "\n";
   }
 }
 
-void writePointParametricCoords(const ModelFeatures& features, const PointClassification& ptClass, const SplineInterp::SplineInfo& sinfo, std::string filename) {
-  const int numVtx = features.inner.numVtx+features.outer.numEdges;
+Omega_h::Reals setParametricCoords(ModelFeatures& features, const PointClassification& ptClass, const SplineInterp::SplineInfo& sinfo) {
+  const int numVtx = features.inner.numVtx+features.outer.numVtx;
   assert(ptClass.splineIdx.size() == numVtx);
-
   Omega_h::HostWrite<Omega_h::Real> paraCoords(numVtx*2);
+  setPara(features.outer, ptClass, sinfo, paraCoords, features.outer.numVtx);
   setPara(features.inner, ptClass, sinfo, paraCoords, 0);
-  setPara(features.outer, ptClass, sinfo, paraCoords, features.inner.numVtx);
   auto paraCoords_d = Omega_h::read(paraCoords.write());
+  return paraCoords_d;
+}
 
+void writePointParametricCoords(Omega_h::Reals paraCoords_d, std::string filename) {
   std::ofstream file(filename);
   assert(file.is_open());
   const int compressed = 0;
@@ -143,10 +146,11 @@ int main(int argc, char **argv) {
 
     auto splines = SplineInterp::SplineInfo(numInnerMdlVerts+numOuterMdlVerts);
     PointClassification ptClass(features.inner.numVtx+features.outer.numVtx);
-    createEdges(mdlTopo, features.outer, ptClass, splines, isPointOnCurveOuter, isMdlVtxOuter, debug);
+    createEdges(mdlTopo, features.outer, ptClass, splines, isPointOnCurveOuter, isMdlVtxOuter, true);
     createEdges(mdlTopo, features.inner, ptClass, splines, isPointOnCurveInner, isMdlVtxInner, debug);
 
-    writePointParametricCoords(features, ptClass, splines, modelFileName + "_parametric.oshb");
+    const auto paraCoords = setParametricCoords(features, ptClass, splines);
+    writePointParametricCoords(paraCoords, modelFileName + "_parametric.oshb");
     //write the point classification to an omegah binary file
     ptClass.writeToOsh(modelFileName + "_class.oshb");
     //write the bsplines to an omegah binary file
