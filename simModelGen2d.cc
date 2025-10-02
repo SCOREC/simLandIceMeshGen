@@ -185,7 +185,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, PointClassification& ptClas
   func createLine = [&](int pt) {
     assert(ptsOnCurve.size() == 1);
     ptsOnCurve.push_back(pt);
-    auto ignored = createBSpline(pt);
+    auto ignored = createCurve(pt, true);
     return psa{State::MdlVtx,Action::Line};
   };
   func advance = [&](int pt) {
