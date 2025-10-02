@@ -159,6 +159,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, PointClassification& ptClas
 
     if (debug) {
       std::cerr << "edge " << mdlTopo.edges.size()
+        << " splineIdx " << splines.size() << " "
         << " isLinearSpline " << isLinearSpline << " "
         << " range " << startingCurvePtIdx << " " << pt
         << " numPts " << ptsOnCurve.size() << "\n";
