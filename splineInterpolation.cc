@@ -243,7 +243,6 @@ BSpline2d fitCubicSplineToPoints(std::vector<double> xpts,
   }
   double increment = 1.0 / (numPts - 1);
   for (int i = 0; i < numPts - 2; i++) {
-    // double increment=inter_len.at(i)/len;
     knots.at(order_p + i) = knots.at(order_p + i - 1) + increment;
   }
   interpolateCubicBSpline(xpts, knots, ctrlPointsX, 0);
