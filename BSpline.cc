@@ -253,6 +253,9 @@ double BSpline::invEval(double targetPt, double guess, bool debug) const {
       return res;
     }
   }
+  std::cerr << "ERROR: " << __func__ << " could not find parametric coordinate for input point "
+            << targetPt << '\n';
+  assert(false);
   exit(EXIT_FAILURE);
 }
 
