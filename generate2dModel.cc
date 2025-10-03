@@ -23,8 +23,9 @@ Omega_h::Reals setParametricCoords(GeomInfo& geom, const PointClassification& pt
     const auto bspline = sinfo.splines.at(sIdx);
     const auto x = geom.vtx_x.at(i); 
     const auto y = geom.vtx_y.at(i); 
-    paraCoords[i*2] = bspline.x.invEval(x);
-    paraCoords[i*2+1] = bspline.y.invEval(y);
+    const auto noGuess = -1;
+    paraCoords[i*2] = bspline.x.invEval(x,noGuess,debug);
+    paraCoords[i*2+1] = bspline.y.invEval(y,noGuess-1,debug);
     if(debug)
       std::cerr << sIdx << ", " << x << ", " << y << ", " << paraCoords[i*2] << ", " << paraCoords[i*2+1] << "\n";
     assert(!std::isnan(paraCoords[i*2]));
