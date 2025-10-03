@@ -212,32 +212,6 @@ double BSpline::newtonRaphson(const double targetPt,
   return std::numeric_limits<double>::quiet_NaN(); // Failed to converge
 }
 
-double BSpline::invEval(double targetPt) const {
-  const int numSamples = knots.size()*2;
-  const double tolerance = 1e-10;
-  const int maxIterations = 50;
-  const double tMin = 0.0;
-  const double tMax = 1.0;
-
-  // Find best initial guess by sampling
-  double bestT = tMin;
-  double minDistance = std::numeric_limits<double>::max();
-
-  for (int i = 0; i <= numSamples; ++i) {
-    double t = tMin + (tMax - tMin) * i / numSamples;
-    double point = eval(t);
-    double distance = std::abs(point - targetPt);
-
-    if (distance < minDistance) {
-      minDistance = distance;
-      bestT = t;
-    }
-  }
-
-  // Use Newton-Raphson with best initial guess
-  return newtonRaphson(targetPt, bestT, tolerance, maxIterations, tMin, tMax);
-}
-
 double BSpline::invEval(double targetPt, double guess, bool debug) const {
   if(debug) {
     std::cerr << "targetPt " << targetPt << " guess " << guess << "\n";
@@ -265,7 +239,9 @@ double BSpline::invEval(double targetPt, double guess, bool debug) const {
       guesses.push_back(t);
     }
   }
-  guesses.push_back(guess);
+  if(guess != -1) {
+    guesses.push_back(guess);
+  }
 
   for(auto rit = guesses.rbegin(); rit != guesses.rend(); ++rit) {
     const auto guess = *rit;

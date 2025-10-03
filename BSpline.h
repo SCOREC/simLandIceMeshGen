@@ -70,8 +70,7 @@ public:
   virtual double eval(double x, bool debug=false) const;
   virtual double evalFirstDeriv(double x) const;
   virtual double evalSecondDeriv(double x) const;
-  double invEval(double targetPt) const;
-  double invEval(double targetPt, double guess, bool debug=false) const;
+  double invEval(double targetPt, double guess = -1, bool debug=false) const;
   void print();
   void getpara(int &order_p, std::vector<double> &ctrlPts_p,
                std::vector<double> &knots_p, std::vector<double> &weight_p);
