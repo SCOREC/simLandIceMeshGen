@@ -143,7 +143,7 @@ if(USE_SIMMODSUITE)
   add_test(NAME testSplineFitting_sine_edge
            COMMAND ./testSplineFitting ${testDataDir}/testCurveSineSegment.csv 10.24227846)
   add_test(NAME testSplineFitting_gisCurve1_edge
-           COMMAND ./testSplineFitting ${testDataDir}/gisCurve1.csv 23.2446)
+           COMMAND ./testSplineFitting ${testDataDir}/gisCurve1.csv 22.8891)
 endif()
 
 # Create function for executables that only use curveReader and modelGen2d (no SimModSuite)

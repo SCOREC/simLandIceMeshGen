@@ -11,6 +11,7 @@
 #include <math.h>
 #include <string>
 #include <fstream>
+#include <numeric> //exclusive_scan
 
 bool isClose(double x, double y) {
   if( x == y || std::abs(x-y) < 1e-10 ) {
@@ -170,9 +171,9 @@ double createSimModelEdge(const CurveReader::CurveInfo& curve, SplineInterp::BSp
   return length;
 }
 
-void checkInvEval(SplineInterp::BSpline2d& bspline, double x_in, double y_in) {
-  const auto paraX = bspline.x.invEval(x_in);
-  const auto paraY = bspline.y.invEval(y_in);
+void checkInvEval(SplineInterp::BSpline2d& bspline, double x_in, double y_in, double guess) {
+  const auto paraX = bspline.x.invEval(x_in, guess);
+  const auto paraY = bspline.y.invEval(y_in, guess);
   assert(!std::isnan(paraX));
   assert(!std::isnan(paraY));
   const auto x = bspline.x.eval(paraX);
@@ -209,15 +210,27 @@ int main(int argc, char **argv) {
   writeDefinition(fileNameNoExt, bspline);
   writeSamples(fileNameNoExt, curve, bspline);
 
+  std::vector<double> distanceSq;
+  distanceSq.push_back(0);
+  for(int i=1; i<curve.x.size(); i++) {
+    const double d = std::pow((curve.x[i]-curve.x[i-1]),2) +
+                     std::pow((curve.y[i]-curve.y[i-1]),2);
+    distanceSq.push_back(d);
+  }
+
+  std::vector<double> offsetDistSq(distanceSq.size());
+  std::inclusive_scan(distanceSq.begin(), distanceSq.end(), offsetDistSq.begin());
+
   for(int i=0; i<curve.x.size(); i++) {
-    checkInvEval(bspline, curve.x[i], curve.y[i]);
+    double guess = offsetDistSq.at(i)/offsetDistSq.back();
+    checkInvEval(bspline, curve.x[i], curve.y[i], guess);
   }
 
   //Fit curve using the simmetrix APIs
   auto length = createSimModelEdge(curve, bspline);
 
   //compare length
-  std::cout << " Expected Length: " << expectedCurveLength << std::endl;
+  std::cout << "Expected Length: " << expectedCurveLength << std::endl;
   assert(std::fabs(length - expectedCurveLength) <= 1e-5);
   return 0;
 }

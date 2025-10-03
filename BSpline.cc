@@ -174,9 +174,12 @@ void BSpline::getpara(int &order_p, vector<double> &ctrlPts_p,
  * @param tMax (in) Maximum valid parameter value
  * @return parametric location, or NaN if failed to converge
  */
-double BSpline::invEval_impl(const double targetPt, const double initialGuess,
-                             const double tolerance, const int maxIterations,
-                             const double tMin, const double tMax) const {
+double BSpline::newtonRaphson(const double targetPt,
+                              const double initialGuess,
+                              const double tolerance,
+                              const int maxIterations,
+                              const double tMin,
+                              const double tMax) const {
   double t = initialGuess;
 
   for (int i = 0; i < maxIterations; ++i) {
@@ -208,8 +211,9 @@ double BSpline::invEval_impl(const double targetPt, const double initialGuess,
 
   return std::numeric_limits<double>::quiet_NaN(); // Failed to converge
 }
+
 double BSpline::invEval(double targetPt) const {
-  const int numSamples = 20;
+  const int numSamples = knots.size()*2;
   const double tolerance = 1e-10;
   const int maxIterations = 50;
   const double tMin = 0.0;
@@ -231,8 +235,51 @@ double BSpline::invEval(double targetPt) const {
   }
 
   // Use Newton-Raphson with best initial guess
-  return invEval_impl(targetPt, bestT, tolerance, maxIterations, tMin, tMax);
+  return newtonRaphson(targetPt, bestT, tolerance, maxIterations, tMin, tMax);
 }
+
+double BSpline::invEval(double targetPt, double guess, bool debug) const {
+  if(debug) {
+    std::cerr << "targetPt " << targetPt << " guess " << guess << "\n";
+  }
+
+  // Find best initial guess by sampling
+  const int numSamples = knots.size()*2;
+  const double tolerance = 1e-10;
+  const int maxIterations = 50;
+  const double tMin = 0.0;
+  const double tMax = 1.0;
+  double bestT = tMin;
+  double minDistance = std::numeric_limits<double>::max();
+
+  std::vector<double> guesses;
+  guesses.reserve(numSamples);
+  for (int i = 0; i <= numSamples; ++i) {
+    double t = tMin + (tMax - tMin) * i / numSamples;
+    double point = eval(t);
+    double distance = std::abs(point - targetPt);
+
+    if (distance < minDistance) {
+      minDistance = distance;
+      bestT = t;
+      guesses.push_back(t);
+    }
+  }
+  guesses.push_back(guess);
+
+  for(auto rit = guesses.rbegin(); rit != guesses.rend(); ++rit) {
+    const auto guess = *rit;
+    if(debug) {
+      std::cerr << " guess " << guess << "\n";
+    }
+    const auto res = newtonRaphson(targetPt, guess, tolerance, maxIterations, tMin, tMax);
+    if(! std::isnan(res) ) {
+      return res;
+    }
+  }
+  exit(EXIT_FAILURE);
+}
+
 // H.Prautzsch Springer,2002
 BSpline &BSpline::operator=(const PolyNomial &pn) {
   vector<double> coffs_p;
