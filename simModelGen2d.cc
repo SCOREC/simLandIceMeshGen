@@ -257,6 +257,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, PointClassification& ptClas
   firstPtIdx = startingCurvePtIdx = findFirstPt(isMdlVtx, geom.firstContourPt, isVtx);
   if(firstPtIdx == -1) {
     std::cerr << "Error: at least one point must be marked as a model vertex... exiting\n";
+    assert(false);
     exit(EXIT_FAILURE);
   }
   double vtx[3] = {geom.vtx_x[startingCurvePtIdx], geom.vtx_y[startingCurvePtIdx], 0};
