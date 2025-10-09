@@ -91,7 +91,8 @@ int main(int argc, char **argv) {
 
   assert(units == "m" || units == "km");
 
-  GeomInfo dirty = readOmegahGeom(filename);
+  auto lib = Omega_h::Library(); //need kokkos for entire execution for omegah array functions
+  GeomInfo dirty = readOmegahGeom(lib, filename);
 
   if(units == "m") {
     convertMetersToKm(dirty);

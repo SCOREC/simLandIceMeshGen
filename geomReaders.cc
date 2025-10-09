@@ -75,8 +75,7 @@ void addVtx(GeomInfo& geom, Omega_h::HostRead<Omega_h::Real> coords, Omega_h::LO
   geom.addVtx(vtx,x,y);
 }
 
-GeomInfo readOmegahGeom(std::string fname, bool debug) {
-  auto lib = Omega_h::Library();
+GeomInfo readOmegahGeom(Omega_h::Library& lib, std::string fname, bool debug) {
   Omega_h::Mesh mesh(&lib);
   Omega_h::binary::read(fname, lib.world(), &mesh);
 

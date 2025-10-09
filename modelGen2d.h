@@ -80,7 +80,10 @@ struct PlaneBounds {
 PlaneBounds getBoundingPlane(GeomInfo &geom);
 
 
-GeomInfo readOmegahGeom(std::string fname, bool debug = false);
+namespace Omega_h {
+  class Library; //fwd declare
+};
+GeomInfo readOmegahGeom(Omega_h::Library& lib, std::string fname, bool debug = false);
 ModelFeatures readVtkGeom(std::string fname, bool debug = false);
 ModelFeatures readJigGeom(std::string fname, bool debug = false);
 
