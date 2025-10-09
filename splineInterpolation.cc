@@ -36,7 +36,7 @@ void SplineInfo::writeSamplesToCsv(std::string filename) {
   file << "splineId, x, y\n";
   int id=0;
   for(auto& spline : splines) {
-    auto numSamples = 4;
+    auto numSamples = 20;
     auto step = 1.0/(numSamples-1);
     for(int i = 0; i < numSamples; ++i) {
       auto t = step * i;
