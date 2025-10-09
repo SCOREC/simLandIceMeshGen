@@ -17,17 +17,22 @@ Omega_h::Reals setParametricCoords(GeomInfo& geom, const PointClassification& pt
   assert(ptClass.splineIdx.size() == numVtx);
   Omega_h::HostWrite<Omega_h::Real> paraCoords(geom.numVtx*2);
   if(debug)
-    std::cerr << "sIdx, x, y, paraX, paraY\n";
+    std::cerr << __func__ << " sIdx, x, y, paraX, paraY\n";
   for(int i=0; i<geom.numVtx; i++) {
     const auto sIdx = ptClass.splineIdx.at(i);
     const auto bspline = sinfo.splines.at(sIdx);
     const auto x = geom.vtx_x.at(i); 
     const auto y = geom.vtx_y.at(i); 
     const auto noGuess = -1;
+    if(debug)
+      std::cerr << __func__ << " " << sIdx << " " << x << ", " << y << '\n';
+    if(x==831) {
+      std::cerr << "bad pt\n";
+    }
     paraCoords[i*2] = bspline.x.invEval(x,noGuess,debug);
     paraCoords[i*2+1] = bspline.y.invEval(y,noGuess,debug);
     if(debug)
-      std::cerr << sIdx << ", " << x << ", " << y << ", " << paraCoords[i*2] << ", " << paraCoords[i*2+1] << "\n";
+      std::cerr << __func__ << " " << paraCoords[i*2] << ", " << paraCoords[i*2+1] << "\n";
     assert(!std::isnan(paraCoords[i*2]));
     assert(!std::isnan(paraCoords[i*2+1]));
   }
