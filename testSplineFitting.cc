@@ -172,7 +172,7 @@ double createSimModelEdge(const CurveReader::CurveInfo& curve, SplineInterp::BSp
 }
 
 void checkInvEval(SplineInterp::BSpline2d& bspline, double x_in, double y_in, double guess) {
-  bool debug = false;
+  bool debug = true;
   if(debug)
     std::cerr << "pt " << x_in << ", " << y_in << '\n';
   const auto paraX = bspline.x.invEval(x_in, guess, debug);
