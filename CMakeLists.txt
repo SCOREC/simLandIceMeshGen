@@ -46,6 +46,8 @@ if(USE_SIMMODSUITE)
 
   add_test(NAME simModelGen2dFromMesh_thwaites
     COMMAND ./generate2dModelFromMesh ${testDataDir}/thwaites_basal_effectiveStrain.osh thwaites 1 100 100 "km")
+  set_tests_properties(simModelGen2dFromMesh_thwaites PROPERTIES
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 26")
   add_test(NAME simModelGen2d_gis
     COMMAND ./generate2dModel ${testDataDir}/gis.msh gis 1 100 100 1 "m")
   set_tests_properties(simModelGen2d_gis PROPERTIES
