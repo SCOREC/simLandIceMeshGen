@@ -287,6 +287,32 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, PointClassification& ptClas
 
 }
 
+void createFace(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
+  const double corner[3] = {planeBounds.minX, planeBounds.minY, 0};
+  const double xPt[3] = {planeBounds.maxX, planeBounds.minY, 0};
+  const double yPt[3] = {planeBounds.minX, planeBounds.maxY, 0};
+  const int faceDirectionFwd = 1;
+  const int sameNormal = 1;
+
+  pSurface planarSurface = SSurface_createPlane(corner, xPt, yPt);
+  const int numEdgesInnerFace = mdlTopo.edges.size();
+  const int numLoopsInnerFace = 1;
+  int loopFirstEdgeIdx[1] = {0};
+  for (int i = 0; i < numEdgesInnerFace; i++) {
+    mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
+    mdlTopo.faceEdges.push_back(mdlTopo.edges.at(i));
+  }
+  mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, numEdgesInnerFace,
+        mdlTopo.faceEdges.data(),
+        mdlTopo.faceDirs.data(),
+        numLoopsInnerFace, loopFirstEdgeIdx,
+        planarSurface, sameNormal));
+  if(debug) {
+    std::cout << "faces[1] area: " << GF_area(mdlTopo.faces.at(0), 0.2) << "\n";
+  }
+  assert(GF_area(mdlTopo.faces.at(0), 0.2) > 0);
+}
+
 void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
   // Now add the faces
   double corner[3], xPt[3], yPt[3]; // the points defining the surface of the face
@@ -315,7 +341,6 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
   const int sameNormal = 1;
   const int oppositeNormal = 0;
 
-  // Create the face
   // the first four edges define the outer bounding rectangle
   for (int i = 0; i < 4; i++) {
     mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise

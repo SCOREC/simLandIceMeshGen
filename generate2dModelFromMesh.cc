@@ -147,7 +147,8 @@ int main(int argc, char **argv) {
     //write the sampled bsplines to a csv file
     splines.writeSamplesToCsv(modelFileName + "_splines.csv");
 
-    //createFaces(mdlTopo, geom); //FIXME
+    auto planeBounds = getBoundingPlane(geom);
+    createFace(mdlTopo, planeBounds);
 
     printModelInfo(mdlTopo.model);
 
