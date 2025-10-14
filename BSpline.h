@@ -70,19 +70,12 @@ public:
   virtual double eval(double x, bool debug=false) const;
   virtual double evalFirstDeriv(double x) const;
   virtual double evalSecondDeriv(double x) const;
-  double invEval(double targetPt, double guess = -1, bool debug=false) const;
   void print();
   void getpara(int &order_p, std::vector<double> &ctrlPts_p,
                std::vector<double> &knots_p, std::vector<double> &weight_p);
   BSpline &operator=(const PolyNomial &pn);
 
 private:
-  double newtonRaphson(const double targetPt,
-                       const double initialGuess,
-                       const double tolerance = 1e-10,
-                       const int maxIterations = 50,
-                       const double tMin = 0,
-                       const double tMax = 1) const;
   void calcuDerivCoeff();
   int order;
   std::vector<double> ctrlPts;

@@ -22,8 +22,10 @@ void setPara(const GeomInfo& geom,
     const auto bspline = sinfo.splines.at(sIdx);
     const auto x = geom.vtx_x.at(i); 
     const auto y = geom.vtx_y.at(i); 
-    paraCoords[(startIdx+i)*2] = bspline.x.invEval(x);
-    paraCoords[(startIdx+i)*2+1] = bspline.y.invEval(y);
+    const auto noGuess = -1;
+    const double t = bspline.invEval({x,y}, noGuess);
+    paraCoords[(startIdx+i)*2] = t;
+    paraCoords[(startIdx+i)*2+1] = t;
     std::cout << sIdx << ", " << paraCoords[(startIdx+i)*2] << ", " << paraCoords[(startIdx+i)*2+1] << "\n";
   }
 }

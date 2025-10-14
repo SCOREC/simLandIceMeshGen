@@ -175,12 +175,10 @@ void checkInvEval(SplineInterp::BSpline2d& bspline, double x_in, double y_in, do
   bool debug = true;
   if(debug)
     std::cerr << "pt " << x_in << ", " << y_in << '\n';
-  const auto paraX = bspline.x.invEval(x_in, guess, debug);
-  const auto paraY = bspline.y.invEval(y_in, guess, debug);
-  assert(!std::isnan(paraX));
-  assert(!std::isnan(paraY));
-  const auto x = bspline.x.eval(paraX);
-  const auto y = bspline.y.eval(paraY);
+  const auto t = bspline.invEval({x_in,y_in}, guess, debug);
+  assert(!std::isnan(t));
+  const auto x = bspline.x.eval(t);
+  const auto y = bspline.y.eval(t);
   assert(isClose(x,x_in));
   assert(isClose(y,y_in));
 }

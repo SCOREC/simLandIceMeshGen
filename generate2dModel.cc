@@ -29,8 +29,9 @@ Omega_h::Reals setParametricCoords(GeomInfo& geom, const PointClassification& pt
     if(x==831) {
       std::cerr << "bad pt\n";
     }
-    paraCoords[i*2] = bspline.x.invEval(x,noGuess,debug);
-    paraCoords[i*2+1] = bspline.y.invEval(y,noGuess,debug);
+    const double t = bspline.invEval({x,y}, noGuess, debug);
+    paraCoords[i*2] = t;
+    paraCoords[i*2+1] = t;
     if(debug)
       std::cerr << __func__ << " " << paraCoords[i*2] << ", " << paraCoords[i*2+1] << "\n";
     assert(!std::isnan(paraCoords[i*2]));

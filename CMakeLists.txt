@@ -18,7 +18,7 @@ find_package(BLAS REQUIRED)
 
 find_package(Omega_h REQUIRED)
 
-add_library(splineInterp splineInterpolation.cc BSpline.cc Expression.cc PolyNomial.cc)
+add_library(splineInterp splineInterpolation.cc BSpline.cc BSpline2d.cc Expression.cc PolyNomial.cc)
 target_link_libraries(splineInterp PRIVATE BLAS::BLAS Omega_h::omega_h)
 
 add_library(modelGen2d modelGen2d.cc geomReaders.cc)
