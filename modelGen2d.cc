@@ -548,10 +548,11 @@ GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
   return clean;
 }
 
-void makeOrientationPositive(GeomInfo& geom) {
+void makeOrientationPositive(GeomInfo& geom, bool debug) {
   if(geom.numVtx == 0) return;
   if( !isPositiveOrientation(geom) ) {
-    std::cerr << "orientation is not positive... reversing\n";
+    if(debug)
+      std::cerr << "orientation is not positive... reversing\n";
     geom.reverseContourPoints();
   }
 }

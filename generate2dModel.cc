@@ -26,9 +26,6 @@ Omega_h::Reals setParametricCoords(GeomInfo& geom, const PointClassification& pt
     const auto noGuess = -1;
     if(debug)
       std::cerr << __func__ << " " << sIdx << " " << x << ", " << y << '\n';
-    if(x==831) {
-      std::cerr << "bad pt\n";
-    }
     const double t = bspline.invEval({x,y}, noGuess, debug);
     paraCoords[i*2] = t;
     paraCoords[i*2+1] = t;
@@ -150,12 +147,12 @@ int main(int argc, char **argv) {
     auto splinesOuter = SplineInterp::SplineInfo(numOuterMdlVerts);
     PointClassification ptClassInner(features.inner.numVtx);
     PointClassification ptClassOuter(features.outer.numVtx);
-    createEdges(mdlTopo, features.outer, ptClassOuter, splinesOuter, isPointOnCurveOuter, isMdlVtxOuter, true);
-    createEdges(mdlTopo, features.inner, ptClassInner, splinesInner, isPointOnCurveInner, isMdlVtxInner, true);
+    const bool debug = false;
+    createEdges(mdlTopo, features.outer, ptClassOuter, splinesOuter, isPointOnCurveOuter, isMdlVtxOuter, debug);
+    createEdges(mdlTopo, features.inner, ptClassInner, splinesInner, isPointOnCurveInner, isMdlVtxInner, debug);
 
-    const auto paraCoordsOuter = setParametricCoords(features.outer, ptClassOuter, splinesOuter, true);
-    std::cerr << "innerPara\n";
-    const auto paraCoordsInner = setParametricCoords(features.inner, ptClassInner, splinesInner, true);
+    const auto paraCoordsOuter = setParametricCoords(features.outer, ptClassOuter, splinesOuter);
+    const auto paraCoordsInner = setParametricCoords(features.inner, ptClassInner, splinesInner);
 
     writePointParametricCoords(paraCoordsInner, modelFileName + "_parametricInner.oshb");
     writePointParametricCoords(paraCoordsOuter, modelFileName + "_parametricOuter.oshb");

@@ -96,7 +96,7 @@ int findFirstPt(std::vector<int>& prop, const int offset, const int match);
 void convertMetersToKm(GeomInfo &geom);
 GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
                       bool debug = false);
-void makeOrientationPositive(GeomInfo& geom);
+void makeOrientationPositive(GeomInfo& geom, bool debug=false);
 
 std::tuple<std::vector<int>,std::vector<int>>
 discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug = false);

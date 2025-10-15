@@ -26,7 +26,6 @@ void setPara(const GeomInfo& geom,
     const double t = bspline.invEval({x,y}, noGuess);
     paraCoords[(startIdx+i)*2] = t;
     paraCoords[(startIdx+i)*2+1] = t;
-    std::cout << sIdx << ", " << paraCoords[(startIdx+i)*2] << ", " << paraCoords[(startIdx+i)*2+1] << "\n";
   }
 }
 
