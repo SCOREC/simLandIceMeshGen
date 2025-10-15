@@ -157,7 +157,44 @@ PlaneBounds getBoundingPlane(GeomInfo &geom) {
   auto maxX = std::max_element(geom.vtx_x.begin(), geom.vtx_x.end());
   auto minY = std::min_element(geom.vtx_y.begin(), geom.vtx_y.end());
   auto maxY = std::max_element(geom.vtx_y.begin(), geom.vtx_y.end());
+  assert(minX != geom.vtx_x.end());
+  assert(maxX != geom.vtx_x.end());
+  assert(minY != geom.vtx_y.end());
+  assert(maxY != geom.vtx_y.end());
   return {*minX, *maxX, *minY, *maxY};
+}
+
+ModelFeatures splitIntoInnerAndOuter(GeomInfo& geom) {
+  GeomInfo outer;
+  //if the fourth edge's second point is the same
+  //as the first edge's first point then we have
+  //a bbox defined by four points
+  if( geom.edges[0][0] == geom.edges[3][1] ) {
+    //move the points and edges that define the bbox
+    //to its own GeomInfo
+    outer.numVtx = 4;
+    outer.numEdges = 4;
+    for(int i=0; i<4; i++)  {
+      outer.verts.push_back(i);
+      outer.vtx_x.push_back(geom.vtx_x[i]);
+      outer.vtx_y.push_back(geom.vtx_y[i]);
+      outer.edges.push_back({geom.edges[i][0], geom.edges[i][1]});
+    }
+    //shift back the remaining points
+    for(int i=0, j=4; j<geom.numVtx; i++, j++) {
+      geom.verts[i] = i;
+      geom.vtx_x[i] = geom.vtx_x[j];
+      geom.vtx_y[i] = geom.vtx_y[j];
+      geom.edges[i][0] = geom.edges[j][0] - 4;
+      geom.edges[i][1] = geom.edges[j][1] - 4;
+    }
+    geom.numVtx-=4;
+    geom.numEdges-=4;
+    geom.vtx_x.resize(geom.numVtx);
+    geom.vtx_y.resize(geom.numVtx);
+    geom.edges.resize(geom.numEdges);
+  }
+  return {geom,outer};
 }
 
 std::array<double, 3> readPoint(std::ifstream &in, bool debug = true) {
@@ -205,7 +242,7 @@ std::array<int, 2> readEdgeVtk(std::ifstream &in, bool debug = true) {
   return edge;
 }
 
-GeomInfo readVtkGeom(std::string fname, bool debug) {
+ModelFeatures readVtkGeom(std::string fname, bool debug) {
   std::ifstream vtkFile(fname);
   if (!vtkFile.is_open()) {
     fprintf(stderr, "failed to open VTK geom file %s\n", fname.c_str());
@@ -270,10 +307,11 @@ GeomInfo readVtkGeom(std::string fname, bool debug) {
       std::cout << "edge " << geom.edges[i][0] << ", " << geom.edges[i][1]
                 << std::endl;
   }
-  return geom;
+
+  return splitIntoInnerAndOuter(geom);
 }
 
-GeomInfo readJigGeom(std::string fname, bool debug) {
+ModelFeatures readJigGeom(std::string fname, bool debug) {
   std::ifstream mshFile(fname);
   if (!mshFile.is_open()) {
     fprintf(stderr, "failed to open jigsaw geom file %s\n", fname.c_str());
@@ -329,7 +367,7 @@ GeomInfo readJigGeom(std::string fname, bool debug) {
   }
   mshFile.close();
 
-  return geom;
+  return splitIntoInnerAndOuter(geom);
 }
 
 double getLengthSquared(double ax, double ay, double bx, double by) {
@@ -389,8 +427,8 @@ bool isNumEdgesBtwnPtsGreaterThanOne(size_t small, size_t large, size_t firstPt,
 //find pairs of points that are not consecutative, but are within some length
 //tolerance of each other - mark these points as model vertices to help prevent
 //intersecting bsplines
-std::map<int,int> findNarrowChannels(GeomInfo &g, double coincidentVtxToleranceSquared, bool debug=false) {
-  assert(g.vtx_x.size() >= g.firstContourPt);
+std::map<int,int> findNarrowChannels(GeomInfo& geom, double coincidentVtxToleranceSquared, bool debug=false) {
+  assert(geom.numVtx >= 0);
 
   //use a quadtree
   struct Node
@@ -398,19 +436,28 @@ std::map<int,int> findNarrowChannels(GeomInfo &g, double coincidentVtxToleranceS
     quadtree::Box<double> box;
     std::size_t id;
   };
-  auto n = std::size_t(g.vtx_x.size());
+  auto n = std::size_t(geom.numVtx);
   auto getBox = [](Node* node)
   {
     return node->box;
   };
-  const auto bbox = getBoundingPlane(g);
-  auto domain = quadtree::Box<double>(bbox.minX, bbox.minY, bbox.maxX-bbox.minX, bbox.maxY-bbox.minY);
+  //As the bbox is defined by the limits of the contour (geom)
+  // then, we need to pad the bbox to support contour points
+  // that form an axis aligned rectangle.
+  //Since the contour points are enclosed by a bbox that is
+  // 'padding' wide and tall, then we need to pad the bbox by
+  // 2*padding on each side.
+  auto bbox = getBoundingPlane(geom);
+  double padding = std::sqrt(coincidentVtxToleranceSquared)/2;
+  auto domain = quadtree::Box<double>(bbox.minX-(2*padding),
+                                      bbox.minY-(2*padding),
+                                      bbox.maxX-bbox.minX+(4*padding),
+                                      bbox.maxY-bbox.minY+(4*padding));
   auto quadtree = quadtree::Quadtree<Node*, decltype(getBox), std::equal_to<Node*>, double>(domain, getBox);
 
-  double padding = std::sqrt(coincidentVtxToleranceSquared)/2;
   std::vector<Node> nodes;
-  for(size_t i = 4; i < g.vtx_x.size(); i++) {
-    auto box = makeBoxAroundPt(g.vtx_x.at(i),g.vtx_y.at(i),padding);
+  for(size_t i = 0; i < geom.numVtx; i++) {
+    auto box = makeBoxAroundPt(geom.vtx_x.at(i),geom.vtx_y.at(i),padding);
     nodes.push_back({box,i});
   }
   for(auto& node : nodes) {
@@ -422,19 +469,19 @@ std::map<int,int> findNarrowChannels(GeomInfo &g, double coincidentVtxToleranceS
     std::cout << "pt0_id, pt0_x, pt0_y, pt1_id, pt1_x, pt1_y\n";
     for(auto& [a,b] : intersections) {
       const int distance = std::abs(static_cast<int>(a->id)-static_cast<int>(b->id));
-      std::cout << a->id << ", " << g.vtx_x.at(a->id) << ", " << g.vtx_y.at(a->id) << ", "
-        << b->id << ", " << g.vtx_x.at(b->id) << ", " << g.vtx_y.at(b->id) << ", "
+      std::cout << a->id << ", " << geom.vtx_x.at(a->id) << ", " << geom.vtx_y.at(a->id) << ", "
+        << b->id << ", " << geom.vtx_x.at(b->id) << ", " << geom.vtx_y.at(b->id) << ", "
         << distance << "\n";
     }
     std::cout << "done\n";
   }
   //remove consecutative pairs
   std::map<int,int> longPairs;
-  const int lastPt = g.vtx_x.size()-1;
+  const int lastPt = geom.vtx_x.size()-1;
   for(auto& [a,b] : intersections) {
     const auto small = std::min(a->id, b->id);
     const auto large = std::max(a->id, b->id);
-    if(isNumEdgesBtwnPtsGreaterThanOne(small, large, g.firstContourPt, lastPt)) {
+    if(isNumEdgesBtwnPtsGreaterThanOne(small, large, geom.firstContourPt, lastPt)) {
       assert(longPairs.count(small) == 0);
       longPairs.insert({small, large});
     }
@@ -453,15 +500,14 @@ std::map<int,int> findNarrowChannels(GeomInfo &g, double coincidentVtxToleranceS
 
 GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
                       bool debug) {
+  if(dirty.numVtx == 0) {
+    return dirty;
+  }
   assert(checkVertexUse(dirty));
   // trying to check the the dirty geom has a chain of edges
   assert(dirty.numEdges == dirty.numVtx);
-  // the first four edges form a loop
-  assert(dirty.edges[0][0] == dirty.edges[3][1]); //FIXME - thwaites doesn't have a bbox, need to generically support contours that may be loops
-  // the remaining edges form a loop
-  if(dirty.edges.size() > 4) {
-    assert(dirty.edges.at(4)[0] == dirty.edges.back()[1]);
-  }
+  // the edges form a loop
+  assert(dirty.edges.at(0)[0] == dirty.edges.back()[1]);
 
   int numPtsRemoved = 0;
   GeomInfo clean;
@@ -491,31 +537,24 @@ GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
     std::cout << "removed " << numPtsRemoved << " coincident points\n";
 
   // loops have an equal number of verts and edges
-  assert(dirty.numVtx >= 4); // there must be a bounding box
   clean.edges.reserve(dirty.numVtx);
-  // the first loop is the rectangular boundary
-  for (int i = 0; i < 3; i++)
+  for (int i = 0; i < clean.numVtx - 1; i++)
     clean.edges.push_back({i, i + 1});
-  clean.edges.push_back({3, 0}); // close the loop
-  if (dirty.numVtx > 4) {        // there is another loop
-    // the second loop is the grounding line
-    for (int i = 4; i < clean.numVtx - 1; i++)
-      clean.edges.push_back({i, i + 1});
-    clean.edges.push_back({clean.numVtx - 1, 4}); // close the loop
-  }
+  clean.edges.push_back({clean.numVtx - 1, 0}); // close the loop
 
   clean.numEdges = clean.edges.size();
   assert(clean.numEdges == clean.numVtx);
 
-  clean.firstContourPt = 4; //only supports bounding rectangles - TODO move to geom ctor
-  if(clean.numVtx > 4) {
-    if( !isPositiveOrientation(clean) ) {
-      std::cerr << "orientation is not positive... reversing\n";
-      clean.reverseContourPoints();
-    }
-  }
-
   return clean;
+}
+
+void makeOrientationPositive(GeomInfo& geom, bool debug) {
+  if(geom.numVtx == 0) return;
+  if( !isPositiveOrientation(geom) ) {
+    if(debug)
+      std::cerr << "orientation is not positive... reversing\n";
+    geom.reverseContourPoints();
+  }
 }
 
 OnCurve::OnCurve(double onCurveAngleTol, bool isDebug) :
@@ -572,7 +611,7 @@ int findFirstPt(std::vector<int>& prop, const int offset, const int match) {
 
 /**
  * \brief determine where model vertices and smooth curves are along the contours
- * \param geom (in) provides coordinates of input points along the contour
+ * \param geom (in) provides coordinates of input points on the contour
  * \param coincidentPtTolSquared (in) tolerance in distance units (e.g., km for landice) for determining
  *        if consecutive points along the contour should be considered as coincident, the value
  *        is assumed to be squared
@@ -588,7 +627,7 @@ int findFirstPt(std::vector<int>& prop, const int offset, const int match) {
  */
 std::tuple<std::vector<int>,std::vector<int>>
 discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug) {
-  if(geom.numVtx <= geom.firstContourPt) { // no internal contour
+  if(geom.numVtx <= 0) { // no internal contour
     return {std::vector<int>(), std::vector<int>()};
   }
   const double deg_angle_lower = angleTol;
@@ -629,10 +668,10 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
   for(int i=geom.firstContourPt; i<geom.numVtx; i++) {
     const int m1 = geom.getPrevPtIdx(i);
     const int p1 = geom.getNextPtIdx(i);
-    const double norm_prev_x = geom.vtx_x[m1] - geom.vtx_x[i];
-    const double norm_prev_y = geom.vtx_y[m1] - geom.vtx_y[i];
-    const double norm_next_x = geom.vtx_x[p1] - geom.vtx_x[i];
-    const double norm_next_y = geom.vtx_y[p1] - geom.vtx_y[i];
+    const double norm_prev_x = geom.vtx_x.at(m1) - geom.vtx_x.at(i);
+    const double norm_prev_y = geom.vtx_y.at(m1) - geom.vtx_y.at(i);
+    const double norm_next_x = geom.vtx_x.at(p1) - geom.vtx_x.at(i);
+    const double norm_next_y = geom.vtx_y.at(p1) - geom.vtx_y.at(i);
     const double tc_angle = TC::angleBetween(norm_prev_x, norm_prev_y, norm_next_x, norm_next_y);
     angle.push_back(tc_angle);
     isMdlVtx.push_back(tc_angle < tc_angle_lower || tc_angle > tc_angle_upper);

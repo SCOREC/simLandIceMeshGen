@@ -36,7 +36,7 @@ void SplineInfo::writeSamplesToCsv(std::string filename) {
   file << "splineId, x, y\n";
   int id=0;
   for(auto& spline : splines) {
-    auto numSamples = 4;
+    auto numSamples = 20;
     auto step = 1.0/(numSamples-1);
     for(int i = 0; i < numSamples; ++i) {
       auto t = step * i;
@@ -132,6 +132,17 @@ bool curveOrientation(std::vector<double> &curvePts) {
     return true;
 
   return false;
+}
+BSpline2d attach_piecewise_linear_curve(std::vector<double> xpts, std::vector<double> ypts) {
+  assert(xpts.size() == ypts.size());
+  std::vector<double> pts;
+  pts.reserve(xpts.size()*3);
+  for(int i=0; i<xpts.size(); i++) {
+    pts.push_back(xpts.at(i));
+    pts.push_back(ypts.at(i));
+    pts.push_back(0);
+  }
+  return attach_piecewise_linear_curve(pts);
 }
 
 BSpline2d attach_piecewise_linear_curve(std::vector<double> points) {
@@ -232,7 +243,6 @@ BSpline2d fitCubicSplineToPoints(std::vector<double> xpts,
   }
   double increment = 1.0 / (numPts - 1);
   for (int i = 0; i < numPts - 2; i++) {
-    // double increment=inter_len.at(i)/len;
     knots.at(order_p + i) = knots.at(order_p + i - 1) + increment;
   }
   interpolateCubicBSpline(xpts, knots, ctrlPointsX, 0);

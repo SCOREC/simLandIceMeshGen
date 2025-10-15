@@ -75,8 +75,7 @@ void addVtx(GeomInfo& geom, Omega_h::HostRead<Omega_h::Real> coords, Omega_h::LO
   geom.addVtx(vtx,x,y);
 }
 
-GeomInfo readOmegahGeom(std::string fname, bool debug) {
-  auto lib = Omega_h::Library();
+GeomInfo readOmegahGeom(Omega_h::Library& lib, std::string fname, bool debug) {
   Omega_h::Mesh mesh(&lib);
   Omega_h::binary::read(fname, lib.world(), &mesh);
 
@@ -100,7 +99,6 @@ GeomInfo readOmegahGeom(std::string fname, bool debug) {
   geom.numVtx = geom.numEdges = 0;
   auto edge = findFirstEdge(edgeClassDim);
   auto vtx = getDownVtx(edgeToVtx, edge, 0);
-  geom.firstContourPt = 0; //using geom indexing, not omegah's 
   const auto firstVtx = vtx;
   addVtx(geom, coords, vtx);
   while( -1 != (edge = getNextEdge(edge, vtx, vtxToEdge, edgeToVtx, edgeClassDim, visitedEdges)) ) {

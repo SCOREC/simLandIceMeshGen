@@ -12,19 +12,34 @@ std::string getFileExtension(const std::string &filename) {
   return "";
 }
 
-void writePointParametricCoords(const GeomInfo& geom, const PointClassification& ptClass, const SplineInterp::SplineInfo& sinfo, std::string filename) {
-  assert(ptClass.splineIdx.size() == geom.numVtx);
-  Omega_h::HostWrite<Omega_h::Real> paraCoords(geom.numVtx*2);
+void setPara(const GeomInfo& geom,
+    const PointClassification& ptClass,
+    const SplineInterp::SplineInfo& sinfo,
+    Omega_h::HostWrite<Omega_h::Real>& paraCoords,
+    int startIdx) {
   for(int i=0; i<geom.numVtx; i++) {
-    const auto sIdx = ptClass.splineIdx[i];
-    const auto bspline = sinfo.splines[sIdx];
+    const auto sIdx = ptClass.splineIdx.at(startIdx+i); //CHECK
+    const auto bspline = sinfo.splines.at(sIdx);
     const auto x = geom.vtx_x.at(i); 
     const auto y = geom.vtx_y.at(i); 
-    paraCoords[i*2] = bspline.x.invEval(x);
-    paraCoords[i*2+1] = bspline.y.invEval(y);
+    const auto noGuess = -1;
+    const double t = bspline.invEval({x,y}, noGuess);
+    paraCoords[(startIdx+i)*2] = t;
+    paraCoords[(startIdx+i)*2+1] = t;
   }
-  auto paraCoords_d = Omega_h::read(paraCoords.write());
+}
 
+Omega_h::Reals setParametricCoords(ModelFeatures& features, const PointClassification& ptClass, const SplineInterp::SplineInfo& sinfo) {
+  const int numVtx = features.inner.numVtx+features.outer.numVtx;
+  assert(ptClass.splineIdx.size() == numVtx);
+  Omega_h::HostWrite<Omega_h::Real> paraCoords(numVtx*2);
+  setPara(features.outer, ptClass, sinfo, paraCoords, features.outer.numVtx);
+  setPara(features.inner, ptClass, sinfo, paraCoords, 0);
+  auto paraCoords_d = Omega_h::read(paraCoords.write());
+  return paraCoords_d;
+}
+
+void writePointParametricCoords(Omega_h::Reals paraCoords_d, std::string filename) {
   std::ofstream file(filename);
   assert(file.is_open());
   const int compressed = 0;
@@ -77,13 +92,16 @@ int main(int argc, char **argv) {
 
   assert(units == "m" || units == "km");
 
-  GeomInfo dirty = readOmegahGeom(filename);
+  auto lib = Omega_h::Library(); //need kokkos for entire execution for omegah array functions
+  GeomInfo dirty = readOmegahGeom(lib, filename);
 
   if(units == "m") {
     convertMetersToKm(dirty);
   }
   const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
   auto geom = cleanGeom(dirty, coincidentPtTolSquared, false);
+  makeOrientationPositive(geom);
+
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
 
@@ -115,14 +133,14 @@ int main(int argc, char **argv) {
 
     auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
 
-    const auto numMdlVerts = isMdlVtx.size() ? std::accumulate(isMdlVtx.begin()+geom.firstContourPt, isMdlVtx.end(), 0) : 0;
-    auto splines = SplineInterp::SplineInfo(numMdlVerts+4); //+4 splines for the bounding box
-    createBoundingBoxGeom(mdlTopo, geom, splines);
-
+    const auto numMdlVerts = isMdlVtx.size() ? std::accumulate(isMdlVtx.begin(), isMdlVtx.end(), 0) : 0;
+    auto splines = SplineInterp::SplineInfo(numMdlVerts);
     PointClassification ptClass(geom.numVtx);
     createEdges(mdlTopo, geom, ptClass, splines, isPointOnCurve, isMdlVtx, debug);
 
-    writePointParametricCoords(geom, ptClass, splines, modelFileName + "_parametric.oshb");
+    ModelFeatures features({geom,GeomInfo()});
+    const auto paraCoords = setParametricCoords(features, ptClass, splines);
+    writePointParametricCoords(paraCoords, modelFileName + "_parametric.oshb");
     //write the point classification to an omegah binary file
     ptClass.writeToOsh(modelFileName + "_class.oshb");
     //write the bsplines to an omegah binary file
@@ -130,7 +148,8 @@ int main(int argc, char **argv) {
     //write the sampled bsplines to a csv file
     splines.writeSamplesToCsv(modelFileName + "_splines.csv");
 
-    createFaces(mdlTopo, geom);
+    auto planeBounds = getBoundingPlane(geom);
+    createFace(mdlTopo, planeBounds);
 
     printModelInfo(mdlTopo.model);
 

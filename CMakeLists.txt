@@ -18,7 +18,7 @@ find_package(BLAS REQUIRED)
 
 find_package(Omega_h REQUIRED)
 
-add_library(splineInterp splineInterpolation.cc BSpline.cc Expression.cc PolyNomial.cc)
+add_library(splineInterp splineInterpolation.cc BSpline.cc BSpline2d.cc Expression.cc PolyNomial.cc)
 target_link_libraries(splineInterp PRIVATE BLAS::BLAS Omega_h::omega_h)
 
 add_library(modelGen2d modelGen2d.cc geomReaders.cc)
@@ -45,7 +45,9 @@ if(USE_SIMMODSUITE)
   addExe(generate2dModelFromMesh)
 
   add_test(NAME simModelGen2dFromMesh_thwaites
-    COMMAND ./generate2dModelFromMesh ${testDataDir}/thwaites_basal_effectiveStrain.osh thwaites 1 100 100 "m")
+    COMMAND ./generate2dModelFromMesh ${testDataDir}/thwaites_basal_effectiveStrain.osh thwaites 1 100 100 "km")
+  set_tests_properties(simModelGen2dFromMesh_thwaites PROPERTIES
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 26")
   add_test(NAME simModelGen2d_gis
     COMMAND ./generate2dModel ${testDataDir}/gis.msh gis 1 100 100 1 "m")
   set_tests_properties(simModelGen2d_gis PROPERTIES
@@ -136,10 +138,16 @@ if(USE_SIMMODSUITE)
   
   add_test(NAME testSplineFitting_straight_edge
            COMMAND ./testSplineFitting ${testDataDir}/testCurveStraightLine.csv 9)
+  add_test(NAME testSplineFitting_edge_2pts
+           COMMAND ./testSplineFitting ${testDataDir}/testCurve2pts.csv 1)
   add_test(NAME testSplineFitting_single_edge
            COMMAND ./testSplineFitting ${testDataDir}/testCurveSplineFitting.csv 12.2685)
   add_test(NAME testSplineFitting_sine_edge
            COMMAND ./testSplineFitting ${testDataDir}/testCurveSineSegment.csv 10.24227846)
+  add_test(NAME testSplineFitting_gisCurve1_edge
+           COMMAND ./testSplineFitting ${testDataDir}/gisCurve1.csv 22.8891)
+  add_test(NAME testSplineFitting_gisCurve3_edge
+           COMMAND ./testSplineFitting ${testDataDir}/gisCurve3.csv 20.669088)
 endif()
 
 # Create function for executables that only use curveReader and modelGen2d (no SimModSuite)

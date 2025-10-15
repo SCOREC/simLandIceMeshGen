@@ -24,6 +24,7 @@ struct PointClassification {
   PointClassification(int n) : dim(n), id(n), splineIdx(n) {}
 };
 
+
 //FIXME - make this a class
 struct GeomInfo {
   int numVtx;
@@ -32,7 +33,7 @@ struct GeomInfo {
   std::vector<double> vtx_y;
   std::vector<int> verts;
   std::vector<std::array<int, 2>> edges;
-  int firstContourPt;
+  static const int firstContourPt = 0; //FIXME - remove this
   void addVtx(int id, double x, double y) {
     numVtx++;
     verts.push_back(id);
@@ -64,6 +65,11 @@ struct GeomInfo {
   }
 };
 
+struct ModelFeatures {
+  GeomInfo inner;
+  GeomInfo outer;
+};
+
 struct PlaneBounds {
   double minX;
   double maxX;
@@ -74,9 +80,12 @@ struct PlaneBounds {
 PlaneBounds getBoundingPlane(GeomInfo &geom);
 
 
-GeomInfo readOmegahGeom(std::string fname, bool debug = false);
-GeomInfo readVtkGeom(std::string fname, bool debug = false);
-GeomInfo readJigGeom(std::string fname, bool debug = false);
+namespace Omega_h {
+  class Library; //fwd declare
+};
+GeomInfo readOmegahGeom(Omega_h::Library& lib, std::string fname, bool debug = false);
+ModelFeatures readVtkGeom(std::string fname, bool debug = false);
+ModelFeatures readJigGeom(std::string fname, bool debug = false);
 
 double getLengthSquared(double ax, double ay, double bx, double by);
 bool isPtCoincident(double ax, double ay, double bx, double by,
@@ -87,6 +96,7 @@ int findFirstPt(std::vector<int>& prop, const int offset, const int match);
 void convertMetersToKm(GeomInfo &geom);
 GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
                       bool debug = false);
+void makeOrientationPositive(GeomInfo& geom, bool debug=false);
 
 std::tuple<std::vector<int>,std::vector<int>>
 discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug = false);

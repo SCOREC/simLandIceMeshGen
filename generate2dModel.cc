@@ -12,19 +12,33 @@ std::string getFileExtension(const std::string &filename) {
   return "";
 }
 
-void writePointParametricCoords(const GeomInfo& geom, const PointClassification& ptClass, const SplineInterp::SplineInfo& sinfo, std::string filename) {
-  assert(ptClass.splineIdx.size() == geom.numVtx);
+Omega_h::Reals setParametricCoords(GeomInfo& geom, const PointClassification& ptClass, const SplineInterp::SplineInfo& sinfo, bool debug=false) {
+  const int numVtx = geom.numVtx;
+  assert(ptClass.splineIdx.size() == numVtx);
   Omega_h::HostWrite<Omega_h::Real> paraCoords(geom.numVtx*2);
+  if(debug)
+    std::cerr << __func__ << " sIdx, x, y, paraX, paraY\n";
   for(int i=0; i<geom.numVtx; i++) {
-    const auto sIdx = ptClass.splineIdx[i];
-    const auto bspline = sinfo.splines[sIdx];
+    const auto sIdx = ptClass.splineIdx.at(i);
+    const auto bspline = sinfo.splines.at(sIdx);
     const auto x = geom.vtx_x.at(i); 
     const auto y = geom.vtx_y.at(i); 
-    paraCoords[i*2] = bspline.x.invEval(x);
-    paraCoords[i*2+1] = bspline.y.invEval(y);
+    const auto noGuess = -1;
+    if(debug)
+      std::cerr << __func__ << " " << sIdx << " " << x << ", " << y << '\n';
+    const double t = bspline.invEval({x,y}, noGuess, debug);
+    paraCoords[i*2] = t;
+    paraCoords[i*2+1] = t;
+    if(debug)
+      std::cerr << __func__ << " " << paraCoords[i*2] << ", " << paraCoords[i*2+1] << "\n";
+    assert(!std::isnan(paraCoords[i*2]));
+    assert(!std::isnan(paraCoords[i*2+1]));
   }
   auto paraCoords_d = Omega_h::read(paraCoords.write());
+  return paraCoords_d;
+}
 
+void writePointParametricCoords(Omega_h::Reals paraCoords_d, std::string filename) {
   std::ofstream file(filename);
   assert(file.is_open());
   const int compressed = 0;
@@ -60,8 +74,6 @@ int main(int argc, char **argv) {
   }
   assert(argc == numExpectedArgs);
 
-  GeomInfo dirty;
-
   std::string filename = argv[1];
   std::string ext = getFileExtension(filename);
   const auto prefix = std::string(argv[2]);
@@ -80,19 +92,23 @@ int main(int argc, char **argv) {
 
   assert(units == "m" || units == "km");
 
+  ModelFeatures features;
   if (ext == ".vtk") {
-    dirty = readVtkGeom(filename);
+    features = readVtkGeom(filename);
   } else if (ext == ".msh") {
-    dirty = readJigGeom(filename);
+    features = readJigGeom(filename);
   } else {
     std::cerr << "Unsupported file extension: " << ext << "\n";
     return 1;
   }
   if(units == "m") {
-    convertMetersToKm(dirty);
+    convertMetersToKm(features.inner);
+    convertMetersToKm(features.outer);
   }
   const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
-  auto geom = cleanGeom(dirty, coincidentPtTolSquared, false);
+  features.inner = cleanGeom(features.inner, coincidentPtTolSquared, false);
+  makeOrientationPositive(features.inner);
+
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
 
@@ -122,24 +138,36 @@ int main(int argc, char **argv) {
     mdlTopo.part = GM_rootPart(mdlTopo.model);
     mdlTopo.region = GIP_outerRegion(mdlTopo.part);
 
-    auto [isPointOnCurve, isMdlVtx] = discoverTopology(geom, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
+    auto [isPointOnCurveInner, isMdlVtxInner] = discoverTopology(features.inner, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
+    auto [isPointOnCurveOuter, isMdlVtxOuter] = discoverTopology(features.outer, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
 
-    const auto numMdlVerts = isMdlVtx.size() ? std::accumulate(isMdlVtx.begin()+geom.firstContourPt, isMdlVtx.end(), 0) : 0;
-    auto splines = SplineInterp::SplineInfo(numMdlVerts+4); //+4 splines for the bounding box
-    createBoundingBoxGeom(mdlTopo, geom, splines);
+    const auto numInnerMdlVerts = isMdlVtxInner.size() ? std::accumulate(isMdlVtxInner.begin(), isMdlVtxInner.end(), 0) : 0;
+    const auto numOuterMdlVerts = isMdlVtxOuter.size() ? std::accumulate(isMdlVtxOuter.begin(), isMdlVtxOuter.end(), 0) : 0;
+    auto splinesInner = SplineInterp::SplineInfo(numInnerMdlVerts);
+    auto splinesOuter = SplineInterp::SplineInfo(numOuterMdlVerts);
+    PointClassification ptClassInner(features.inner.numVtx);
+    PointClassification ptClassOuter(features.outer.numVtx);
+    const bool debug = false;
+    createEdges(mdlTopo, features.outer, ptClassOuter, splinesOuter, isPointOnCurveOuter, isMdlVtxOuter, debug);
+    createEdges(mdlTopo, features.inner, ptClassInner, splinesInner, isPointOnCurveInner, isMdlVtxInner, debug);
 
-    PointClassification ptClass(geom.numVtx);
-    createEdges(mdlTopo, geom, ptClass, splines, isPointOnCurve, isMdlVtx, debug);
+    const auto paraCoordsOuter = setParametricCoords(features.outer, ptClassOuter, splinesOuter);
+    const auto paraCoordsInner = setParametricCoords(features.inner, ptClassInner, splinesInner);
 
-    writePointParametricCoords(geom, ptClass, splines, modelFileName + "_parametric.oshb");
+    writePointParametricCoords(paraCoordsInner, modelFileName + "_parametricInner.oshb");
+    writePointParametricCoords(paraCoordsOuter, modelFileName + "_parametricOuter.oshb");
     //write the point classification to an omegah binary file
-    ptClass.writeToOsh(modelFileName + "_class.oshb");
+    ptClassInner.writeToOsh(modelFileName + "_classInner.oshb");
+    ptClassOuter.writeToOsh(modelFileName + "_classOuter.oshb");
     //write the bsplines to an omegah binary file
-    splines.writeToOsh(modelFileName + "_splines.oshb");
+    splinesInner.writeToOsh(modelFileName + "_splinesInner.oshb");
+    splinesOuter.writeToOsh(modelFileName + "_splinesOuter.oshb");
     //write the sampled bsplines to a csv file
-    splines.writeSamplesToCsv(modelFileName + "_splines.csv");
+    splinesInner.writeSamplesToCsv(modelFileName + "_splinesInner.csv");
+    splinesOuter.writeSamplesToCsv(modelFileName + "_splinesOuter.csv");
 
-    createFaces(mdlTopo, geom);
+    auto planeBounds = getBoundingPlane(features.outer);
+    createFaces(mdlTopo, planeBounds);
 
     printModelInfo(mdlTopo.model);
 

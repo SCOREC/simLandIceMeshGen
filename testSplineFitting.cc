@@ -11,6 +11,7 @@
 #include <math.h>
 #include <string>
 #include <fstream>
+#include <numeric> //exclusive_scan
 
 bool isClose(double x, double y) {
   if( x == y || std::abs(x-y) < 1e-10 ) {
@@ -68,8 +69,12 @@ void writeSamples(std::string fileNameNoExt, const CurveReader::CurveInfo& curve
     splineInterpSampleFile << "x, y, isVertex\n";
     splineInterpSampleFile << curve.x[0] << ", " << curve.y[0] << ", 1\n";
     for(int i = 0; i < numSamples; ++i) {
-      auto t = 1.0 * i / numSamples;
-      splineInterpSampleFile << bspline.x.eval(t) << ", " << bspline.y.eval(t) << ", 0\n";
+      const auto t = 1.0 * i / numSamples;
+      const auto evalX = bspline.x.eval(t);
+      const auto evalY = bspline.y.eval(t);
+      assert(!std::isnan(evalX));
+      assert(!std::isnan(evalY));
+      splineInterpSampleFile << evalX << ", " << evalY << ", 0\n";
     }
     splineInterpSampleFile << curve.x.back() << ", " << curve.y.back() << ", 1\n";
     splineInterpSampleFile.close();
@@ -166,13 +171,14 @@ double createSimModelEdge(const CurveReader::CurveInfo& curve, SplineInterp::BSp
   return length;
 }
 
-void checkInvEval(SplineInterp::BSpline2d& bspline, double x_in, double y_in) {
-  const auto paraX = bspline.x.invEval(x_in);
-  const auto paraY = bspline.y.invEval(y_in);
-  assert(paraX != std::numeric_limits<double>::quiet_NaN());
-  assert(paraY != std::numeric_limits<double>::quiet_NaN());
-  const auto x = bspline.x.eval(paraX);
-  const auto y = bspline.y.eval(paraY);
+void checkInvEval(SplineInterp::BSpline2d& bspline, double x_in, double y_in, double guess) {
+  bool debug = true;
+  if(debug)
+    std::cerr << "pt " << x_in << ", " << y_in << '\n';
+  const auto t = bspline.invEval({x_in,y_in}, guess, debug);
+  assert(!std::isnan(t));
+  const auto x = bspline.x.eval(t);
+  const auto y = bspline.y.eval(t);
   assert(isClose(x,x_in));
   assert(isClose(y,y_in));
 }
@@ -196,19 +202,36 @@ int main(int argc, char **argv) {
   auto curve = CurveReader::readCurveInfo(curveFilename);
 
   //Fit curve using Spline2D Implementation
-  auto bspline = SplineInterp::fitCubicSplineToPoints(curve.x, curve.y);
+  SplineInterp::BSpline2d bspline;
+  if(curve.x.size() == 2) {
+    bspline = SplineInterp::attach_piecewise_linear_curve(curve.x, curve.y);
+  } else {
+    bspline = SplineInterp::fitCubicSplineToPoints(curve.x, curve.y);
+  }
   writeDefinition(fileNameNoExt, bspline);
   writeSamples(fileNameNoExt, curve, bspline);
 
+  std::vector<double> distanceSq;
+  distanceSq.push_back(0);
+  for(int i=1; i<curve.x.size(); i++) {
+    const double d = std::pow((curve.x[i]-curve.x[i-1]),2) +
+                     std::pow((curve.y[i]-curve.y[i-1]),2);
+    distanceSq.push_back(d);
+  }
+
+  std::vector<double> offsetDistSq(distanceSq.size());
+  std::inclusive_scan(distanceSq.begin(), distanceSq.end(), offsetDistSq.begin());
+
   for(int i=0; i<curve.x.size(); i++) {
-    checkInvEval(bspline, curve.x[i], curve.y[i]);
+    double guess = offsetDistSq.at(i)/offsetDistSq.back();
+    checkInvEval(bspline, curve.x[i], curve.y[i], guess);
   }
 
   //Fit curve using the simmetrix APIs
   auto length = createSimModelEdge(curve, bspline);
 
   //compare length
-  std::cout << " Expected Length: " << expectedCurveLength << std::endl;
+  std::cout << "Expected Length: " << expectedCurveLength << std::endl;
   assert(std::fabs(length - expectedCurveLength) <= 1e-5);
   return 0;
 }
