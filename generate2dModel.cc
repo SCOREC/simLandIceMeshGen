@@ -1,6 +1,7 @@
 #include "simModelGen2d.h"
 #include <numeric> //std::accumulate
 #include "Omega_h_file.hpp"
+#include "Omega_h_library.hpp"
 
 void messageHandler(int type, const char *msg);
 
@@ -92,6 +93,7 @@ int main(int argc, char **argv) {
 
   assert(units == "m" || units == "km");
 
+
   ModelFeatures features;
   if (ext == ".vtk") {
     features = readVtkGeom(filename);
@@ -117,6 +119,7 @@ int main(int argc, char **argv) {
   // You will want to place a try/catch around all SimModSuite calls,
   // as errors are thrown.
   try {
+    auto ohLib = Omega_h::Library(&argc, &argv);
     Sim_logOn("simMeshGen.log");
     SimModel_start(); // Call before Sim_readLicenseFile
     // NOTE: Sim_readLicenseFile() is for internal testing only.  To use,
