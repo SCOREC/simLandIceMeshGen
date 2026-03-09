@@ -5,20 +5,11 @@
 #include <vector>
 #include <string>
 
+template<typename ExecutionSpace>
 class BSplineKokkos : public Expression {
 public:
-	//Genuinely I don't think these should be placed here. Please ask.
-	#ifdef KOKKOS_ENABLE_CUDA
-	#define MemSpace Kokkos::CudaSpace
-	#endif
-	#ifdef KOKKOS_ENABLE_HIP
-	#define MemSpace Kokkos::Experimental::HIPSpace
-	#endif
-	#ifndef MemSpace
-  	#define MemSpace Kokkos::HostSpace
-	#endif
-
-	using ViewVectorType = Kokkos::View<double*, MemSpace>;
+	using MemSpace = typename ExecutionSpace::memory_space;
+	
 	//Constructors
 	BSplineKokkos(int order_p, std::vector<double>& ctrlPts, std::vector<double>& knots, std::vector<double>& weight);
 
@@ -32,11 +23,14 @@ public:
 	
 	private:
 		int order;
-		//ADD WHAT MEMORY SPACE
-		ViewVectorType ctrlPts;
-		ViewVectorType knots;
-		ViewVectorType weights;
-		ViewVectorType ctrlPts_1stD;
-		ViewVectorType ctrlPts_2ndD;
+
+		//CtrlPts, knots, weights and their offsets
+		Kokkos::View<double*, MemSpace> ctrlPts;
+		Kokkos::View<double*, MemSpace> knots;
+		Kokkos::View<double*, MemSpace> weights;
+
+		//The 1st and 2nd derivatives
+		Kokkos::View<double*, MemSpace> ctrlPts_1stD;
+		Kokkos::View<double*, MemSpace> ctrlPts_2ndD;
 
 }
