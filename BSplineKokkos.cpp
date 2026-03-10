@@ -1,7 +1,5 @@
 #include "BSplineKokkos.h"
-#include <Kokkos_Core.hpp>
 #include <iostream>
-#include <vector>
 
 BSplineKokkos::BSplineKokkos(int orderC, std::vector<double>& ctrlPtsC, std::vector<double>& knotsC, std::vector<double>& weightsC) {
 	order = orderC;

@@ -26,6 +26,10 @@ target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Quadtree/include)
 target_link_libraries(modelGen2d PRIVATE splineInterp Omega_h::omega_h)
 
+#NEED TO ADD THE FILES USED FOR BSpline_Kokkos HERE
+add_library(splineKokkos BSplineKokkos.cpp)
+target_link_libraries(splineKokkos PRIVATE Kokkos::kokkos)
+
 set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
 
 if(USE_SIMMODSUITE)
@@ -169,3 +173,9 @@ add_test(NAME testDiscoverTopo_L11pts
 set_tests_properties(testDiscoverTopo_L11pts PROPERTIES
   PASS_REGULAR_EXPRESSION "number of model vertices: 3")
 
+#THE FOLLOWING IS FOR BSPLINE_KOKKOS TESTS, MAY HAVE A LOT OF ERROR
+
+add_executable(testSplineKokkosBase testSplineKokkosBase.cpp)
+target_link_libraries(testSplineKokkosBase PRIVATE splineKokkos)
+add_test(NAME dummyBSplineKokkos
+   COMMAND ./testSplineKokkosBase)
