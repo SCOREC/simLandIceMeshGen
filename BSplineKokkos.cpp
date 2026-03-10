@@ -22,7 +22,9 @@ BSplineKokkos::BSplineKokkos(int orderC, std::vector<double>& ctrlPtsC, std::vec
 	}
 	//Call the calculateDerivCoeff() to populate
 	//1st and 2nd deriavtive views
-	calculateDerivCoeff();
+	
+	/*NOTE: UNCOMMENT THIS ONCE ALL IN FRONT ARE RESOLVED*/
+	//calculateDerivCoeff();
 	
 }
 
