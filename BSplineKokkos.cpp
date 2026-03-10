@@ -47,7 +47,7 @@ void BSplineKokkos::calculateDerivCoeff() {
 
 }
 
-dounle BSplineKokkos::eval(double x) const {
+double BSplineKokkos::eval(double x) const {
 	//Implemented based on the serial BSpline
 	//Find the interval of the 1D coordinate given
 	int leftKnot = order - 1;
@@ -59,6 +59,27 @@ dounle BSplineKokkos::eval(double x) const {
 		break;
 		} 
 	}
-	//START FROM HERE NEXT TIME
+	//Find the points and local knots
+	Kokkos::View<double*, MemSpace> pts("PtsView", order);
+	for (int i = leftKnot; i < leftKnot+order; i++) {
+		pts(i) = ctrlPts(i);
+	}
+	//TODO: find the size of the local knot and copy them to a view
+	Kokkos::View<double*, MemSpace> localKnots;
+	for (int r = 1; r <= order; r++) {
+		for (int i = order-1; i>= r; i--) {
+			double a_left = localKnots(i-1);
+			double a_right = localKnots(i-1);
+			double alpha;
+			if (a_right == a_left) {
+				alpha = 0.;
+			}
+			else {
+				alpha = (x-a_left)/(a_right-a_left);
+			}
+			pts(i) = (1. - alpha) * pts(i-1) + alpha*pts(i);
+		}
+	}
+	return pts(order-1);
 
 }
