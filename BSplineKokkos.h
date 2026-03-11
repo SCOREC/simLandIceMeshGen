@@ -1,12 +1,13 @@
 #ifndef BSPLINEKOKKOS_H
 #define BSPLINEKOKKOS_H
 
+
 #include <Kokkos_Core.hpp>
 #include <vector>
 #include <string>
 
 template<typename ExecutionSpace>
-class BSplineKokkos : public Expression {
+class BSplineKokkos {
 public:
 	using MemSpace = typename ExecutionSpace::memory_space;
 	
@@ -18,8 +19,9 @@ public:
 	int getNumCtrlPts() const {return ctrlPts.extent(0);}
 	int getNumKnots() const {return knots.extent(0);}
 	double getCtrlPt(std::size_t i) const {return ctrlPts(i);}
-	double getKnot(std::size_t i) const {return knot(i);}
-
+	double getKnot(std::size_t i) const {return knots(i);}
+	double eval(double x) const;
+	void calculateDerivCoeff();
 	
 	private:
 		int order;
@@ -33,4 +35,5 @@ public:
 		Kokkos::View<double*, MemSpace> ctrlPts_1stD;
 		Kokkos::View<double*, MemSpace> ctrlPts_2ndD;
 
-}
+};
+#endif
