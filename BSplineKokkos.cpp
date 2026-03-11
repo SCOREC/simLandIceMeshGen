@@ -1,7 +1,7 @@
 #include "BSplineKokkos.h"
 #include <iostream>
-
-BSplineKokkos::BSplineKokkos(int orderC, std::vector<double>& ctrlPtsC, std::vector<double>& knotsC, std::vector<double>& weightsC) {
+template<typename ExecutionSpace>
+BSplineKokkos<ExecutionSpace>::BSplineKokkos(int orderC, std::vector<double>& ctrlPtsC, std::vector<double>& knotsC, std::vector<double>& weightsC) {
 	order = orderC;
 	//Allocate appropriate view space based on the number of control points, copy the data over to view
 	ctrlPts("ctrlPts", ctrlPtsC.size());
@@ -25,8 +25,8 @@ BSplineKokkos::BSplineKokkos(int orderC, std::vector<double>& ctrlPtsC, std::vec
 	//calculateDerivCoeff();
 	
 }
-
-void BSplineKokkos::calculateDerivCoeff() {
+template<typename ExecutionSpace>
+void BSplineKokkos<ExecutionSpace>::calculateDerivCoeff() {
 	//Calculate first order derivative
 	//Allocate space for ctrlPts_1stD
 	ctrlPts_1stD("ctrlPts1Derivative", ctrlPts.extent(0)-1);	
@@ -41,13 +41,13 @@ void BSplineKokkos::calculateDerivCoeff() {
 	ctrlPts_2ndD("ctrlPts2Derivative", ctrlPts.extent(0)-2);
 	for (int i = 0; i < ctrlPts_1stD.extent(0); i++) {
 		double delta = double(order - 2) / (knots(i+order-1)-knots(i+1));
-		ctrlPts_2ndD(i) = ((ctrlPts_1stD(i) - ctrlPts_(i-1))*delta);
+		ctrlPts_2ndD(i) = ((ctrlPts_1stD(i) - ctrlPts_1stD(i-1))*delta);
 	}
 	//TODO: find another way to verify the size of the second derivative view
 
 }
-
-double BSplineKokkos::eval(double x) const {
+template<typename ExecutionSpace>
+double BSplineKokkos<ExecutionSpace>::eval(double x) const {
 	//Implemented based on the serial BSpline
 	//Find the interval of the 1D coordinate given
 	int leftKnot = order - 1;
@@ -83,3 +83,6 @@ double BSplineKokkos::eval(double x) const {
 	return pts(order-1);
 
 }
+
+//Explicit instantiation of the templated class for Kokkos::serial
+//template class BSplineKokkos<Kokkos::Serial>;
