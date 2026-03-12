@@ -88,22 +88,83 @@ public:
 			weightSize += splines[i].getWeightSize();
 		}
 		//Pre-Allocate space for views 
-		order("Order", orderSize);
-		ctrlPts("CtrlPts", ctrlPSize);
-		cPOffset("CtrlPtsOffset", cPOffSize);
-		knots("Knots", knotsSize);
-		knotsOffset("KnotsOffset", kOffSize);
-		weights("Weights", weightSize);
+		Kokkos::View<int*, MemSpace> orderV ("Order", orderSize);
+		Kokkos::View<double*, MemSpace> ctrlPtsV ("CtrlPts", ctrlPSize);
+		Kokkos::View<int*, MemSpace> cPOffsetV ("CtrlPtsOffset", cPOffSize);
+		Kokkos::View<double*, MemSpace> knotsV("Knots", knotsSize);
+		Kokkos::View<int*, MemSpace> knotsOffsetV ("KnotsOffset", kOffSize);
+		Kokkos::View<double*, MemSpace> weightsV("Weights", weightSize);
 		
+		int oidx = 0;
+		int cPidx = 0;
+		int cOidx = 0;
+		int kidx = 0;
+		int kOidx = 0;
+		int widx = 0;
 		//Populate the views with data
+		int lastOffset = 0;
+		
+		for (int i = 0; i < splines.size(); i++) {
+			Kokkos::View<int*, MemSpace> intView = splines[i].getOrder();
+			//Populate order
+			for (int j = 0; j < intView.extent(0); j++) {
+				orderV(oidx+j)= intView(j);
+			}
+			oidx += intView.extent(0);
+			//Populate ctrlpts offset
+			//Offset the offset by the last offset in the view
+			intView = splines[i].getCPOffset();
+			for (int j = 0; j < intView.extent(0); j++) {
+				cPOffsetV(cOidx+j) = intView(j)+lastOffset; 
+			}
+			cOidx += intView.extent(0);
+			lastOffset = intView(intView.extent(0)-1)+(intView(intView.extent(0)-1) - intView(intView.extent(0)-2));
+			//Populate knots offset
+			//Offset the offset by the last offset in the view
+			intView = splines[i].getKnotsOffset();
+			for (int j = 0; j < intView.extent(0); j++) {
+				knotsOffsetV(kOidx+j) = intView(j)+lastOffset;
+			}
+			kOidx += intView.extent(0);
+			lastOffset = intView(intView.extent(0)-1)+(intView(intView.extent(0)-1) - intView(intView.extent(0)-2));
+			//Populate ctrlpts
+			Kokkos::View<double*, MemSpace> doubleView = splines[i].getCtrlPts();
+			for (int j = 0; j < doubleView.extent(0); j++) {
+				ctrlPtsV(cPidx+j) = doubleView(j);
+			}
+			cPidx += doubleView.extent(0);
+			//Populate knots
+			doubleView = splines[i].getKnots();
+			for (int j = 0; j < doubleView.extent(0); j++) {
+				knotsV(kidx+j) = doubleView(j);
+			}
+			kidx += doubleView.extent(0);
+			//Populate the weights
+			doubleView = splines[i].getWeights();
+			for (int j = 0; j < doubleView.extent(0); j++) {
+				weightsV(widx+j) = doubleView(j);
+			}
+			widx += doubleView.extent(0);	
+		}
+		order = orderV;
+		knots = knotsV;
+		ctrlPts = ctrlPtsV;
+		weights = weightsV;
+		cPOffset = cPOffsetV;
+		knotsOffset = knotsOffsetV;
 
 	}
 
 
 
 	//Accessors
-	int getOrder(int idx) const {return order(idx);}
-	int getOrderSize() const {return order.extent(0);}
+	Kokkos::View<int*, MemSpace> getOrder() const {return order;}
+	Kokkos::View<double*, MemSpace> getCtrlPts() const {return ctrlPts;}
+	Kokkos::View<double*, MemSpace> getKnots() const {return knots;}
+	Kokkos::View<double*, MemSpace> getWeights() const {return weights;}
+	Kokkos::View<int*, MemSpace> getCPOffset() const {return cPOffset;}
+	Kokkos::View<int*, MemSpace> getKnotsOffset() const {return knotsOffset;}
+
 	int getNumCtrlPts() const {return cPOffset.extent(0)/2;}
 	int getNumKnots() const {return knotsOffset.extent(0)/2;}
 	int getCtrlPtsSize() const {return ctrlPts.extent(0);}
