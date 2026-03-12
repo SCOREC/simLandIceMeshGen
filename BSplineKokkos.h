@@ -5,6 +5,7 @@
 #include <Kokkos_Core.hpp>
 #include <vector>
 #include <string>
+#include <iostream>
 
 //For the Kokkos version of the implementation, we will not be separating BSplineKokkos and BSplineKokkos2D, their respective functions will be in this file.
 
@@ -18,7 +19,7 @@ public:
 		Kokkos::View<int*, MemSpace> orderV("Orders", 1);
 		orderV(0) = order_p;
 		order = orderV;
-		
+		std::cout << "Order view added" << std::endl; 
 		//Initialize control points and their offset
 		Kokkos::View<double*, MemSpace> ctrlPtsV("CtrlPoints", 2*ctrlPts_x.size());
 		for (int i = 0; i < ctrlPts_x.size(); i++) {
@@ -28,19 +29,22 @@ public:
 		for (int i = 0; i < ctrlPts_y.size(); i++) {
 			ctrlPtsV(ctrlPts_x.size()+i) = ctrlPts_y[i];
 		}
+		std::cout << "ctrlPts initialized" << std::endl; 
 
 		ctrlPts = ctrlPtsV;
 
-		Kokkos::View<int*, MemSpace> cPOffsetV("CtrlPointsOffset", sizeof(int)*2);
+		Kokkos::View<int*, MemSpace> cPOffsetV("CtrlPointsOffset", 2);
 		cPOffsetV(0) = 0;		 //x coor start index
 		cPOffsetV(1) = ctrlPts_x.size(); //y coor start index
 
 		cPOffset = cPOffsetV;
 
+		std::cout << "cp offset initialized" << std::endl;
+
 		//Initialize knots and their offset
 		Kokkos::View<double*, MemSpace> knotsV("Knots", knots_x.size()*2);
 
-		Kokkos::View<int*, MemSpace> knotsOffsetV("KnotsOffset", 2*sizeof(int));
+		Kokkos::View<int*, MemSpace> knotsOffsetV("KnotsOffset", 2);
                 knotsOffsetV(0) = 0;
 		knotsOffsetV(1) = knots_x.size();
 
@@ -48,21 +52,26 @@ public:
 			knotsV(i) = knots_x[i];
 		}
 		for (int i = 0; i < knots_y.size(); i++) {
-			knotsV(knotsOffset(1)+i) = knots_y[i];
+			knotsV(knotsOffsetV(1)+i) = knots_y[i];
 		}
 
 		knots = knotsV;
 		knotsOffset = knotsOffsetV;
 
+		std::cout << "knots initialized" << std::endl;
+		std::cout << "knots offset initialized" << std::endl;
+
 		//Copy the weights over
 		Kokkos::View<double*, MemSpace> weightsV("Weights", weights_p.size());
 		for (int i = 0; i < weights_p.size(); i++) {
-			weightsV(i) = weights[i];
+			weightsV(i) = weights_p[i];
 		}
 		weights = weightsV;
 
+		std::cout << "weights initialized" << std::endl;
+
 		//Derivative coefficients
-		//calculateDerivCoeff();
+		calculateDerivCoeff();
 
 	}
 
@@ -195,7 +204,6 @@ public:
 		//Allocate the space
 		Kokkos::View<double*, MemSpace> ctrlPts_1stDV("ctrlPts1Derivative", ctrlPts.extent(0)-cPOffset.extent(0));
 		Kokkos::View<int*, MemSpace> cP1stDOffsetV("ctrlPts1DerivativeOffset", cPOffset.extent(0));
-		ctrlPts_2ndD("ctrlPts2Derivative", ctrlPts.extent(0)-2*(cPOffset.extent(0)));
 		Kokkos::View<int*, MemSpace> cP2ndDOffsetV("ctrlPts2DerivativeOffset", cPOffset.extent(0));
                 cP2ndDOffsetV(0) = 0;
 
@@ -209,7 +217,7 @@ public:
 		//We need to partition the x and y while we calculate the coefficient
 		int idx = 1;
 		int oidx = 0;
-		for (int i = 1; i < cPOffset(cPOffset.extend(0)-2); i++) {
+		for (int i = 1; i < cPOffset(cPOffset.extent(0)-2); i++) {
 			if (i == cPOffset(idx)) {
 				//Do not calculate, delta will be based on both x and y
 				idx++;
@@ -223,7 +231,7 @@ public:
 		}
 
 		//Calculate second order derivative
-		Kokkos::View<double*, MemSpace> ctrlPts_2ndDV("ctrlPts1Derivative", ctrlPts.extent(0)-2*(cPOffset.extent(0)));
+		Kokkos::View<double*, MemSpace> ctrlPts_2ndDV("ctrlPts2Derivative", ctrlPts.extent(0)-2*(cPOffset.extent(0)));
 
 		idx = 1;
 		oidx = 0;
