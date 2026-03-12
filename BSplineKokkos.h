@@ -36,7 +36,7 @@ public:
 		cPOffsetV(1) = ctrlPts_x.size(); //y coor start index
 
 		cPOffset = cPOffsetV;
-/*
+
 		//Initialize knots and their offset
 		Kokkos::View<double*, MemSpace> knotsV("Knots", knots_x.size()*2);
 
@@ -55,14 +55,15 @@ public:
 		knotsOffset = knotsOffsetV;
 
 		//Copy the weights over
-		weights("Weights", weights_p.size());
+		Kokkos::View<double*, MemSpace> weightsV("Weights", weights_p.size());
 		for (int i = 0; i < weights_p.size(); i++) {
-			weights(i) = weights[i];
+			weightsV(i) = weights[i];
 		}
+		weights = weightsV;
 
 		//Derivative coefficients
 		//calculateDerivCoeff();
-*/
+
 	}
 
 //Create BSpline for a vector of BSplineKokkos objects
@@ -131,17 +132,17 @@ public:
 		//Moved here from the .cpp file since it uses <ExecutionSpace>
 		//Calculate first order derivative
 		//Allocate the space
-		ctrlPts_1stD("ctrlPts1Derivative", ctrlPts.extent(0)-cPOffset.extent(0));
-		cP1stDOffset("ctrlPts1DerivativeOffset", cPOffset.extent(0));
-		ctrlPts_2ndD("ctrlPts1Derivative", ctrlPts.extent(0)-2*(cPOffset.extent(0)));
-                cP2ndDOffset("ctrlPts2DerivativeOffset", cPOffset.extent(0));
-                cP2ndDOffset(0) = 0;
+		Kokkos::View<double*, MemSpace> ctrlPts_1stDV("ctrlPts1Derivative", ctrlPts.extent(0)-cPOffset.extent(0));
+		Kokkos::View<int*, MemSpace> cP1stDOffsetV("ctrlPts1DerivativeOffset", cPOffset.extent(0));
+		ctrlPts_2ndD("ctrlPts2Derivative", ctrlPts.extent(0)-2*(cPOffset.extent(0)));
+		Kokkos::View<int*, MemSpace> cP2ndDOffsetV("ctrlPts2DerivativeOffset", cPOffset.extent(0));
+                cP2ndDOffsetV(0) = 0;
 
 		//Adjust the offset to include be 1 & 2 less than the ctrlPtsOffset
-		cP1stDOffset(0) = 0;
+		cP1stDOffsetV(0) = 0;
 		for (int i = 1; i < cPOffset.extent(0); i++) {
-			cP1stDOffset(i) = cPOffset(i)-1;
-			cP2ndDOffset(i) = cPOffset(i)-2;
+			cP1stDOffsetV(i) = cPOffset(i)-1;
+			cP2ndDOffsetV(i) = cPOffset(i)-2;
 		}
 
 		//We need to partition the x and y while we calculate the coefficient
@@ -157,19 +158,17 @@ public:
 				continue;
 			}
 			double delta = double(order(oidx) - 1)/(knots(i+order(oidx)-1)-knots(i));
-			ctrlPts_1stD(i-1) = ((ctrlPts(i) - ctrlPts(i-1)*delta));
+			ctrlPts_1stDV(i-1) = ((ctrlPts(i) - ctrlPts(i-1)*delta));
 		}
 
 		//Calculate second order derivative
-		ctrlPts_2ndD("ctrlPts1Derivative", ctrlPts.extent(0)-2*(cPOffset.extent(0)));
-		cP2ndDOffset("ctrlPts2DerivativeOffset", cPOffset.extent(0));
-		cP2ndDOffset(0) = 0;
+		Kokkos::View<double*, MemSpace> ctrlPts_2ndDV("ctrlPts1Derivative", ctrlPts.extent(0)-2*(cPOffset.extent(0)));
 
 		idx = 1;
 		oidx = 0;
 
-		for (int i = 1; i < ctrlPts_1stD.extent(0); i++) {
-			if (i == cP1stDOffset(idx)) {
+		for (int i = 1; i < ctrlPts_1stDV.extent(0); i++) {
+			if (i == cP1stDOffsetV(idx)) {
 				idx++;
 				if (idx %2 == 0) {
 					oidx++;
@@ -177,8 +176,12 @@ public:
 				continue;
 			}
 			double delta = double((order(oidx)-2))/(knots(i+order(oidx)-1)-knots(i+1));
-			ctrlPts_2ndD(i-1) = ctrlPts_1stD(i) - ctrlPts_1stD(i-1)*delta;
+			ctrlPts_2ndDV(i-1) = ctrlPts_1stDV(i) - ctrlPts_1stDV(i-1)*delta;
 		}
+		ctrlPts_2ndD = ctrlPts_2ndDV;
+		ctrlPts_1stD = ctrlPts_1stDV;
+		cP1stDOffset = cP1stDOffsetV;
+		cP2ndDOffset = cP2ndDOffsetV;
 	}
 	
 	private:
