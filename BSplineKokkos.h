@@ -93,7 +93,7 @@ public:
 			knotsSize += 2*(splines[i].getNumKnots());
 			ctrlPSize += splines[i].getCtrlPtsSize();
 			knotsSize += splines[i].getKnotsSize();
-			orderSize += splines[i].getOrderSize();
+			orderSize += splines[i].getOrder().extent(0);
 			weightSize += splines[i].getWeightSize();
 		}
 		//Pre-Allocate space for views 
@@ -128,6 +128,7 @@ public:
 			}
 			cOidx += intView.extent(0);
 			lastOffset = intView(intView.extent(0)-1)+(intView(intView.extent(0)-1) - intView(intView.extent(0)-2));
+			std::cout << "LastOffset: " << lastOffset << std::endl;
 			//Populate knots offset
 			//Offset the offset by the last offset in the view
 			intView = splines[i].getKnotsOffset();
