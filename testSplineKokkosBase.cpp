@@ -84,6 +84,7 @@ int main(int argc, char* argv[]) {
 		dummyKnotsY.assign({19.12, 10.21, 12.78});
 		dOrder = 5;
                 dummyWeights.assign({0.12, 0.182, 0.98, 0.05});
+		std::cout << "\t\tSTART OF MULTISPLINE CREATION" << std::endl;
 		BSplineKokkos<ExecutionSpace> ex3(dOrder, dummyCtrlPtsX, dummyCtrlPtsY, dummyKnotsX, dummyKnotsY, dummyWeights);
 		splineList.push_back(ex3);
 		std::cout << "ex3" << std::endl;

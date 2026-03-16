@@ -29,7 +29,6 @@ public:
 		for (int i = 0; i < ctrlPts_y.size(); i++) {
 			ctrlPtsV(ctrlPts_x.size()+i) = ctrlPts_y[i];
 		}
-		std::cout << "ctrlPts initialized" << std::endl; 
 
 		ctrlPts = ctrlPtsV;
 
@@ -38,8 +37,6 @@ public:
 		cPOffsetV(1) = ctrlPts_x.size(); //y coor start index
 
 		cPOffset = cPOffsetV;
-
-		std::cout << "cp offset initialized" << std::endl;
 
 		//Initialize knots and their offset
 		Kokkos::View<double*, MemSpace> knotsV("Knots", knots_x.size()*2);
@@ -58,17 +55,12 @@ public:
 		knots = knotsV;
 		knotsOffset = knotsOffsetV;
 
-		std::cout << "knots initialized" << std::endl;
-		std::cout << "knots offset initialized" << std::endl;
-
 		//Copy the weights over
 		Kokkos::View<double*, MemSpace> weightsV("Weights", weights_p.size());
 		for (int i = 0; i < weights_p.size(); i++) {
 			weightsV(i) = weights_p[i];
 		}
 		weights = weightsV;
-
-		std::cout << "weights initialized" << std::endl;
 
 		//Derivative coefficients
 		calculateDerivCoeff();
@@ -90,7 +82,7 @@ public:
 		//Track space needed to allocate for ctrlPts & knots
 		for (int i = 0; i < splines.size(); i++) {
 			cPOffSize += 2*(splines[i].getNumCtrlPts());
-			knotsSize += 2*(splines[i].getNumKnots());
+			kOffSize += 2*(splines[i].getNumKnots());
 			ctrlPSize += splines[i].getCtrlPtsSize();
 			knotsSize += splines[i].getKnotsSize();
 			orderSize += splines[i].getOrder().extent(0);
@@ -103,7 +95,8 @@ public:
 		Kokkos::View<double*, MemSpace> knotsV("Knots", knotsSize);
 		Kokkos::View<int*, MemSpace> knotsOffsetV ("KnotsOffset", kOffSize);
 		Kokkos::View<double*, MemSpace> weightsV("Weights", weightSize);
-		
+
+
 		int oidx = 0;
 		int cPidx = 0;
 		int cOidx = 0;
@@ -111,7 +104,8 @@ public:
 		int kOidx = 0;
 		int widx = 0;
 		//Populate the views with data
-		int lastOffset = 0;
+		int cpLast = 0;
+		int kLast = 0;
 		
 		for (int i = 0; i < splines.size(); i++) {
 			Kokkos::View<int*, MemSpace> intView = splines[i].getOrder();
@@ -124,19 +118,19 @@ public:
 			//Offset the offset by the last offset in the view
 			intView = splines[i].getCPOffset();
 			for (int j = 0; j < intView.extent(0); j++) {
-				cPOffsetV(cOidx+j) = intView(j)+lastOffset; 
+				cPOffsetV(cOidx+j) = intView(j)+cpLast;	
 			}
 			cOidx += intView.extent(0);
-			lastOffset = intView(intView.extent(0)-1)+(intView(intView.extent(0)-1) - intView(intView.extent(0)-2));
-			std::cout << "LastOffset: " << lastOffset << std::endl;
+			cpLast = cPOffsetV(cOidx-1)+(cPOffsetV(cOidx-1) - cPOffsetV(cOidx-2));
 			//Populate knots offset
 			//Offset the offset by the last offset in the view
 			intView = splines[i].getKnotsOffset();
 			for (int j = 0; j < intView.extent(0); j++) {
-				knotsOffsetV(kOidx+j) = intView(j)+lastOffset;
+				knotsOffsetV(kOidx+j) = intView(j)+kLast;
 			}
 			kOidx += intView.extent(0);
-			lastOffset = intView(intView.extent(0)-1)+(intView(intView.extent(0)-1) - intView(intView.extent(0)-2));
+			kLast = knotsOffsetV(kOidx-1)+(knotsOffsetV(kOidx-1) - knotsOffsetV(kOidx-2));
+
 			//Populate ctrlpts
 			Kokkos::View<double*, MemSpace> doubleView = splines[i].getCtrlPts();
 			for (int j = 0; j < doubleView.extent(0); j++) {
