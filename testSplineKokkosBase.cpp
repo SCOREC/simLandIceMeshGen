@@ -81,8 +81,8 @@ int main(int argc, char* argv[]) {
 
 		dummyCtrlPtsX.assign({18.29, 12.12, 5.92, 7.182, 1.16});
 		dummyCtrlPtsY.assign({4.72, 5.78, 9.12, 1.29, 10.2});
-		dummyKnotsX.assign({4.34, 29.3, 18.7});
-		dummyKnotsY.assign({19.12, 10.21, 12.78});
+		dummyKnotsX.assign({4.34, 29.3, 18.7, 15.14, 16.87, 9.99});
+		dummyKnotsY.assign({19.12, 10.21, 12.78, 8.12, 9.12, 12.12});
 		dOrder = 5;
                 dummyWeights.assign({0.12, 0.182, 0.98, 0.05});
 		std::cout << "\t\tSTART OF MULTISPLINE CREATION" << std::endl;

@@ -168,6 +168,15 @@ public:
 		cPOffset = cPOffsetV;
 		knotsOffset = knotsOffsetV;
 		calculateDerivCoeff();
+		std::cout << "1st derivative" << std::endl;
+		for (int i = 0; i < ctrlPts_1stD.extent(0); i++){ 
+			std::cout << ctrlPts_1stD(i) << std::endl;
+		} 
+		std::cout << "2nd derivative" << std::endl;
+		for (int i = 0; i < ctrlPts_2ndD.extent(0); i++){  
+			std::cout << ctrlPts_2ndD.extent(0) << std::endl;
+		} 		
+		std::cout<<"constructor end" << std::endl;
 
 	}
 
@@ -279,7 +288,7 @@ public:
 		//Moved here from the .cpp file since it uses <ExecutionSpace>
 		//Calculate first order derivative
 		//Allocate the space
-		Kokkos::View<double*, MemSpace> ctrlPts_1stDV("ctrlPts1Derivative", ctrlPts.extent(0)-(cPOffset.extent(0)/2));
+		Kokkos::View<double*, MemSpace> ctrlPts_1stDV("ctrlPts1Derivative", ctrlPts.extent(0)-cPOffset.extent(0));
 		Kokkos::View<int*, MemSpace> cP1stDOffsetV("ctrlPts1DerivativeOffset", cPOffset.extent(0));
 		Kokkos::View<int*, MemSpace> cP2ndDOffsetV("ctrlPts2DerivativeOffset", cPOffset.extent(0));
                 cP2ndDOffsetV(0) = 0;
@@ -295,23 +304,33 @@ public:
 		int idx = 1;
 		int oidx = 0;
 
-		std::cout << cPOffset(cPOffset.extent(0)-2) << std::endl;
-		for (int i = 1; i < cPOffset(cPOffset.extent(0)-2); i++) {
+
+		for (int i = 1; i < ctrlPts.extent(0); i++) {
 			if (i == cPOffset(idx)) {
 				//Do not calculate, delta will be based on both x and y
 				idx++;
-				if (idx % 2 == 0) {
+				if (idx % 2 != 0) {
 					oidx++;
+					//This is a different spline with different order
 				}
 				continue;
 			}
+			//std::cout << "Order: " << order(oidx) << std::endl;
+			//std::cout << "knots(i): " << knots(i) << std::endl;
+			//std::cout << "i+order(oidx)-1: " << knots(i+order(oidx)-1) << std::endl;
 			double delta = double(order(oidx) - 1)/(knots(i+order(oidx)-1)-knots(i));
-			std::cout << "delta: " << delta << std::endl;
-			ctrlPts_1stDV(i-1) = ((ctrlPts(i) - ctrlPts(i-1)*delta));
+
+			//std::cout << ctrlPts(i-1) << "|" << ctrlPts(i) << std::endl;
+
+
+			//std::cout << "delta: " << delta << std::endl;
+			//std::cout <<"current point: "<<  ctrlPts(i) << std::endl;
+			ctrlPts_1stDV(i-1-(idx-1)) = ((ctrlPts(i) - ctrlPts(i-1)*delta));
+			//std::cout <<"cP coefficient: "<< ctrlPts_1stDV(i-1) << std::endl;
 		}
 
 		//Calculate second order derivative
-		Kokkos::View<double*, MemSpace> ctrlPts_2ndDV("ctrlPts2Derivative", ctrlPts.extent(0)-cPOffset.extent(0));
+		Kokkos::View<double*, MemSpace> ctrlPts_2ndDV("ctrlPts2Derivative", ctrlPts.extent(0)-2*cPOffset.extent(0));
 
 		idx = 1;
 		oidx = 0;
@@ -319,13 +338,20 @@ public:
 		for (int i = 1; i < ctrlPts_1stDV.extent(0); i++) {
 			if (i == cP1stDOffsetV(idx)) {
 				idx++;
-				if (idx %2 == 0) {
+				if (idx %2 != 0) {
 					oidx++;
 				}
 				continue;
 			}
+			std::cout << "order: " <<  order(oidx) << std::endl;
+			std::cout << "i+order(oidx)-1" << std::endl;
+			std::cout << "knot at ^ position: " << knots(i+order(oidx)-1) << std::endl;
+			std::cout << "next knot: " << knots(i+1) << std::endl;
 			double delta = double((order(oidx)-2))/(knots(i+order(oidx)-1)-knots(i+1));
-			ctrlPts_2ndDV(i-1) = ctrlPts_1stDV(i) - ctrlPts_1stDV(i-1)*delta;
+
+			std::cout << "delta: " << delta << std::endl;
+			ctrlPts_2ndDV(i-1-(idx-1)) = ctrlPts_1stDV(i) - ctrlPts_1stDV(i-1)*delta;
+			std::cout << "cP 2nd coefficient: " << ctrlPts_2ndDV(i-1) << std::endl;
 		}
 		ctrlPts_2ndD = ctrlPts_2ndDV;
 		ctrlPts_1stD = ctrlPts_1stDV;
