@@ -41,6 +41,7 @@ public:
 		//Initialize knots and their offset
 		Kokkos::View<double*, MemSpace> knotsV("Knots", knots_x.size()*2);
 
+
 		Kokkos::View<int*, MemSpace> knotsOffsetV("KnotsOffset", 2);
                 knotsOffsetV(0) = 0;
 		knotsOffsetV(1) = knots_x.size();
@@ -159,6 +160,62 @@ public:
 
 	}
 
+	double evalFirstDeriv(double x, int splineo, char coor) const {
+		//Find the order based on the spline number given
+		int lKnot = order(splineo)-1;
+		//Find the range that contains this spline
+		//Need to make sure it is within the range of this spline
+		int leftPt;
+		int bound;
+		if (coor == 'x') {
+			//We are calculating the x component
+			leftPt = knotsOffset(2*splineo);
+			bound = knotsOffset(2*splineo+1);
+		}
+		else {
+			leftPt = knotsOffset(2*splineo+1);
+			bound = knotsOffset(2*(splineo+1));
+		}
+		//Search within this range
+		while (knots(leftPt+1) < x && leftPt < bound) {
+			lKnot++;
+			leftPt++;
+		}
+
+		int order_t = order(splineo)-1;
+
+		//Copy to view;
+		int idx = 0;
+		Kokkos::View<double*, MemSpace> pts(order_t);
+		for (int i = leftPt; i < leftPt+order_t; i++) {
+			pts(idx) = ctrlPts_1stD(i);
+			idx++;
+		}
+		idx = 0;
+		Kokkos::View<double*, MemSpace> localKnots(2*order_t-2);
+		for (int i = lKnot-order_t+2; i < lKnot+order_t+1; i++) {
+			localKnots(idx) = knots(i);
+		}
+
+		Kokkos::parallel_for("1st derivative loop", order_t, KOKKOS_LAMBDA(int r) {
+			for (int i = order_t-1; i >= r+1; i--) {
+				double aLeft = localKnots(i-1);
+				double aRight = localKnots(i+order_t-(r+1)-1);
+				double alpha;
+				if (aLeft == aRight) {
+					alpha = 0.;
+				}
+				else {
+					alpha = (x-aLeft)/(aRight-aLeft);
+				}
+				pts(i) = (1. - alpha) * pts(i-1)+alpha*pts(i);
+			}
+		});
+		return pts(order_t-1);
+	}
+
+
+
 
 
 	//Accessors
@@ -174,6 +231,7 @@ public:
 	int getCtrlPtsSize() const {return ctrlPts.extent(0);}
 	int getKnotsSize() const {return knots.extent(0);}
 	int getWeightSize() const {return weights.extent(0);}
+	int getOrderSize() const {return order.extent(0);}
 
 	double getCtrlPtCoor(int BspIdx, int cPIdx, char coor) const {
 		if (coor == 'x') {
