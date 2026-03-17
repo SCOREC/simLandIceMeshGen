@@ -1,5 +1,6 @@
 #include <Kokkos_Core.hpp>
 #include "BSplineKokkos.h"
+#include "BSpline.h"
 #include <vector>
 #include <iostream>
 
@@ -94,6 +95,12 @@ int main(int argc, char* argv[]) {
 
 		std::cout << "Spline created from list of splines" << std::endl;
 		printSpline(fromList);
+
+		//Testing for 1st Derivative
+		for (int i = 0; i < ex1.getCtrlPts().extent(0); i++) {
+			std::cout << ex1.evalFirstDeriv(ex1.getCtrlPts()(i), 0, 'x') << std::endl; 
+		}
+
 		 		 
 	}
 	Kokkos::finalize();

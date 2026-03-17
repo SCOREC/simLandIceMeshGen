@@ -65,8 +65,18 @@ public:
 
 		//Derivative coefficients
 		calculateDerivCoeff();
+		std::cout << "1st derivative" << std::endl;
+		for (int i = 0; i < ctrlPts_1stD.extent(0); i++){			std::cout << ctrlPts_1stD(i) << std::endl;
+		}
+		std::cout << "2nd derivative" << std::endl;
+		for (int i = 0; i < ctrlPts_2ndD.extent(0); i++){
+			std::cout << ctrlPts_2ndD.extent(0) << std::endl;
+		}
+		std::cout<<"constructor end" << std::endl;
 
 	}
+
+
 
 //Create BSpline for a vector of BSplineKokkos objects
 	BSplineKokkos(std::vector<BSplineKokkos>& splines) {
@@ -157,12 +167,16 @@ public:
 		weights = weightsV;
 		cPOffset = cPOffsetV;
 		knotsOffset = knotsOffsetV;
+		calculateDerivCoeff();
 
 	}
 
 	double evalFirstDeriv(double x, int splineo, char coor) const {
 		//Find the order based on the spline number given
 		int lKnot = order(splineo)-1;
+		std::cout << "lKnot: " << lKnot << std::endl;
+		std::cout << "Order: " << order(splineo) <<std::endl;
+
 		//Find the range that contains this spline
 		//Need to make sure it is within the range of this spline
 		int leftPt;
@@ -176,23 +190,30 @@ public:
 			leftPt = knotsOffset(2*splineo+1);
 			bound = knotsOffset(2*(splineo+1));
 		}
+
+		std::cout << "leftPt: " << leftPt << std::endl;
+		std::cout << "bound: " << bound << std::endl;
+
 		//Search within this range
 		while (knots(leftPt+1) < x && leftPt < bound) {
 			lKnot++;
 			leftPt++;
 		}
+		std::cout << "lKnot: " << lKnot << std::endl;
+		std::cout << "leftPt after loop: " << leftPt << std::endl;
 
 		int order_t = order(splineo)-1;
 
 		//Copy to view;
 		int idx = 0;
-		Kokkos::View<double*, MemSpace> pts(order_t);
+		Kokkos::View<double*, MemSpace> pts("pts", order_t);
 		for (int i = leftPt; i < leftPt+order_t; i++) {
+			std::cout << i << "|" << ctrlPts_1stD(i) << std::endl;
 			pts(idx) = ctrlPts_1stD(i);
 			idx++;
 		}
 		idx = 0;
-		Kokkos::View<double*, MemSpace> localKnots(2*order_t-2);
+		Kokkos::View<double*, MemSpace> localKnots("local knots", 2*order_t-2);
 		for (int i = lKnot-order_t+2; i < lKnot+order_t+1; i++) {
 			localKnots(idx) = knots(i);
 		}
@@ -225,6 +246,9 @@ public:
 	Kokkos::View<double*, MemSpace> getWeights() const {return weights;}
 	Kokkos::View<int*, MemSpace> getCPOffset() const {return cPOffset;}
 	Kokkos::View<int*, MemSpace> getKnotsOffset() const {return knotsOffset;}
+	Kokkos::View<double*, MemSpace> get1stD() const {return ctrlPts_1stD;}
+	Kokkos::View<double*, MemSpace> get2ndD() const {return ctrlPts_2ndD;}
+
 
 	int getNumCtrlPts() const {return cPOffset.extent(0)/2;}
 	int getNumKnots() const {return knotsOffset.extent(0)/2;}
@@ -255,7 +279,7 @@ public:
 		//Moved here from the .cpp file since it uses <ExecutionSpace>
 		//Calculate first order derivative
 		//Allocate the space
-		Kokkos::View<double*, MemSpace> ctrlPts_1stDV("ctrlPts1Derivative", ctrlPts.extent(0)-cPOffset.extent(0));
+		Kokkos::View<double*, MemSpace> ctrlPts_1stDV("ctrlPts1Derivative", ctrlPts.extent(0)-(cPOffset.extent(0)/2));
 		Kokkos::View<int*, MemSpace> cP1stDOffsetV("ctrlPts1DerivativeOffset", cPOffset.extent(0));
 		Kokkos::View<int*, MemSpace> cP2ndDOffsetV("ctrlPts2DerivativeOffset", cPOffset.extent(0));
                 cP2ndDOffsetV(0) = 0;
@@ -270,6 +294,8 @@ public:
 		//We need to partition the x and y while we calculate the coefficient
 		int idx = 1;
 		int oidx = 0;
+
+		std::cout << cPOffset(cPOffset.extent(0)-2) << std::endl;
 		for (int i = 1; i < cPOffset(cPOffset.extent(0)-2); i++) {
 			if (i == cPOffset(idx)) {
 				//Do not calculate, delta will be based on both x and y
@@ -280,11 +306,12 @@ public:
 				continue;
 			}
 			double delta = double(order(oidx) - 1)/(knots(i+order(oidx)-1)-knots(i));
+			std::cout << "delta: " << delta << std::endl;
 			ctrlPts_1stDV(i-1) = ((ctrlPts(i) - ctrlPts(i-1)*delta));
 		}
 
 		//Calculate second order derivative
-		Kokkos::View<double*, MemSpace> ctrlPts_2ndDV("ctrlPts2Derivative", ctrlPts.extent(0)-2*(cPOffset.extent(0)));
+		Kokkos::View<double*, MemSpace> ctrlPts_2ndDV("ctrlPts2Derivative", ctrlPts.extent(0)-cPOffset.extent(0));
 
 		idx = 1;
 		oidx = 0;
