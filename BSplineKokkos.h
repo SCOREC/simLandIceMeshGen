@@ -219,6 +219,61 @@ public:
 		return pts(order_t-1);
 	}
 
+	double evalSecondDeriv(double x, int splineo, char coor) const {
+		if (order == 2) {
+			return 0;
+		}
+		
+		int lKnot = order(splineo)-1;
+		int leftPt;
+		int bound;
+		if (coor == 'x') {
+			leftPt = (2*splineo);
+			bound = knotsOffset(2*splineo+1);
+		} else {
+			leftPt = knotsOffset(2*splineo+1);
+			bound = knotsOffset(2*(splineo+1));
+		}
+
+		while (knots(lKnot+1) < x && leftPt < bound) {
+			lKnot++;
+			leftPt++;
+		}
+
+		//Populate pts and local knot views
+		int order_t = order(splineo)-2;
+		Kokkos::View<double*, MemSpace> pts("pts", order_t);
+		for (int i = leftPt; i < leftPt+order_t; i++) {
+			pts(i-leftPt) = ctrlPts_2ndD(i);
+		} 
+
+		Kokkos::View<double*, MemSpace> localKnots("localKnots", 2*order_t-2);
+		int idx = 0;
+		for (int i = lKnot-order_t+2; i < lKnot+order; i++) {
+			localKnots(idx) = knots(i);
+			idx++;
+		}
+
+		Kokkos::parallel_for ("2nd derivative loop", order_t, KOKKOS_LAMBDA(int r){
+			for (int i = order_t-1; i >= r+1; i--) {
+				double aLeft = localKnots(i-1);
+				double aRight = localKnots(i+order_t-(r+1)-1);
+				double alpha;
+				if (aLeft == aRight) {
+					alpha = 0;
+				}
+				else {
+					alpha = (x-aLeft)/(aRight-aLeft);
+				}
+
+				pts(i) = (1. - alpha) * pts(i-1)+alpha*pts(i);
+			
+			}
+		});
+		return pts(order_t-1);
+	
+	}
+
 
 
 
@@ -326,10 +381,6 @@ public:
 			}
 			double delta = double((order(oidx)-2))/(knots(i+order(oidx)-1)-knots(i+1));
 			ctrlPts_2ndDV(i-1-(idx-1)) = ctrlPts_1stDV(i) - ctrlPts_1stDV(i-1)*delta;
-		}
-
-		for (int i = 0; i < ctrlPts_2ndDV.extent(0); i++) {
-			std::cout << ctrlPts_2ndDV(i) << std::endl;
 		}
 
 		ctrlPts_2ndD = ctrlPts_2ndDV;
