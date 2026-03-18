@@ -19,7 +19,6 @@ public:
 		Kokkos::View<int*, MemSpace> orderV("Orders", 1);
 		orderV(0) = order_p;
 		order = orderV;
-		std::cout << "Order view added" << std::endl; 
 		//Initialize control points and their offset
 		Kokkos::View<double*, MemSpace> ctrlPtsV("CtrlPoints", 2*ctrlPts_x.size());
 		for (int i = 0; i < ctrlPts_x.size(); i++) {
@@ -65,14 +64,6 @@ public:
 
 		//Derivative coefficients
 		calculateDerivCoeff();
-		std::cout << "1st derivative" << std::endl;
-		for (int i = 0; i < ctrlPts_1stD.extent(0); i++){			std::cout << ctrlPts_1stD(i) << std::endl;
-		}
-		std::cout << "2nd derivative" << std::endl;
-		for (int i = 0; i < ctrlPts_2ndD.extent(0); i++){
-			std::cout << ctrlPts_2ndD.extent(0) << std::endl;
-		}
-		std::cout<<"constructor end" << std::endl;
 
 	}
 
@@ -168,23 +159,12 @@ public:
 		cPOffset = cPOffsetV;
 		knotsOffset = knotsOffsetV;
 		calculateDerivCoeff();
-		std::cout << "1st derivative" << std::endl;
-		for (int i = 0; i < ctrlPts_1stD.extent(0); i++){ 
-			std::cout << ctrlPts_1stD(i) << std::endl;
-		} 
-		std::cout << "2nd derivative" << std::endl;
-		for (int i = 0; i < ctrlPts_2ndD.extent(0); i++){  
-			std::cout << ctrlPts_2ndD.extent(0) << std::endl;
-		} 		
-		std::cout<<"constructor end" << std::endl;
 
 	}
 
 	double evalFirstDeriv(double x, int splineo, char coor) const {
 		//Find the order based on the spline number given
 		int lKnot = order(splineo)-1;
-		std::cout << "lKnot: " << lKnot << std::endl;
-		std::cout << "Order: " << order(splineo) <<std::endl;
 
 		//Find the range that contains this spline
 		//Need to make sure it is within the range of this spline
@@ -200,16 +180,11 @@ public:
 			bound = knotsOffset(2*(splineo+1));
 		}
 
-		std::cout << "leftPt: " << leftPt << std::endl;
-		std::cout << "bound: " << bound << std::endl;
-
 		//Search within this range
 		while (knots(leftPt+1) < x && leftPt < bound) {
 			lKnot++;
 			leftPt++;
 		}
-		std::cout << "lKnot: " << lKnot << std::endl;
-		std::cout << "leftPt after loop: " << leftPt << std::endl;
 
 		int order_t = order(splineo)-1;
 
@@ -343,16 +318,20 @@ public:
 				}
 				continue;
 			}
-			std::cout << "order: " <<  order(oidx) << std::endl;
-			std::cout << "i+order(oidx)-1" << std::endl;
-			std::cout << "knot at ^ position: " << knots(i+order(oidx)-1) << std::endl;
-			std::cout << "next knot: " << knots(i+1) << std::endl;
+			if (order(oidx) == 2) {
+				//This will cause problem, it should be 0 anyway
+				ctrlPts_2ndDV(i-1-(idx-1)) = 0;
+				continue;
+			
+			}
 			double delta = double((order(oidx)-2))/(knots(i+order(oidx)-1)-knots(i+1));
-
-			std::cout << "delta: " << delta << std::endl;
 			ctrlPts_2ndDV(i-1-(idx-1)) = ctrlPts_1stDV(i) - ctrlPts_1stDV(i-1)*delta;
-			std::cout << "cP 2nd coefficient: " << ctrlPts_2ndDV(i-1) << std::endl;
 		}
+
+		for (int i = 0; i < ctrlPts_2ndDV.extent(0); i++) {
+			std::cout << ctrlPts_2ndDV(i) << std::endl;
+		}
+
 		ctrlPts_2ndD = ctrlPts_2ndDV;
 		ctrlPts_1stD = ctrlPts_1stDV;
 		cP1stDOffset = cP1stDOffsetV;
