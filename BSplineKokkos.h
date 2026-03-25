@@ -216,50 +216,65 @@ public:
 
     }
 
-    double evalFirstDeriv(double x, int splineo, char coor) const {
+    double evalFirstDeriv(double x, int splineo) const {
 	//Find the order based on the spline number given
-	int lKnot = order(splineo)-1;
+	auto order_mv = Kokkos::create_mirror_view(order);
+	Kokkos::deep_copy(order_mv, order);
+	int lKnot = order_mv(splineo)-1;
 
+	std::cout << lKnot << std::endl;
 	//Find the range that contains this spline
 	//Need to make sure it is within the range of this spline
+	auto mv_knotsOffset = Kokkos::create_mirror_view(knotsOffset);
+	Kokkos::deep_copy(mv_knotsOffset, knotsOffset);
 	int leftPt;
 	int bound;
-	if (coor == 'x') {
-	    //We are calculating the x component
-	    leftPt = knotsOffset(2*splineo);
-	    bound = knotsOffset(2*splineo+1);
+
+	if (splineo == 0) {
+	    leftPt = 0;
+	    bound = mv_knotsOffset(splineo);
 	}
 	else {
-	    leftPt = knotsOffset(2*splineo+1);
-	    bound = knotsOffset(2*(splineo+1));
+	    //We are calculating the x component
+	    leftPt = mv_knotsOffset(splineo-1);
+	    bound = mv_knotsOffset(splineo);
 	}
+
+        auto mv_knots = Kokkos::create_mirror_view(knots);
+        Kokkos::deep_copy(mv_knots, knots);
 
 	//Search within this range
-	while (knots(leftPt+1) < x && leftPt < bound) {
-	    lKnot++;
-	    leftPt++;
+	while (mv_knots(leftPt+1) < x && leftPt < bound) {
+	    lKnot+=2;
+	    leftPt+=2;
 	}
 
-	int order_t = order(splineo)-1;
+	int order_t = order_mv(splineo)-1;
 
 	//Copy to view;
+	auto mv_ctrlPts_1stD = Kokkos::create_mirror_view(ctrlPts_1stD);
+	Kokkos::deep_copy(mv_ctrlPts_1stD, ctrlPts_1stD);
 	int idx = 0;
 	Kokkos::View<double*, MemSpace> pts("pts", order_t);
+	auto mv_pts = Kokkos::create_mirror_view(pts);
 	for (int i = leftPt; i < leftPt+order_t; i++) {
-	    std::cout << i << "|" << ctrlPts_1stD(i) << std::endl;
-	    pts(idx) = ctrlPts_1stD(i);
+	    std::cout << i << "|" << mv_ctrlPts_1stD(i) << std::endl;
+	    mv_pts(idx) = mv_ctrlPts_1stD(i);
 	    idx++;
 	}
+
 	idx = 0;
 	Kokkos::View<double*, MemSpace> localKnots("local knots", 2*order_t-2);
+	auto mv_localKnots = Kokkos::create_mirror_view(localKnots);
 	for (int i = lKnot-order_t+2; i < lKnot+order_t+1; i++) {
-	    localKnots(idx) = knots(i);
+	    mv_localKnots(idx) = mv_knots(i);
 	}
+	std::cout << "Local knots collection complete" << std::endl;
 
 	Kokkos::parallel_for("1st derivative loop", order_t, KOKKOS_LAMBDA(int r) {
 	    for (int i = order_t-1; i >= r+1; i--) {
-	        double aLeft = localKnots(i-1);
-	        double aRight = localKnots(i+order_t-(r+1)-1);
+	        double aLeft = mv_localKnots(i-1);
+	        double aRight = mv_localKnots(i+order_t-(r+1)-1);
 	        double alpha;
 	        if (aLeft == aRight) {
 		    alpha = 0.;
@@ -267,44 +282,58 @@ public:
 	        else {
 		    alpha = (x-aLeft)/(aRight-aLeft);
 	        }
-		pts(i) = (1. - alpha) * pts(i-1)+alpha*pts(i);
+		mv_pts(i) = (1. - alpha) * mv_pts(i-1)+alpha*mv_pts(i);
 	    }
 	});
+	std::cout << "Before deep copy of pts" << std::endl;
+	Kokkos::deep_copy(pts, mv_pts);
+	std::cout << "After deep copy of pts" << std::endl;
 	return pts(order_t-1);
     }
     
-    double evalSecondDeriv(double x, int splineo, char coor) const {
-	if (order == 2) {
+    double evalSecondDeriv(double x, int splineo) const {
+	auto mv_order = Kokkos::create_mirror_view(order);
+	Kokkos::deep_copy(mv_order);
+	if (mv_order(splineo) == 2) {
 	    return 0;
 	}
 		
-	int lKnot = order(splineo)-1;
+	int lKnot = mv_order(splineo)-1;
 	int leftPt;
 	int bound;
-	if (coor == 'x') {
-	    leftPt = (2*splineo);
-	    bound = knotsOffset(2*splineo+1);
+
+	auto mv_knotsOffset = Kokkos::create_mirror_view(knotsOffset);
+	Kokkos::deep_copy(mv_knotsOffset, knotsOffset);
+	if (splineo == 0) {
+	    leftPt = 0;
+	    bound = mv_knotsOffset(splineo);
 	} else {
-	    leftPt = knotsOffset(2*splineo+1);
-	    bound = knotsOffset(2*(splineo+1));
+	    leftPt = mv_knotsOffset(splineo-1);
+	    bound = mv_knotsOffset(splineo);
 	}
 
-	while (knots(lKnot+1) < x && leftPt < bound) {
-	    lKnot++;
-	    leftPt++;
+	auto mv_knots = Kokkos::create_mirror_view(knots);
+	Kokkos::deep_copy(mv_knots, knots);
+	while (mv_knots(lKnot+1) < x && leftPt < bound) {
+	    lKnot+=2;
+	    leftPt+=2;
 	}
 
 	//Populate pts and local knot views
-	int order_t = order(splineo)-2;
+	int order_t = mv_order(splineo)-2;
+	auto mv_ctrlPts_2ndD = Kokkos::create_mirror_view(ctrlPts_2ndD);
+	Kokkos::deep_copy(mv_ctrlPts_2ndD, ctrlPts_2ndD);
 	Kokkos::View<double*, MemSpace> pts("pts", order_t);
+	auto mv_pts = Kokkos::create_mirror_view(pts);
 	for (int i = leftPt; i < leftPt+order_t; i++) {
-	    pts(i-leftPt) = ctrlPts_2ndD(i);
+	    mv_pts(i-leftPt) = mv_ctrlPts_2ndD(i);
 	} 
 
 	Kokkos::View<double*, MemSpace> localKnots("localKnots", 2*order_t-2);
 	int idx = 0;
+	auto mv_localKnots = Kokkos::create_mirror_view(localKnots);
 	for (int i = lKnot-order_t+2; i < lKnot+order; i++) {
-	    localKnots(idx) = knots(i);
+	    mv_localKnots(idx) = mv_knots(i);
 	    idx++;
 	}
 
@@ -320,10 +349,11 @@ public:
 		    alpha = (x-aLeft)/(aRight-aLeft);
 		}
 
-		pts(i) = (1. - alpha) * pts(i-1)+alpha*pts(i);
+		mv_pts(i) = (1. - alpha) * mv_pts(i-1)+alpha*mv_pts(i);
 			
 	    }
 	});
+	Kokkos::deep_copy(pts, mv_pts);
 	return pts(order_t-1);
 	
     }
