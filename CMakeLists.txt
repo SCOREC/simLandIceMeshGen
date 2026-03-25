@@ -41,6 +41,7 @@ if(USE_SIMMODSUITE)
     target_link_libraries(${name} PRIVATE simModelGen2d Omega_h::omega_h)
   endfunction()
 
+  addExe(kokkosCoordStruct)
   addExe(generate2dModel)
   addExe(generate2dModelFromMesh)
 
