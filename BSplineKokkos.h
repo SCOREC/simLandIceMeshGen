@@ -42,7 +42,7 @@ public:
 
         Kokkos::View<int*, MemSpace> cPOffsetV("CtrlPointsOffset", 1);
 	auto host_cPOffsetV = Kokkos::create_mirror_view(cPOffsetV);
-        host_cPOffsetV(0) = 0;	//Start of ctrlPts
+        host_cPOffsetV(0) = 2*ctrlPts_x.size();	//End of ctrlPts
 
 	cPOffset = cPOffsetV;
 	Kokkos::deep_copy(cPOffset, host_cPOffsetV);
@@ -53,7 +53,7 @@ public:
 	Kokkos::View<int*, MemSpace> knotsOffsetV("KnotsOffset", 1);
 	auto host_knotsV = Kokkos::create_mirror_view(knotsV);
 	auto host_knotsOffsetV = Kokkos::create_mirror_view(knotsOffsetV);
-        host_knotsOffsetV(0) = 0;
+        host_knotsOffsetV(0) = 2*knots_x.size();   //End of knots
 
 	for (int i = 0; i < knots_x.size(); i++) {
 	    host_knotsV(2*i) = knots_x[i];
@@ -97,8 +97,8 @@ public:
 	//Input the offsets
 	//Track space needed to allocate for ctrlPts & knots
 	for (int i = 0; i < splines.size(); i++) {
-	    cPOffSize += splines[i].getNumCtrlPts();
-	    kOffSize += splines[i].getNumKnots();
+	    cPOffSize += splines[i].getCPOffsetSize();
+	    kOffSize += splines[i].getKnotsOffsetSize();
 	    ctrlPSize += splines[i].getCtrlPtsSize();
 	    knotsSize += splines[i].getKnotsSize();
 	    orderSize += splines[i].getOrder().extent(0);
@@ -118,6 +118,9 @@ public:
 	auto host_knotsOffsetV = Kokkos::create_mirror_view(knotsOffsetV);
 	auto host_weightsV = Kokkos::create_mirror_view(weightsV);
 
+
+	std::cout << "ctrlPtsOffset size: " << cPOffsetV.extent(0)<< std::endl;
+	std::cout << "knotsOffset size: " << knotsOffsetV.extent(0) << std::endl;
 	int oidx = 0;
 	int cPidx = 0;
 	int cOidx = 0;
@@ -145,7 +148,6 @@ public:
 	    intView = splines[i].getCPOffset();
 	    host_intView = Kokkos::create_mirror_view(intView);
 	    Kokkos::deep_copy(host_intView, intView);
-	    host_intView = Kokkos::create_mirror_view(intView);
 	    for (int j = 0; j < host_intView.extent(0); j++) {
 		std::cout << "\tctrlPtsOffset: " << host_intView(j) << std::endl;
 		std::cout << "\tcpLast: " << cpLast << std::endl;
@@ -154,7 +156,7 @@ public:
 
 	    }
 	    cOidx += host_intView.extent(0);
-	    cpLast = host_cPOffsetV(cOidx-1)+(host_cPOffsetV(cOidx-1) - host_cPOffsetV(cOidx-2));
+	    cpLast += host_intView(host_intView.extent(0)-1);
 	    //Populate knots offset
 	    //Offset the offset by the last offset in the view
 	    
@@ -165,7 +167,8 @@ public:
 		host_knotsOffsetV(kOidx+j) = host_intView(j)+kLast;
 	    }
 	    kOidx += host_intView.extent(0);
-	    kLast = host_knotsOffsetV(kOidx-1)+(host_knotsOffsetV(kOidx-1) - host_knotsOffsetV(kOidx-2));
+	    kLast += host_intView(host_intView.extent(0)-1);
+	    //kLast = host_knotsOffsetV(kOidx-1)+(host_knotsOffsetV(kOidx-1) - host_knotsOffsetV(kOidx-2));
 
 	    //Populate ctrlpts
 	    Kokkos::View<double*, MemSpace> doubleView = splines[i].getCtrlPts();
@@ -340,8 +343,8 @@ public:
     Kokkos::View<double*, MemSpace> get2ndD() const {return ctrlPts_2ndD;}
 
 
-    int getNumCtrlPts() const {return cPOffset.extent(0)/2;}
-    int getNumKnots() const {return knotsOffset.extent(0)/2;}
+    int getCPOffsetSize() const {return cPOffset.extent(0);}
+    int getKnotsOffsetSize() const {return knotsOffset.extent(0);}
     int getCtrlPtsSize() const {return ctrlPts.extent(0);}
     int getKnotsSize() const {return knots.extent(0);}
     int getWeightSize() const {return weights.extent(0);}
