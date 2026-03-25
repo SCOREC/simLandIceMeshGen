@@ -23,46 +23,48 @@ public:
 	Kokkos::View<int*, MemSpace> orderV("Orders", 1);
 	auto host_orderV = Kokkos::create_mirror_view(orderV);
 	host_orderV(0) = order_p;
-	Kokkos::deep_copy(orderV, host_orderV);
-        order = orderV;
+	order = orderV;
+	Kokkos::deep_copy(order, host_orderV);
 	std::cout << "Order inputted" << std::endl;
 	//Initialize control points and their offset
 	Kokkos::View<double*, MemSpace> ctrlPtsV("CtrlPoints", 2*ctrlPts_x.size());
 	//Create the mirror on host so we can access the vector values
 	auto host_ctrlPtsV = Kokkos::create_mirror_view(ctrlPtsV);
+	std::cout << "ctrlPts size: " << host_ctrlPtsV.extent(0) << std::endl;
 
-	for (int i = 0; i < ctrlPts_x.size(); i+=2) {
-	    host_ctrlPtsV(i) = ctrlPts_x[i];
-	    host_ctrlPtsV(i+1) = ctrlPts_y[i];
+	for (int i = 0; i < ctrlPts_x.size(); i++) {
+	    host_ctrlPtsV(2*i) = ctrlPts_x[i];
+	    host_ctrlPtsV((2*i)+1) = ctrlPts_y[i];
 	}
 
-	Kokkos::deep_copy(ctrlPtsV, host_ctrlPtsV);
 	ctrlPts = ctrlPtsV;
+	Kokkos::deep_copy(ctrlPts, host_ctrlPtsV);
 
         Kokkos::View<int*, MemSpace> cPOffsetV("CtrlPointsOffset", 1);
 	auto host_cPOffsetV = Kokkos::create_mirror_view(cPOffsetV);
         host_cPOffsetV(0) = 0;	//Start of ctrlPts
 
-	Kokkos::deep_copy(cPOffsetV, host_cPOffsetV);
 	cPOffset = cPOffsetV;
+	Kokkos::deep_copy(cPOffset, host_cPOffsetV);
 
 	//Initialize knots and their offset
 	Kokkos::View<double*, MemSpace> knotsV("Knots", knots_x.size()*2);
 
-	Kokkos::View<int*, MemSpace> knotsOffsetV("KnotsOffset", 2);
+	Kokkos::View<int*, MemSpace> knotsOffsetV("KnotsOffset", 1);
 	auto host_knotsV = Kokkos::create_mirror_view(knotsV);
 	auto host_knotsOffsetV = Kokkos::create_mirror_view(knotsOffsetV);
         host_knotsOffsetV(0) = 0;
 
-	for (int i = 0; i < knots_x.size(); i+=2) {
-	    host_knotsV(i) = knots_x[i];
-	    host_knotsV(i+1) = knots_y[i];
+	for (int i = 0; i < knots_x.size(); i++) {
+	    host_knotsV(2*i) = knots_x[i];
+	    host_knotsV((2*i)+1) = knots_y[i];
 	}
 
-	Kokkos::deep_copy(knotsV, host_knotsV);
-	Kokkos::deep_copy(knotsOffsetV, host_knotsOffsetV);
 	knots = knotsV;
+	Kokkos::deep_copy(knots, host_knotsV);
+
 	knotsOffset = knotsOffsetV;
+	Kokkos::deep_copy(knotsOffset, host_knotsOffsetV);
 
 	//Copy the weights over
 	Kokkos::View<double*, MemSpace> weightsV("Weights", weights_p.size());
@@ -70,12 +72,14 @@ public:
 	for (int i = 0; i < weights_p.size(); i++) {
 	    host_weightsV(i) = weights_p[i];
 	}
-	Kokkos::deep_copy(weightsV, host_weightsV);
 	weights = weightsV;
-	
+	Kokkos::deep_copy(weights, host_weightsV);
+
+	std::cout << "All good, before derivative coe" << std::endl;	
 	//Derivative coefficients
-	    calculateDerivCoeff();
-	}
+	calculateDerivCoeff();
+	std::cout << "single spline initialization ok" << std::endl;
+    }
 
 
 
@@ -127,20 +131,27 @@ public:
 		
 	//NOTE TO SELF: INDEXING MAY BE WRONG
 	for (int i = 0; i < splines.size(); i++) {
-
 	    Kokkos::View<int*, MemSpace> intView = splines[i].getOrder();
 	    auto host_intView = Kokkos::create_mirror_view(intView);
+	    Kokkos::deep_copy(host_intView, intView);
 	    //Populate order
 	    for (int j = 0; j < intView.extent(0); j++) {
 		host_orderV(oidx+j)= host_intView(j);
+		std::cout << "Spline Order: " << host_orderV(oidx+j) << std::endl;
 	    }
 	    oidx += host_intView.extent(0);
 	    //Populate ctrlpts offset
 	    //Offset the offset by the last offset in the view
 	    intView = splines[i].getCPOffset();
 	    host_intView = Kokkos::create_mirror_view(intView);
+	    Kokkos::deep_copy(host_intView, intView);
+	    host_intView = Kokkos::create_mirror_view(intView);
 	    for (int j = 0; j < host_intView.extent(0); j++) {
-	        host_cPOffsetV(cOidx+j) = host_intView(j)+cpLast;	
+		std::cout << "\tctrlPtsOffset: " << host_intView(j) << std::endl;
+		std::cout << "\tcpLast: " << cpLast << std::endl;
+		std::cout << "cOidx: " << cOidx << std::endl;
+		host_cPOffsetV(cOidx+j) = host_intView(j)+cpLast;	
+
 	    }
 	    cOidx += host_intView.extent(0);
 	    cpLast = host_cPOffsetV(cOidx-1)+(host_cPOffsetV(cOidx-1) - host_cPOffsetV(cOidx-2));
@@ -149,6 +160,7 @@ public:
 	    
 	    intView = splines[i].getKnotsOffset();
 	    host_intView = Kokkos::create_mirror_view(intView);
+	    Kokkos::deep_copy(host_intView, intView);
 	    for (int j = 0; j < host_intView.extent(0); j++) {
 		host_knotsOffsetV(kOidx+j) = host_intView(j)+kLast;
 	    }
@@ -158,6 +170,7 @@ public:
 	    //Populate ctrlpts
 	    Kokkos::View<double*, MemSpace> doubleView = splines[i].getCtrlPts();
 	    auto host_doubleView = Kokkos::create_mirror_view(doubleView);
+	    Kokkos::deep_copy(host_doubleView, doubleView);
 	    for (int j = 0; j < host_doubleView.extent(0); j++) {
 		host_ctrlPtsV(cPidx+j) = host_doubleView(j);
 	    }
@@ -165,6 +178,7 @@ public:
             //Populate knots
 	    doubleView = splines[i].getKnots();
 	    host_doubleView = Kokkos::create_mirror_view(doubleView);
+	    Kokkos::deep_copy(host_doubleView, doubleView);
 	    for (int j = 0; j < host_doubleView.extent(0); j++) {
 	        host_knotsV(kidx+j) = host_doubleView(j);
 	    }
@@ -172,18 +186,12 @@ public:
 	    //Populate the weights
 	    doubleView = splines[i].getWeights();
 	    host_doubleView = Kokkos::create_mirror_view(doubleView);
+	    Kokkos::deep_copy(host_doubleView, doubleView);
 	    for (int j = 0; j < host_doubleView.extent(0); j++) {
 		host_weightsV(widx+j) = host_doubleView(j);
 	    }
 	    widx += host_doubleView.extent(0);	
 	}
-	//Copy the modification made from the host data to the device view
-	Kokkos::deep_copy(orderV, host_orderV);
-	Kokkos::deep_copy(knotsV, host_knotsV);
-	Kokkos::deep_copy(ctrlPtsV, host_ctrlPtsV);
-	Kokkos::deep_copy(cPOffsetV, host_cPOffsetV);
-	Kokkos::deep_copy(weightsV, host_weightsV);
-	Kokkos::deep_copy(knotsOffsetV, host_knotsOffsetV);
 
 	//Update the member variables
 	order = orderV;
@@ -192,7 +200,16 @@ public:
 	weights = weightsV;
 	cPOffset = cPOffsetV;
 	knotsOffset = knotsOffsetV;
-	calculateDerivCoeff();
+	//Copy the modification made from the host data to the device view
+        Kokkos::deep_copy(order, host_orderV);
+        Kokkos::deep_copy(knots, host_knotsV);
+        Kokkos::deep_copy(ctrlPts, host_ctrlPtsV);
+        Kokkos::deep_copy(cPOffset, host_cPOffsetV);
+        Kokkos::deep_copy(weights, host_weightsV);
+        Kokkos::deep_copy(knotsOffset, host_knotsOffsetV);
+	
+	//TO DO: Work on calculate derivative coeff
+	//calculateDerivCoeff();
 
     }
 
@@ -367,18 +384,45 @@ public:
 
 	//Adjust the offset to include be 1 & 2 less than the ctrlPtsOffset
 	host_cP1stDOffsetV(0) = 0;
-	for (int i = 1; i < cPOffset.extent(0); i++) {
-	    host_cP1stDOffsetV(i) = cPOffset(i)-1;
-	    host_cP2ndDOffsetV(i) = cPOffset(i)-2;
+
+	auto host_cPOffset = Kokkos::create_mirror_view(cPOffset);
+	if (host_cPOffset.extent(0) > 1) {
+	    Kokkos::deep_copy(host_cPOffset, cPOffset);
+	    for (int i = 1; i < cPOffset.extent(0); i++) {
+	        host_cP1stDOffsetV(i) = host_cPOffset(i)-1;
+	        host_cP2ndDOffsetV(i) = host_cPOffset(i)-2;
+	        std::cout << "1st: " << host_cP1stDOffsetV(i);
+	        std::cout << ", 2nd: " << host_cP2ndDOffsetV(i) << std::endl;
+	    }
 	}
 
+	std::cout << "offset view populated" << std::endl;
+
 	//We need to partition the x and y while we calculate the coefficient
-	int idx = 1;
+	/*int idx = 1;
 	int oidx = 0;
 
+	auto host_knots = Kokkos::create_mirror_view(knots);
+	auto host_order = Kokkos::create_mirror_view(order);
+	auto host_ctrlPts = Kokkos::create_mirror_view(ctrlPts);
+	auto host_ctrlPts_1stDV = Kokkos::create_mirror_view(ctrlPts_1stDV);
+	
+	//Copy these value over
+	Kokkos::deep_copy(host_knots, knots);
+	Kokkos::deep_copy(host_order, order);
+	Kokkos::deep_copy(host_ctrlPts, ctrlPts);
 
+	//We need to keep track of the indicies of the splines
 	for (int i = 1; i < ctrlPts.extent(0); i++) {
-	    if (i == cPOffset(idx)) {
+	    //Even indices stores all the x coordinates
+	    //Odd indices stores all the y coordinates
+
+	}*/
+
+	//Now that we interleave the data, we need to calculate the coordinates carefully
+	/*
+	for (int i = 1; i < ctrlPts.extent(0); i++) {
+	    if (i == host_cPOffset(idx)) {
 		//Do not calculate, delta will be based on both x and y
 		idx++;
 		if (idx % 2 != 0) {
@@ -390,19 +434,22 @@ public:
 	    //std::cout << "Order: " << order(oidx) << std::endl;
 	    //std::cout << "knots(i): " << knots(i) << std::endl;
 	    //std::cout << "i+order(oidx)-1: " << knots(i+order(oidx)-1) << std::endl;
-	    double delta = double(order(oidx) - 1)/(knots(i+order(oidx)-1)-knots(i));
+	    double delta = double(host_order(oidx) - 1)/(host_knots(i+host_order(oidx)-1)-host_knots(i));
 
 	    //std::cout << ctrlPts(i-1) << "|" << ctrlPts(i) << std::endl;
 
 
 	    //std::cout << "delta: " << delta << std::endl;
 	    //std::cout <<"current point: "<<  ctrlPts(i) << std::endl;
-	    ctrlPts_1stDV(i-1-(idx-1)) = ((ctrlPts(i) - ctrlPts(i-1)*delta));
+	    host_ctrlPts_1stDV(i-1-(idx-1)) = ((host_ctrlPts(i) - host_ctrlPts(i-1)*delta));
 	    //std::cout <<"cP coefficient: "<< ctrlPts_1stDV(i-1) << std::endl;
 	}
 
+	std::cout << "end of 1stD coe calculation" << std::endl;
 	//Calculate second order derivative
 	Kokkos::View<double*, MemSpace> ctrlPts_2ndDV("ctrlPts2Derivative", ctrlPts.extent(0)-2*cPOffset.extent(0));
+
+	auto host_ctrlPts_2ndDV = Kokkos::create_mirror_view(ctrlPts_2ndDV);
 
 	idx = 1;
 	oidx = 0;
@@ -415,20 +462,25 @@ public:
 		}
 		continue;
 	    }
-	    if (order(oidx) == 2) {
+	    if (host_order(oidx) == 2) {
 		//This will cause problem, it should be 0 anyway
-		ctrlPts_2ndDV(i-1-(idx-1)) = 0;
+		host_ctrlPts_2ndDV(i-1-(idx-1)) = 0;
 		continue;
 			
 	    }
-		double delta = double((order(oidx)-2))/(knots(i+order(oidx)-1)-knots(i+1));
-		ctrlPts_2ndDV(i-1-(idx-1)) = ctrlPts_1stDV(i) - ctrlPts_1stDV(i-1)*delta;
+		double delta = double((host_order(oidx)-2))/(host_knots(i+host_order(oidx)-1)-host_knots(i+1));
+		host_ctrlPts_2ndDV(i-1-(idx-1)) = host_ctrlPts_1stDV(i) - host_ctrlPts_1stDV(i-1)*delta;
 	}
+
+	Kokkos::deep_copy(cP1stDOffsetV, host_cP1stDOffsetV);
+	Kokkos::deep_copy(cP2ndDOffsetV, host_cP2ndDOffsetV);
+	Kokkos::deep_copy(ctrlPts_1stDV, host_ctrlPts_1stDV);
+	Kokkos::deep_copy(ctrlPts_2ndDV, host_ctrlPts_2ndDV);
 
 	ctrlPts_2ndD = ctrlPts_2ndDV;
 	ctrlPts_1stD = ctrlPts_1stDV;
 	cP1stDOffset = cP1stDOffsetV;
-	cP2ndDOffset = cP2ndDOffsetV;
+	cP2ndDOffset = cP2ndDOffsetV;*/
     }
 	
     private:
