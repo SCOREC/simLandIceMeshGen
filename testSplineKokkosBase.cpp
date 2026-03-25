@@ -6,15 +6,19 @@
 
 template<typename MemSpace>
 void printDView(Kokkos::View<double*, MemSpace>& dView) {
-    for (int i = 0; i < dView.extent(0); i++) {
-	std::cout << dView(i) << std::endl;
+    auto host_dView = Kokkos::create_mirror_view(dView);
+    Kokkos::deep_copy(host_dView, dView);
+    for (int i = 0; i < host_dView.extent(0); i++) {
+	std::cout << host_dView(i) << std::endl;
     }
 }
 
 template<typename MemSpace>
 void printIView(Kokkos::View<int*, MemSpace>& iView) {
-    for (int i = 0; i < iView.extent(0); i++) {
-	std::cout << iView(i) << std::endl;
+    auto host_iView = Kokkos::create_mirror_view(iView);
+    Kokkos::deep_copy(host_iView, iView);
+    for (int i = 0; i < host_iView.extent(0); i++) {
+	std::cout << host_iView(i) << std::endl;
     }
 }
 
@@ -32,6 +36,9 @@ void printSpline(BSplineKokkos<MemSpace> spline) {
     printDView(dView);
     iView = spline.getKnotsOffset();
     std::cout << "Knots Offset" << std::endl;
+    printIView(iView);
+    iView = spline.getOrder();
+    std::cout << "Order" << std::endl;
     printIView(iView);
 }
 
