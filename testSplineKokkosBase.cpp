@@ -2,7 +2,16 @@
 #include "BSplineKokkos.h"
 #include "BSpline.h"
 #include <vector>
+
+//These imports are from testSplineFitting.cc
+#include "splineInterpolation.h"
+#include "curveReader.h"
+#include <cassert>
 #include <iostream>
+#include <math.h>
+#include <string>
+#include <fstream>
+#include <numeric>
 
 template<typename MemSpace>
 void printDView(Kokkos::View<double*, MemSpace>& dView) {
@@ -40,6 +49,13 @@ void printSpline(BSplineKokkos<MemSpace> spline) {
     iView = spline.getOrder();
     std::cout << "Order" << std::endl;
     printIView(iView);
+}
+
+void printVector(const std::string& name, std::vector<double>& vector) {
+    std::cout << name << ": " << vector.size() << std::endl;
+    for (int i = 0; i < vector.size(); i++) {
+        std::cout << vector[i] << std::endl;
+    }
 }
 
 int main(int argc, char* argv[]) {
@@ -102,10 +118,56 @@ int main(int argc, char* argv[]) {
 	std::cout << "Spline created from list of splines" << std::endl;
 	printSpline(fromList);
 
-	//Testing for 1st Derivative
-	for (int i = 0; i < ex1.getCtrlPts().extent(0); i++) {
-		std::cout << ex1.evalFirstDeriv(ex1.getCtrlPts()(i), 0, 'x') << std::endl; 
+	std::cout << "\n\nChecking derivative calculation against serial version" << std::endl;
+	std::cout << "Number of commandline arguments: " << argc << std::endl;
+	for (int i = 0; i < argc; i++) {
+	    std::cout << argv[i] << std::endl;
 	}
+	if (argc != 3) {
+	    //Check for the arguments needed
+	    std::cerr<<"Input arguments: <input csv file> <expected curve length>" << std::endl;
+	    std::cerr << "input csv need these columns: ";
+	    std::cerr << "x,y,z,isOnCurve,angle,isMdlVtx" << std::endl;
+	    return 1;
+	}
+
+	//Set up before using curve reader
+	std::string inputCSV = argv[1];
+	int extensionPos = inputCSV.rfind(".");
+	int slashPos = inputCSV.rfind("/");
+	std::string fileNameNoExt = inputCSV.substr(slashPos+1, extensionPos);
+	double expectedCurveLength = std::stod(argv[2]);
+	auto curve = CurveReader::readCurveInfo(inputCSV);
+
+	//Construct BSpline2d object 
+	SplineInterp::BSpline2d serialBSP;
+	if (curve.x.size() == 2) {
+	    serialBSP = SplineInterp::attach_piecewise_linear_curve(curve.x, curve.y);
+	}
+	else {
+	    serialBSP = SplineInterp::fitCubicSplineToPoints(curve.x, curve.y);
+	}
+	
+	//Get the parameters and print the spline we initialized
+	std::vector<double> ctrlPtsX, ctrlPtsY, knots, weight;
+	int order;
+	serialBSP.x.getpara(order, ctrlPtsX, knots, weight);
+	std::cout << "x component of the spline" << std::endl;
+	std::cout << "order: " << order << std::endl;
+	printVector("ctrlPtsX", ctrlPtsX);
+	printVector("knots", knots);
+	printVector("weight", weight);
+	serialBSP.y.getpara(order, ctrlPtsY, knots, weight);
+        std::cout << "y component of the spline" << std::endl;
+        std::cout << "order: " << order << std::endl;
+        printVector("ctrlPtsY", ctrlPtsY);
+        printVector("knots", knots);
+        printVector("weight", weight);
+
+	//Now that we ensured that serial BSpline is created correctly we will now feed these data to our BSpline Kokkos Object
+	BSplineKokkos<ExecutionSpace> kokkosBSP(order, ctrlPtsX, ctrlPtsY, knots, knots, weight);
+	printSpline(kokkosBSP);
+
 
 		 		 
     }

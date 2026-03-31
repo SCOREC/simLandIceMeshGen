@@ -176,6 +176,8 @@ set_tests_properties(testDiscoverTopo_L11pts PROPERTIES
 #THE FOLLOWING IS FOR BSPLINE_KOKKOS TESTS, MAY HAVE A LOT OF ERROR
 
 add_executable(testSplineKokkosBase testSplineKokkosBase.cpp)
-target_link_libraries(testSplineKokkosBase PRIVATE splineKokkos Kokkos::kokkos)
-add_test(NAME dummyBSplineKokkos
-   COMMAND ./testSplineKokkosBase)
+target_link_libraries(testSplineKokkosBase PRIVATE modelGen2d curveReader splineKokkos Kokkos::kokkos splineInterp)
+add_test(NAME testBSplineKokkosSerialStraightEdge
+	COMMAND ./testSplineKokkosBase ${testDataDir}/testCurveStrightLine.csv 9)
+add_test(NAME testBSplineKokkosSerial_edge_2pts
+	COMMAND ./testSplineKokkosBase ${testDataDir}/testCurve2pts.csv 1)
