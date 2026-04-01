@@ -157,17 +157,17 @@ int main(int argc, char **argv) {
     const auto paraCoordsOuter = setParametricCoords(features.outer, ptClassOuter, splinesOuter);
     const auto paraCoordsInner = setParametricCoords(features.inner, ptClassInner, splinesInner);
 
-    writePointParametricCoords(paraCoordsInner, modelFileName + "_parametricInner.oshb");
-    writePointParametricCoords(paraCoordsOuter, modelFileName + "_parametricOuter.oshb");
+    writePointParametricCoords(paraCoordsInner, prefix + "_parametricInner.oshb");
+    writePointParametricCoords(paraCoordsOuter, prefix + "_parametricOuter.oshb");
     //write the point classification to an omegah binary file
-    ptClassInner.writeToOsh(modelFileName + "_classInner.oshb");
-    ptClassOuter.writeToOsh(modelFileName + "_classOuter.oshb");
+    ptClassInner.writeToOsh(prefix + "_classInner.oshb");
+    ptClassOuter.writeToOsh(prefix + "_classOuter.oshb");
     //write the bsplines to an omegah binary file
-    splinesInner.writeToOsh(modelFileName + "_splinesInner.oshb");
-    splinesOuter.writeToOsh(modelFileName + "_splinesOuter.oshb");
+    splinesInner.writeToOsh(prefix + "_splinesInner.oshb");
+    splinesOuter.writeToOsh(prefix + "_splinesOuter.oshb");
     //write the sampled bsplines to a csv file
-    splinesInner.writeSamplesToCsv(modelFileName + "_splinesInner.csv");
-    splinesOuter.writeSamplesToCsv(modelFileName + "_splinesOuter.csv");
+    splinesInner.writeSamplesToCsv(prefix + "_splinesInner.csv");
+    splinesOuter.writeSamplesToCsv(prefix + "_splinesOuter.csv");
 
     auto planeBounds = getBoundingPlane(features.outer);
     createFaces(mdlTopo, planeBounds);
