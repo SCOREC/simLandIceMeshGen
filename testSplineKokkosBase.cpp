@@ -180,14 +180,30 @@ int main(int argc, char* argv[]) {
 	//Get and copy the control points here so we could print them
 	 Kokkos::View<double*, MemSpace> dView = kokkosBSP.getCtrlPts();
 	auto host_dView = Kokkos::create_mirror_view(dView);
-    	Kokkos::deep_copy(host_dView, dView);
+    	Kokkos::deep_copy(host_dView, dView);                                                      
         for (int i = 1; i < host_dView.extent(0); i+=2) {
             std::cout <<"Point: " <<  host_dView(i-1) << ", " << host_dView(i) << std::endl;
         }
+        std::cout << "1st derivative, input x = 0: " << kokkosBSP.eval1stDeriv(0, 0) << std::endl;
+
+        std::cout << "1st derivative, input x = 1: " << kokkosBSP.eval1stDeriv(1, 0) << std::endl;
+        
+	std::cout << "----Serial 2nd derivative----" << std::endl;
+        std::cout << "2nd derivative, input x = 0: " << serialBSP.x.evalSecondDeriv(0) << ", " << serialBSP.y.evalSecondDeriv(0) << std::endl;
+        std::cout << "2nd derivative, input x = 1: " << serialBSP.x.evalSecondDeriv(1) << ", " << serialBSP.y.evalSecondDeriv(1) << std::endl;
+
+	std::cout << "----Kokkos 2nd derivative----" << std::endl;
+        //Get and copy the control points here so we could print them
+        dView = kokkosBSP.getCtrlPts();
+        host_dView = Kokkos::create_mirror_view(dView);
+        Kokkos::deep_copy(host_dView, dView);
+        for (int i = 1; i < host_dView.extent(0); i+=2) {
+            std::cout <<"Point: " <<  host_dView(i-1) << ", " << host_dView(i) << std::endl;
+        }
+	std::cout << "2nd derivative, input x = 0: " << kokkosBSP.eval2ndDeriv(0, 0) << std::endl;
+
+        std::cout << "2nd derivative, input x = 1: " << kokkosBSP.eval2ndDeriv(1, 0) << std::endl;
+
     }
-
-    std::cout << "1st derivative, input x = 0: " << kokkosBSP.eval1stDeriv(0, 0) << std::endl;
-
-    std::cout << "1st derivative, input x = 1: " << kokkosBSP.eval1stDeriv(1, 0) << std::endl;
     Kokkos::finalize();
 }
