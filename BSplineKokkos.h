@@ -277,49 +277,66 @@ public:
     
     double eval2ndDeriv(double x, int splineo) const {
 	auto mv_order = Kokkos::create_mirror_view(order);
-	Kokkos::deep_copy(mv_order);
+	Kokkos::deep_copy(mv_order, order);
 	if (mv_order(splineo) == 2) {
 	    return 0;
 	}
-		
+	//Get the left knot, leftPtX, leftPtY
 	int lKnot = mv_order(splineo)-1;
-	int leftPt;
-	int bound;
-
+	int leftPtX = 0;
+	int leftPtY = 1;
+	
+	//Make sure that we did not go over to the next spline
 	auto mv_knotsOffset = Kokkos::create_mirror_view(knotsOffset);
 	Kokkos::deep_copy(mv_knotsOffset, knotsOffset);
-	if (splineo == 0) {
-	    leftPt = 0;
-	    bound = mv_knotsOffset(splineo);
-	} else {
-	    leftPt = mv_knotsOffset(splineo-1);
-	    bound = mv_knotsOffset(splineo);
-	}
+
+	int bound = mv_knotsOffset(splineo);
 
 	auto mv_knots = Kokkos::create_mirror_view(knots);
 	Kokkos::deep_copy(mv_knots, knots);
-	while (mv_knots(lKnot+1) < x && leftPt < bound) {
+	while (mv_knots(lKnot+1) < x) {
 	    lKnot+=2;
-	    leftPt+=2;
+	    leftPtX+=2;
+	    leftPtY+=2;
+	    if (lKnot == bound-1) {
+	        break;
+	    }
 	}
 
 	//Populate pts and local knot views
 	int order_t = mv_order(splineo)-2;
 	auto mv_ctrlPts_2ndD = Kokkos::create_mirror_view(ctrlPts_2ndD);
+	int idx = 0;
 	Kokkos::deep_copy(mv_ctrlPts_2ndD, ctrlPts_2ndD);
-	Kokkos::View<double*, MemSpace> pts("pts", order_t);
-	auto mv_pts = Kokkos::create_mirror_view(pts);
-	for (int i = leftPt; i < leftPt+order_t; i++) {
-	    mv_pts(i-leftPt) = mv_ctrlPts_2ndD(i);
+
+	std::cout << "Second derivative coeff" << std::endl;
+	for (int i = 0; i < mv_ctrlPts_2ndD.extent(0); i++) {
+	    std::cout << mv_ctrlPts_2ndD(i) << std::endl;
+	}
+	std::cout << "------------------------" << std::endl;
+	Kokkos::View<double*, MemSpace> ptsX("ptsX", order_t);
+	Kokkos::View<double*, MemSpace> ptsY("ptsY", order_t);
+	auto mv_ptsX = Kokkos::create_mirror_view(ptsX);
+	auto mv_ptsY = Kokkos::create_mirror_view(ptsY);
+
+	for (int i = leftPtX; i < leftPtX+order_t; i+=2) {
+	    mv_ptsX(idx) = mv_ctrlPts_2ndD(i);
+	    mv_ptsY(idx) = mv_ctrlPts_2ndD(i+1);
 	} 
 
+	//Start populating the local knots
+	idx = 0;
 	Kokkos::View<double*, MemSpace> localKnots("localKnots", 2*order_t-2);
-	int idx = 0;
 	auto mv_localKnots = Kokkos::create_mirror_view(localKnots);
-	for (int i = lKnot-order_t+2; i < lKnot+order; i++) {
+	for (int i = lKnot-order_t+2; i < lKnot+order_t; i++) {
 	    mv_localKnots(idx) = mv_knots(i);
 	    idx++;
 	}
+
+	//Copy the data back to device
+	Kokkos::deep_copy(localKnots, mv_localKnots);
+	Kokkos::deep_copy(ptsX, mv_ptsX);
+	Kokkos::deep_copy(ptsY, mv_ptsY);
 
 	Kokkos::parallel_for ("2nd derivative loop", order_t, KOKKOS_LAMBDA(int r){
 	    for (int i = order_t-1; i >= r+1; i--) {
@@ -333,12 +350,12 @@ public:
 		    alpha = (x-aLeft)/(aRight-aLeft);
 		}
 
-		mv_pts(i) = (1. - alpha) * mv_pts(i-1)+alpha*mv_pts(i);
+		ptsX(i) = (1. - alpha) * ptsX(i-1)+alpha*ptsX(i);
 			
 	    }
 	});
-	Kokkos::deep_copy(pts, mv_pts);
-	return pts(order_t-1);
+	Kokkos::deep_copy(mv_ptsX, ptsX);
+	return mv_ptsX(order_t-1);
 	
     }
 
@@ -453,7 +470,7 @@ public:
 
 	std::cout << "1stD coeff populated" << std::endl;
 
-	Kokkos::View<double*, MemSpace> ctrlPts_2ndDV("ctrlPts2Derivative", ctrlPts.extent(0)-2*cPOffset.extent(0));
+	Kokkos::View<double*, MemSpace> ctrlPts_2ndDV("ctrlPts2Derivative", ctrlPts.extent(0)-(2*cPOffset.extent(0))-2);
         auto host_ctrlPts_2ndDV = Kokkos::create_mirror_view(ctrlPts_2ndDV);
 	idx = 0;
 	oidx = 0;
