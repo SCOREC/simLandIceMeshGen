@@ -405,8 +405,8 @@ public:
 	    for (int i = 1; i < cPOffset.extent(0); i++) {
 	        host_cP1stDOffsetV(i) = host_cPOffset(i)-2;
 	        host_cP2ndDOffsetV(i) = host_cPOffset(i)-4;
-	        std::cout << "1st: " << host_cP1stDOffsetV(i);
-	        std::cout << ", 2nd: " << host_cP2ndDOffsetV(i) << std::endl;
+	        //std::cout << "1st: " << host_cP1stDOffsetV(i);
+	        //std::cout << ", 2nd: " << host_cP2ndDOffsetV(i) << std::endl;
 	    }
 	}
 	else {
@@ -419,6 +419,8 @@ public:
 	//We need to partition the x and y while we calculate the coefficient
 	int idx = 0;
 	int oidx = 0;
+	double deltaHold = 0;
+	int kidx = 2;
 
 	auto host_knots = Kokkos::create_mirror_view(knots);
 	auto host_order = Kokkos::create_mirror_view(order);
@@ -432,21 +434,21 @@ public:
 
 	std::cout << "Copied ctrlPts, knots, order" << std::endl;
 	//We need to keep track of the indicies of the splines
+	//We ignore the first ctrl point, starting at idx = 2
 	for (int i = 2; i < host_ctrlPts.extent(0); i++) {
 	    //Even indices stores all the x coordinates
 	    //Odd indices stores all the y coordinates
-	    if (i == host_cPOffset(idx)) {
-	        //This is the start of the next spline
-		oidx++;	//Advance to get the next spline order
-		idx++;	//Advace offset to next spline cut off
-
+	    if (i == host_cPOffset(idx)) {                                      oidx++;
+                idx++;
+            }
+	    if (i%2==0) {
+	    	double delta = double (host_order(oidx)-1)/(host_knots(kidx+host_order(oidx)-2)-host_knots(kidx-1));
+		deltaHold = delta;
+		kidx++;
 	    }
-	    double delta = double (host_order(oidx)-1)/(host_knots(i+host_order(oidx)-1)-host_knots(i));
-	    host_ctrlPts_1stDV(i-2) = (host_ctrlPts(i)-host_ctrlPts(i-2))*delta;
-	}
-
-	for (int i = 0; i < host_ctrlPts_1stDV.extent(0); i++) {
-            std::cout << "1stD Coeff: "<< host_ctrlPts_1stDV(i) << std::endl;
+	    //std::cout << "deltaHold: " << deltaHold << std::endl;
+	    //std::cout << "ctrlPts: "<< host_ctrlPts(i) << ", " << host_ctrlPts(i-2) << std::endl;
+	    host_ctrlPts_1stDV(i-2) = (host_ctrlPts(i)-host_ctrlPts(i-2))*deltaHold;
 	}
 
 	std::cout << "1stD coeff populated" << std::endl;
@@ -460,7 +462,7 @@ public:
 		oidx++;
 		idx++;
 	    }
-	    double delta = double(host_order(oidx)-2)/(host_knots(i+host_order(oidx)-1) - host_knots(i+1));
+	    double delta = double(host_order(oidx)-2)/(host_knots(i+host_order(oidx)-1) - host_knots(i));
 	    host_ctrlPts_2ndDV(i-2) = (host_ctrlPts(i) - host_ctrlPts(i-2))*delta;
 	}
 
