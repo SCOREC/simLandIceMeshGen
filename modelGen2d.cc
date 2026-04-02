@@ -436,7 +436,6 @@ std::map<int,int> findNarrowChannels(GeomInfo& geom, double coincidentVtxToleran
     quadtree::Box<double> box;
     std::size_t id;
   };
-  auto n = std::size_t(geom.numVtx);
   auto getBox = [](Node* node)
   {
     return node->box;

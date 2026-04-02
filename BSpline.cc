@@ -16,12 +16,6 @@ using std::endl;
 using std::vector;
 using namespace Spline;
 
-namespace {
-  double norm(double x, double y) {
-    return std::sqrt(x * x + y * y);
-  }
-}
-
 BSpline::BSpline(int order_p, vector<double> &ctrlPts_p,
                  vector<double> &knots_p, vector<double> &weight_p) {
   assert(order_p > 1);

@@ -66,7 +66,6 @@ double BSpline2d::invEval(const Point2d& targetPt, double guess, bool debug) con
   const int maxIterations = 50;
   const double tMin = 0.0;
   const double tMax = 1.0;
-  double bestT = tMin;
   double minDistance = std::numeric_limits<double>::max();
 
   std::vector<double> guesses;
@@ -78,7 +77,6 @@ double BSpline2d::invEval(const Point2d& targetPt, double guess, bool debug) con
 
     if (distance < minDistance) {
       minDistance = distance;
-      bestT = t;
       guesses.push_back(t);
     }
   }
