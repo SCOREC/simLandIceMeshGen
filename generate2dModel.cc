@@ -1,4 +1,5 @@
 #include "simModelGen2d.h"
+#include "netcdfWriter.h"
 #include <numeric> //std::accumulate
 #include "Omega_h_file.hpp"
 #include "Omega_h_library.hpp"
@@ -183,7 +184,10 @@ int main(int argc, char **argv) {
     }
 
     if(doCreateMesh) {
-      createMesh(mdlTopo, meshFileName, progress);
+      auto mesh = createMesh(mdlTopo, meshFileName, progress);
+      std::string netcdfFileName = prefix + ".nc";
+      writeMeshSimToNetCDF(mesh, mdlTopo.model, netcdfFileName);
+      M_release(mesh);
     }
 
     // cleanup

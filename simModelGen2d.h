@@ -31,6 +31,6 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, PointClassification& ptClas
 void createFace(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug=false);
 void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug=false);
 void printModelInfo(pGModel model);
-void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress, bool debug=false);
+pMesh createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress, bool debug=false);
 
 #endif

@@ -412,7 +412,7 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
   }
 }
 
-void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress, bool debug) {
+pMesh createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress, bool debug) {
   pMesh mesh = M_new(0, mdlTopo.model);
   pACase meshCase = MS_newMeshCase(mdlTopo.model);
 
@@ -460,6 +460,6 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
   std::cout << "Number of mesh regions in volume: " << M_numRegions(mesh)
     << std::endl;
   MS_deleteMeshCase(meshCase);
-  M_release(mesh);
+  return mesh;
 }
 

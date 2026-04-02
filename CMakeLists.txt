@@ -18,6 +18,10 @@ find_package(BLAS REQUIRED)
 
 find_package(Omega_h REQUIRED)
 
+if(USE_SIMMODSUITE)
+  find_package(netCDFCxx REQUIRED)
+endif()
+
 add_library(splineInterp splineInterpolation.cc BSpline.cc BSpline2d.cc Expression.cc PolyNomial.cc)
 target_link_libraries(splineInterp PRIVATE BLAS::BLAS Omega_h::omega_h)
 
@@ -29,11 +33,12 @@ target_link_libraries(modelGen2d PRIVATE splineInterp Omega_h::omega_h)
 set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
 
 if(USE_SIMMODSUITE)
-  add_library(simModelGen2d simModelGen2d.cc)
+  add_library(simModelGen2d simModelGen2d.cc netcdfWriter.cc)
   target_include_directories(simModelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
   target_include_directories(simModelGen2d PUBLIC ${SIMMODSUITE_INCLUDE_DIR})
   target_link_libraries(simModelGen2d PRIVATE ${SIMMODSUITE_LIBS})
   target_link_libraries(simModelGen2d PRIVATE splineInterp modelGen2d)
+  target_link_libraries(simModelGen2d PRIVATE netCDF::netcdf-cxx4)
   target_compile_definitions(simModelGen2d PRIVATE USE_SIMMODSUITE)
 
   function(addExe name)
