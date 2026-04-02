@@ -1,6 +1,6 @@
 # This is the top level CMake file for the SCOREC build
 cmake_minimum_required(VERSION 3.10)
-project(simLandIceMeshGen VERSION 0.0.1 LANGUAGES CXX)
+project(simLandIceMeshGen VERSION 0.0.1 LANGUAGES CXX C)
 
 enable_testing()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -19,7 +19,7 @@ find_package(BLAS REQUIRED)
 find_package(Omega_h REQUIRED)
 
 if(USE_SIMMODSUITE)
-  find_package(netCDFCxx REQUIRED)
+  find_package(netCDF CONFIG REQUIRED)
 endif()
 
 add_library(splineInterp splineInterpolation.cc BSpline.cc BSpline2d.cc Expression.cc PolyNomial.cc)
@@ -38,7 +38,7 @@ if(USE_SIMMODSUITE)
   target_include_directories(simModelGen2d PUBLIC ${SIMMODSUITE_INCLUDE_DIR})
   target_link_libraries(simModelGen2d PRIVATE ${SIMMODSUITE_LIBS})
   target_link_libraries(simModelGen2d PRIVATE splineInterp modelGen2d)
-  target_link_libraries(simModelGen2d PRIVATE netCDF::netcdf-cxx4)
+  target_link_libraries(simModelGen2d PRIVATE netCDF::netcdf)
   target_compile_definitions(simModelGen2d PRIVATE USE_SIMMODSUITE)
 
   function(addExe name)
