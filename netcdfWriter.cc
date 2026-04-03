@@ -5,6 +5,7 @@
 #include <map>
 #include <set>
 #include <cstring> //strlen
+#include <cassert> //assert
 
 #include "MeshSim.h"
 #include "SimParasolidKrnl.h"
@@ -24,48 +25,48 @@
 
 int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName) {
   // Get mesh dimensions
-  int numVertices = M_numVertices(mesh);
-  int numCells = M_numFaces(mesh);  // In 2D, cells are faces
-  int vertexDegree = 3;  // Maximum number of cells adjacent to a vertex
+  const int numDualVertices = M_numFaces(mesh);
+  const int numDualCells = M_numVertices(mesh);
+  const int dualVertexDegree = 3;
 
   // Create the NetCDF file
   int ncid;
   NC_CHECK(nc_create(outputFileName.c_str(), NC_CLOBBER, &ncid));
 
   // Define dimensions
-  int nVerticesDimID, nCellsDimID, vertexDegreeDimID;
-  NC_CHECK(nc_def_dim(ncid, "nVertices", numVertices, &nVerticesDimID));
-  NC_CHECK(nc_def_dim(ncid, "nCells", numCells, &nCellsDimID));
-  NC_CHECK(nc_def_dim(ncid, "vertexDegree", vertexDegree, &vertexDegreeDimID));
+  int nDualVerticesDimID, nDualCellsDimID, dualVertexDegreeDimID;
+  NC_CHECK(nc_def_dim(ncid, "nVertices", numDualVertices, &nDualVerticesDimID));
+  NC_CHECK(nc_def_dim(ncid, "nCells", numDualCells, &nDualCellsDimID));
+  NC_CHECK(nc_def_dim(ncid, "vertexDegree", dualVertexDegree, &dualVertexDegreeDimID));
 
   // Define variables
-  int xVertexVarID, yVertexVarID, zVertexVarID;
-  int xCellVarID, yCellVarID, zCellVarID;
-  int cellsOnVertexVarID;
+  int xDualVertexVarID, yDualVertexVarID, zDualVertexVarID;
+  int xDualCellVarID, yDualCellVarID, zDualCellVarID;
+  int dualCellsOnDualVertexVarID; //primal elements to primal vertices
   int meshDensityVarID;
-  int geomModelIdCellVarID, geomModelDimCellVarID;
-  int geomModelIdVertexVarID, geomModelDimVertexVarID;
+  int geomModelIdDualCellVarID, geomModelDimDualCellVarID;
+  int geomModelIdDualVertexVarID, geomModelDimDualVertexVarID;
 
-  NC_CHECK(nc_def_var(ncid, "xVertex", NC_DOUBLE, 1, &nVerticesDimID, &xVertexVarID));
-  NC_CHECK(nc_def_var(ncid, "yVertex", NC_DOUBLE, 1, &nVerticesDimID, &yVertexVarID));
-  NC_CHECK(nc_def_var(ncid, "zVertex", NC_DOUBLE, 1, &nVerticesDimID, &zVertexVarID));
+  NC_CHECK(nc_def_var(ncid, "xVertex", NC_DOUBLE, 1, &nDualVerticesDimID, &xDualVertexVarID));
+  NC_CHECK(nc_def_var(ncid, "yVertex", NC_DOUBLE, 1, &nDualVerticesDimID, &yDualVertexVarID));
+  NC_CHECK(nc_def_var(ncid, "zVertex", NC_DOUBLE, 1, &nDualVerticesDimID, &zDualVertexVarID));
 
-  NC_CHECK(nc_def_var(ncid, "xCell", NC_DOUBLE, 1, &nCellsDimID, &xCellVarID));
-  NC_CHECK(nc_def_var(ncid, "yCell", NC_DOUBLE, 1, &nCellsDimID, &yCellVarID));
-  NC_CHECK(nc_def_var(ncid, "zCell", NC_DOUBLE, 1, &nCellsDimID, &zCellVarID));
+  NC_CHECK(nc_def_var(ncid, "xCell", NC_DOUBLE, 1, &nDualCellsDimID, &xDualCellVarID));
+  NC_CHECK(nc_def_var(ncid, "yCell", NC_DOUBLE, 1, &nDualCellsDimID, &yDualCellVarID));
+  NC_CHECK(nc_def_var(ncid, "zCell", NC_DOUBLE, 1, &nDualCellsDimID, &zDualCellVarID));
 
-  int cellsOnVertexDimIDs[2] = {nVerticesDimID, vertexDegreeDimID};
-  NC_CHECK(nc_def_var(ncid, "cellsOnVertex", NC_INT, 2, cellsOnVertexDimIDs, &cellsOnVertexVarID));
+  int dualCellsOnDualVertexDimIDs[2] = {nDualVerticesDimID, dualVertexDegreeDimID};
+  NC_CHECK(nc_def_var(ncid, "cellsOnVertex", NC_INT, 2, dualCellsOnDualVertexDimIDs, &dualCellsOnDualVertexVarID));
 
-  NC_CHECK(nc_def_var(ncid, "meshDensity", NC_DOUBLE, 1, &nCellsDimID, &meshDensityVarID));
+  NC_CHECK(nc_def_var(ncid, "meshDensity", NC_DOUBLE, 1, &nDualCellsDimID, &meshDensityVarID));
 
-  NC_CHECK(nc_def_var(ncid, "geomModelIdCell", NC_INT, 1, &nCellsDimID, &geomModelIdCellVarID));
-  NC_CHECK(nc_def_var(ncid, "geomModelDimCell", NC_INT, 1, &nCellsDimID, &geomModelDimCellVarID));
-  NC_CHECK(nc_def_var(ncid, "geomModelIdVertex", NC_INT, 1, &nVerticesDimID, &geomModelIdVertexVarID));
-  NC_CHECK(nc_def_var(ncid, "geomModelDimVertex", NC_INT, 1, &nVerticesDimID, &geomModelDimVertexVarID));
+  NC_CHECK(nc_def_var(ncid, "geomModelIdCell", NC_INT, 1, &nDualCellsDimID, &geomModelIdDualCellVarID));
+  NC_CHECK(nc_def_var(ncid, "geomModelDimCell", NC_INT, 1, &nDualCellsDimID, &geomModelDimDualCellVarID));
+  NC_CHECK(nc_def_var(ncid, "geomModelIdVertex", NC_INT, 1, &nDualVerticesDimID, &geomModelIdDualVertexVarID));
+  NC_CHECK(nc_def_var(ncid, "geomModelDimVertex", NC_INT, 1, &nDualVerticesDimID, &geomModelDimDualVertexVarID));
 
   // Add global attributes
-  const char* on_a_sphere_val = "NO";
+  const char* on_a_sphere_val = "NO"; //only considering planar meshes for landice at the moment
   NC_CHECK(nc_put_att_text(ncid, NC_GLOBAL, "on_a_sphere", strlen(on_a_sphere_val), on_a_sphere_val));
   double sphere_radius_val = 0.0;
   NC_CHECK(nc_put_att_double(ncid, NC_GLOBAL, "sphere_radius", NC_DOUBLE, 1, &sphere_radius_val));
@@ -74,14 +75,11 @@ int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName) 
   NC_CHECK(nc_enddef(ncid));
 
   // Allocate arrays for vertex data
-  std::vector<double> xVertex(numVertices);
-  std::vector<double> yVertex(numVertices);
-  std::vector<double> zVertex(numVertices, 0.0);  // Set to 0 for planar mesh
-  std::vector<int> geomModelIdVertex(numVertices);
-  std::vector<int> geomModelDimVertex(numVertices);
-
-  // Map to store vertex index by vertex pointer
-  std::map<pVertex, int> vertexIndexMap;
+  std::vector<double> xDualCell(numDualCells);
+  std::vector<double> yDualCell(numDualCells);
+  std::vector<double> zDualCell(numDualCells, 0.0);  // Set to 0 for planar mesh
+  std::vector<int> geomModelIdDualCell(numDualCells);
+  std::vector<int> geomModelDimDualCell(numDualCells);
 
   // Iterate over vertices and renumber them
   VIter vertices = M_vertexIter(mesh);
@@ -91,42 +89,38 @@ int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName) 
     double xyz[3];
     V_coord(vertex, xyz);
 
-    xVertex[vertexIdx] = xyz[0];
-    yVertex[vertexIdx] = xyz[1];
-    zVertex[vertexIdx] = 0.0;  // 2D mesh, z = 0
+    xDualCell[vertexIdx] = xyz[0];
+    yDualCell[vertexIdx] = xyz[1];
+    zDualCell[vertexIdx] = 0.0;  // 2D mesh, z = 0
 
     // Get geometric classification
     pGEntity gent = EN_whatIn((pEntity)vertex);
-    geomModelIdVertex[vertexIdx] = GEN_tag(gent);
-    geomModelDimVertex[vertexIdx] = GEN_type(gent);
-
-    // Store mapping and renumber
-    vertexIndexMap[vertex] = vertexIdx;
-    EN_setID((pEntity)vertex, vertexIdx);
+    geomModelIdDualCell[vertexIdx] = GEN_tag(gent);
+    geomModelDimDualCell[vertexIdx] = GEN_type(gent);
 
     vertexIdx++;
   }
   VIter_delete(vertices);
 
-  // Write vertex coordinate data
-  NC_CHECK(nc_put_var_double(ncid, xVertexVarID, xVertex.data()));
-  NC_CHECK(nc_put_var_double(ncid, yVertexVarID, yVertex.data()));
-  NC_CHECK(nc_put_var_double(ncid, zVertexVarID, zVertex.data()));
-  NC_CHECK(nc_put_var_int(ncid, geomModelIdVertexVarID, geomModelIdVertex.data()));
-  NC_CHECK(nc_put_var_int(ncid, geomModelDimVertexVarID, geomModelDimVertex.data()));
+  // write dual cell data
+  NC_CHECK(nc_put_var_double(ncid, xDualCellVarID, xDualCell.data()));
+  NC_CHECK(nc_put_var_double(ncid, yDualCellVarID, yDualCell.data()));
+  NC_CHECK(nc_put_var_double(ncid, zDualCellVarID, zDualCell.data()));
+  NC_CHECK(nc_put_var_int(ncid, geomModelIdDualCellVarID, geomModelIdDualCell.data()));
+  NC_CHECK(nc_put_var_int(ncid, geomModelDimDualCellVarID, geomModelDimDualCell.data()));
+
+  // jigsaw_to_netcdf sets density to all ones, so will we
+  std::vector<double> meshDensity(numDualCells, 1);
+  NC_CHECK(nc_put_var_double(ncid, meshDensityVarID, meshDensity.data()));
 
   // Allocate arrays for cell data
-  std::vector<double> xCell(numCells);
-  std::vector<double> yCell(numCells);
-  std::vector<double> zCell(numCells, 0.0);  // Set to 0 for planar mesh
-  std::vector<double> meshDensity(numCells);
-  std::vector<int> geomModelIdCell(numCells);
-  std::vector<int> geomModelDimCell(numCells);
+  std::vector<double> xDualVertex(numDualVertices);
+  std::vector<double> yDualVertex(numDualVertices);
+  std::vector<double> zDualVertex(numDualVertices, 0.0);  // Set to 0 for planar mesh
+  std::vector<int> geomModelIdDualVertex(numDualVertices);
+  std::vector<int> geomModelDimDualVertex(numDualVertices);
+  std::vector<int> dualCellsOnDualVertex(numDualVertices * dualVertexDegree, 0); // 1-based indexing required by mpas
 
-  // Map to store cell index by face pointer
-  std::map<pFace, int> faceIndexMap;
-
-  // Iterate over all faces (cells in 2D)
   FIter faces = M_faceIter(mesh);
   pFace face;
   int cellIdx = 0;
@@ -135,90 +129,51 @@ int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName) 
     double center[3] = {0.0, 0.0, 0.0};
     pPList faceVerts = F_vertices(face, 1);
     int numFaceVerts = PList_size(faceVerts);
+    assert(numFaceVerts == dualVertexDegree);
 
     void* iter = 0;
     pVertex fv;
+    int downVtxIndex = 0;
     while ((fv = (pVertex)PList_next(faceVerts, &iter))) {
       double xyz[3];
       V_coord(fv, xyz);
       center[0] += xyz[0];
       center[1] += xyz[1];
+      const int vtxId = EN_id((pEntity)fv);
+      dualCellsOnDualVertex[cellIdx * dualVertexDegree + downVtxIndex++] = vtxId + 1; // 1-based indexing
     }
     center[0] /= numFaceVerts;
     center[1] /= numFaceVerts;
 
-    xCell[cellIdx] = center[0];
-    yCell[cellIdx] = center[1];
-    zCell[cellIdx] = 0.0;  // 2D mesh, z = 0
-
-    // Calculate mesh density (average edge length for this face)
-    pPList faceEdges = F_edges(face, 1, 0);
-    int numEdges = PList_size(faceEdges);
-    double totalEdgeLength = 0.0;
-    void* edgeIter = 0;
-    pEdge edge;
-    while ((edge = (pEdge)PList_next(faceEdges, &edgeIter))) {
-      totalEdgeLength += E_length(edge);
-    }
-    meshDensity[cellIdx] = (numEdges > 0) ? (totalEdgeLength / numEdges) : 0.0;
-    PList_delete(faceEdges);
+    xDualVertex[cellIdx] = center[0];
+    yDualVertex[cellIdx] = center[1];
+    zDualVertex[cellIdx] = 0.0;  // 2D mesh, z = 0
 
     // Get geometric classification
     pGEntity gent = EN_whatIn((pEntity)face);
-    geomModelIdCell[cellIdx] = GEN_tag(gent);
-    geomModelDimCell[cellIdx] = GEN_type(gent);
+    geomModelIdDualVertex[cellIdx] = GEN_tag(gent);
+    geomModelDimDualVertex[cellIdx] = GEN_type(gent);
 
     // Store mapping
-    faceIndexMap[face] = cellIdx;
     PList_delete(faceVerts);
     cellIdx++;
   }
   FIter_delete(faces);
 
-  // Write cell data
-  NC_CHECK(nc_put_var_double(ncid, xCellVarID, xCell.data()));
-  NC_CHECK(nc_put_var_double(ncid, yCellVarID, yCell.data()));
-  NC_CHECK(nc_put_var_double(ncid, zCellVarID, zCell.data()));
-  NC_CHECK(nc_put_var_double(ncid, meshDensityVarID, meshDensity.data()));
-  NC_CHECK(nc_put_var_int(ncid, geomModelIdCellVarID, geomModelIdCell.data()));
-  NC_CHECK(nc_put_var_int(ncid, geomModelDimCellVarID, geomModelDimCell.data()));
-
-  // Build cellsOnVertex connectivity (1-based indexing)
-  // Initialize with 0 (indicating no cell)
-  std::vector<int> cellsOnVertex(numVertices * vertexDegree, 0);
-
-  // For each vertex, find adjacent cells
-  vertices = M_vertexIter(mesh);
-  while ((vertex = VIter_next(vertices))) {
-    int vIdx = vertexIndexMap[vertex];
-
-    // Get faces (cells) adjacent to this vertex
-    pPList adjFaces = V_faces(vertex);
-    int numAdjFaces = PList_size(adjFaces);
-
-    void* iter = 0;
-    pFace adjFace;
-    int localCellIdx = 0;
-    while ((adjFace = (pFace)PList_next(adjFaces, &iter)) && localCellIdx < vertexDegree) {
-      int cellId = faceIndexMap[adjFace];
-      // Store as 1-based index
-      cellsOnVertex[vIdx * vertexDegree + localCellIdx] = cellId + 1;
-      localCellIdx++;
-    }
-
-    PList_delete(adjFaces);
-  }
-  VIter_delete(vertices);
-
-  // Write cellsOnVertex connectivity
-  NC_CHECK(nc_put_var_int(ncid, cellsOnVertexVarID, cellsOnVertex.data()));
+  // Write dual vertex data
+  NC_CHECK(nc_put_var_double(ncid, xDualVertexVarID, xDualVertex.data()));
+  NC_CHECK(nc_put_var_double(ncid, yDualVertexVarID, yDualVertex.data()));
+  NC_CHECK(nc_put_var_double(ncid, zDualVertexVarID, zDualVertex.data()));
+  NC_CHECK(nc_put_var_int(ncid, geomModelIdDualVertexVarID, geomModelIdDualVertex.data()));
+  NC_CHECK(nc_put_var_int(ncid, geomModelDimDualVertexVarID, geomModelDimDualVertex.data()));
+  NC_CHECK(nc_put_var_int(ncid, dualCellsOnDualVertexVarID, dualCellsOnDualVertex.data()));
 
   // Close the NetCDF file
   NC_CHECK(nc_close(ncid));
 
   std::cout << "Successfully wrote NetCDF file: " << outputFileName << std::endl;
-  std::cout << "  Number of vertices: " << numVertices << std::endl;
-  std::cout << "  Number of cells: " << numCells << std::endl;
+  std::cout << "  Number of vertices: " << numDualVertices << std::endl;
+  std::cout << "  Number of cells: " << numDualCells << std::endl;
 
   return 0;
 }
