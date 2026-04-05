@@ -181,3 +181,16 @@ add_test(NAME testBSplineKokkosSerialStraightEdge
 	COMMAND ./testSplineKokkosBase ${testDataDir}/testCurveStrightLine.csv 9)
 add_test(NAME testBSplineKokkosSerial_edge_2pts
 	COMMAND ./testSplineKokkosBase ${testDataDir}/testCurve2pts.csv 1)
+
+#TEST FOR BSPLINEKOKKOS 1ST DERIVATIVE
+add_executable(testKokkos1stDerivative testKokkos1stDerivative.cpp)
+target_link_libraries(testKokkos1stDerivative PRIVATE modelGen2d curveReader splineKokkos Kokkos::kokkos splineInterp)
+
+add_test(NAME testKokkos1stDerivativeStraightEdge
+	COMMAND ./testKokkos1stDerivative contour_test_data/testCurveStrightLine.csv 9)
+
+add_test(NAME testKokkos1stDerivativeEdge2Pts
+	COMMAND ./testKokkos1stDerivative contour_test_data/testCurve2pts.csv 1)
+
+
+

@@ -191,7 +191,7 @@ public:
 
     }
 
-    double eval1stDeriv(double x, int splineo) const {
+    std::vector<double> eval1stDeriv(double x, int splineo) const {
 	//Find the order based on the spline number given
 	auto order_mv = Kokkos::create_mirror_view(order);
 	Kokkos::deep_copy(order_mv, order);
@@ -234,10 +234,10 @@ public:
 	    idx++;
 	}
 
-	for (int i = 0; i < mv_ptsX.extent(0); i++) {
+	/*for (int i = 0; i < mv_ptsX.extent(0); i++) {
 	    std::cout << mv_ptsX(i) << std::endl;
 	}
-	std::cout << "|" << std::endl;
+	std::cout << "|" << std::endl;*/
 
 	//We only need 1 copy of the local knots
 	idx = 0;
@@ -251,6 +251,7 @@ public:
 	//Copy allocated value back to device
         Kokkos::deep_copy(localKnots, mv_localKnots);
 	Kokkos::deep_copy(ptsX, mv_ptsX);	
+	Kokkos::deep_copy(ptsY, mv_ptsY);
 
 	Kokkos::parallel_for("1st derivative loop", order_t, KOKKOS_LAMBDA(int r) {
 	    for (int i = order_t-1; i >= r+1; i--) {
@@ -264,15 +265,20 @@ public:
 		    alpha = (x-aLeft)/(aRight-aLeft);
 		}
 		ptsX(i) = (1. - alpha) * ptsX(i-1)+alpha*ptsX(i);
+		ptsY(i) = (1. - alpha) * ptsY(i-1)+alpha*ptsY(i);
 	    }
 	});
         //std::cout << "Before deep copy of pts" << std::endl;
 	Kokkos::deep_copy(mv_ptsX, ptsX);
+	Kokkos::deep_copy(mv_ptsY, ptsY);
 	//std::cout << "After deep copy of pts" << std::endl;
-	for (int i = 0; i < mv_ptsX.extent(0); i++) {
+	/*for (int i = 0; i < mv_ptsX.extent(0); i++) {
 	    std::cout << mv_ptsX(i) << std::endl;
-	}
-	return mv_ptsX(order_t-1);
+	}*/
+	std::vector<double> result;
+	result.push_back(mv_ptsX(order_t-1));
+	 result.push_back(mv_ptsY(order_t-1));
+	return result;
     }
     
     double eval2ndDeriv(double x, int splineo) const {
