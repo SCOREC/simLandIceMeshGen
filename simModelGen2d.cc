@@ -417,38 +417,11 @@ pMesh createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progres
   pACase meshCase = MS_newMeshCase(mdlTopo.model);
 
   pModelItem domain = GM_domain(mdlTopo.model);
-  // find the smallest size of the geometric model edges
-  auto minGEdgeLen = std::numeric_limits<double>::max();
-  for (int i = 0; i < mdlTopo.edges.size(); i++) {
-    auto len = GE_length(mdlTopo.edges.at(i));
-    if (len < minGEdgeLen)
-      minGEdgeLen = len;
-  }
-  const auto contourMeshSize = minGEdgeLen * 128;
-  const auto globMeshSize = contourMeshSize * 128;
-  if(debug) {
-    std::cout << "Min geometric model edge length: " << minGEdgeLen << std::endl;
-    std::cout << "Contour absolute mesh size target: " << contourMeshSize
-      << std::endl;
-    std::cout << "Global absolute mesh size target: " << globMeshSize
-      << std::endl;
-  }
-  MS_setMeshSize(meshCase, domain, 1, globMeshSize, NULL);
-  for (int i = 4; i < mdlTopo.edges.size(); i++)
-    MS_setMeshSize(meshCase, mdlTopo.edges.at(i), 1, contourMeshSize, NULL);
-
-  {
-    GFIter fIter = GM_faceIter(mdlTopo.model);
-    pGFace modelFace;
-    while (modelFace = GFIter_next(fIter)) {
-      const double area = GF_area(modelFace, 0.2);
-      if(debug) {
-        std::cout << "face area: " << area << "\n";
-      }
-      assert(area > 0);
-    }
-    GFIter_delete(fIter);
-  }
+  const int relativeSizeType = 2;
+  MS_setMeshSize(meshCase, domain, relativeSizeType, 0.05, NULL);
+  const int calcCurvatureFromEdgesAndFaces = 3;
+  MS_setMeshCurv(meshCase, domain, relativeSizeType, 0.05, calcCurvatureFromEdgesAndFaces);
+  MS_setMinCurvSize(meshCase, domain, relativeSizeType, 0.005);
 
   pSurfaceMesher surfMesh = SurfaceMesher_new(meshCase, mesh);
   SurfaceMesher_execute(surfMesh, progress);
