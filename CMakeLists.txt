@@ -63,6 +63,8 @@ if(USE_SIMMODSUITE)
   add_test(NAME simModelGen2d_ais
     COMMAND ./generate2dModel ${testDataDir}/ais.vtk ais 1 100 100 1 "m")
   set_tests_properties(simModelGen2d_ais PROPERTIES
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 571")
+  set_tests_properties(simModelGen2d_ais PROPERTIES
     PASS_REGULAR_EXPRESSION "mesh faces in surface: 13049")
   
   add_test(NAME simModelGen2d_oneSquare_jig
