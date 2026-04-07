@@ -3,6 +3,6 @@
 
 #include "MeshSim.h"
 #include <string>
-int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName);
+int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName, bool convertKmToMeters);
 
 #endif

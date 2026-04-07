@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
   const int numExpectedArgs = 8;
   if (argc != numExpectedArgs) {
     std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
-                 "<coincidentVtxTolerance> <angleTolerance> <createMesh> <units>\n";
+                 "<coincidentVtxTolerance> <angleTolerance> <createMesh> <inputDataUnits>\n";
     std::cerr << "coincidentVtxTolerance is the mininum allowed "
                  "distance between adjacent vertices in the "
                  "input.  Vertices within the specified distance will "
@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
                  "used to determine if they are part of the same curve.\n";
     std::cerr << "createMesh = 1:generate mesh, otherwise, "
                  "skip mesh generation.\n";
-    std::cerr << "units = m:meters, km:kilometers\n";
+    std::cerr << "inputDataUnits = m:meters, km:kilometers\n";
     return 1;
   }
   assert(argc == numExpectedArgs);
@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
             << "angleTol: " << angleTol << " "
             << "onCurveAngleTol: " << onCurveAngleTol << " "
             << "createMesh: " << doCreateMesh << " "
-            << "units: " << units << "\n";
+            << "input data units: " << units << "\n";
 
   assert(units == "m" || units == "km");
 
@@ -104,6 +104,9 @@ int main(int argc, char **argv) {
     std::cerr << "Unsupported file extension: " << ext << "\n";
     return 1;
   }
+
+  //simmetrix operations are done in km to avoid problems with floating point
+  //operations
   if(units == "m") {
     convertMetersToKm(features.inner);
     convertMetersToKm(features.outer);
@@ -186,7 +189,10 @@ int main(int argc, char **argv) {
     if(doCreateMesh) {
       auto mesh = createMesh(mdlTopo, meshFileName, progress);
       std::string netcdfFileName = prefix + ".nc";
-      writeMeshSimToNetCDF(mesh, mdlTopo.model, netcdfFileName);
+      //compass assumes units of meters, need to convert back to meters,
+      //simmetrix operations are done in units of km
+      const auto convertBackToMeters = true;
+      writeMeshSimToNetCDF(mesh, mdlTopo.model, netcdfFileName, convertBackToMeters);
       M_release(mesh);
     }
 

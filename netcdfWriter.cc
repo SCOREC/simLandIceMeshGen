@@ -23,7 +23,8 @@
   } \
 }
 
-int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName) {
+int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName, bool convertKmToMeters) {
+  const double coordScaling = (convertKmToMeters) ? 1000.0 : 1.0;
   // Get mesh dimensions
   const int numDualVertices = M_numFaces(mesh);
   const int numDualCells = M_numVertices(mesh);
@@ -89,8 +90,8 @@ int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName) 
     double xyz[3];
     V_coord(vertex, xyz);
 
-    xDualCell[vertexIdx] = xyz[0];
-    yDualCell[vertexIdx] = xyz[1];
+    xDualCell[vertexIdx] = xyz[0] * coordScaling;
+    yDualCell[vertexIdx] = xyz[1] * coordScaling;
     zDualCell[vertexIdx] = 0.0;  // 2D mesh, z = 0
 
     // Get geometric classification
@@ -137,8 +138,8 @@ int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName) 
     while ((fv = (pVertex)PList_next(faceVerts, &iter))) {
       double xyz[3];
       V_coord(fv, xyz);
-      center[0] += xyz[0];
-      center[1] += xyz[1];
+      center[0] += xyz[0] * coordScaling;
+      center[1] += xyz[1] * coordScaling;
       const int vtxId = EN_id((pEntity)fv);
       dualCellsOnDualVertex[cellIdx * dualVertexDegree + downVtxIndex++] = vtxId + 1; // 1-based indexing
     }
