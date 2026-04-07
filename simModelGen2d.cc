@@ -417,11 +417,15 @@ pMesh createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progres
   pACase meshCase = MS_newMeshCase(mdlTopo.model);
 
   pModelItem domain = GM_domain(mdlTopo.model);
-  const int relativeSizeType = 2;
-  MS_setMeshSize(meshCase, domain, relativeSizeType, 0.05, NULL);
-  const int calcCurvatureFromEdgesAndFaces = 3;
-  MS_setMeshCurv(meshCase, domain, relativeSizeType, 0.05, calcCurvatureFromEdgesAndFaces);
-  MS_setMinCurvSize(meshCase, domain, relativeSizeType, 0.005);
+  const auto relativeSizeType = 2;
+  MS_setMeshSize(meshCase, domain, relativeSizeType, 0.02, NULL);
+  const auto calcCurvatureFromEdgesAndFaces = 3;
+  MS_setMeshCurv(meshCase, domain, relativeSizeType, 0.01, calcCurvatureFromEdgesAndFaces);
+  MS_setMinCurvSize(meshCase, domain, relativeSizeType, 0.002);
+  //make the transition from the fine mesh to the coarse mesh slower, default
+  //rate ~= 2/3
+  const auto slowGradationRate = 0.2;
+  MS_setGlobalSizeGradationRate(meshCase, slowGradationRate);
 
   pSurfaceMesher surfMesh = SurfaceMesher_new(meshCase, mesh);
   SurfaceMesher_execute(surfMesh, progress);
