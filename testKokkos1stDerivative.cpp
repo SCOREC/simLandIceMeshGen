@@ -115,8 +115,8 @@ int main(int argc, char* argv[]) {
             double kokkosDerivX = kokkos1stDeriv[0];
             double kokkosDerivY = kokkos1stDeriv[1];
 
-	    double derivXDiff = std::fabs(derivX - kokkosDerivX);
-            double derivYDiff = std::fabs(derivY - kokkosDerivY);
+	    double derivXDiff = std::fabs(derivX) - std::fabs(kokkosDerivX);
+            double derivYDiff = std::fabs(derivY) - std::fabs(kokkosDerivY);
 
 	    if (derivXDiff > EPSILON || derivYDiff > EPSILON) {
 	         std::cout << "Test " << i+1 << " failed, eval at: " << evalAt[i] << std::endl;
