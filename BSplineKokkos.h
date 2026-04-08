@@ -196,7 +196,7 @@ public:
 	auto order_mv = Kokkos::create_mirror_view(order);
 	Kokkos::deep_copy(order_mv, order);
 	int lKnot = order_mv(splineo)-1;
-
+	
 	//std::cout << lKnot << std::endl;
 	//Find the range that contains this spline
 	//Need to make sure it is within the range of this spline
@@ -211,7 +211,7 @@ public:
 
 	//Search within this range
 	while (mv_knots(lKnot+1) < x) {
-	    lKnot+=2;
+    	    lKnot++;
 	    leftPtX+=2;    //Increment xpts
 	    leftPtY+=2;    //Increment ypts
 	}
@@ -227,57 +227,57 @@ public:
 	auto mv_ptsX = Kokkos::create_mirror_view(ptsX);
 	Kokkos::View<double*, MemSpace> ptsY("ptsY", order_t);
 	auto mv_ptsY = Kokkos::create_mirror_view(ptsY);
-	for (int i = leftPtX; i < leftPtX+order_t-1; i+=2) {
-	    //std::cout << i << "|" << mv_ctrlPts_1stD(i) << std::endl;
+	
+	for (int i = leftPtX; i < leftPtX+2*(order_t); i+=2) {
 	    mv_ptsX(idx) = mv_ctrlPts_1stD(i);
 	    mv_ptsY(idx) = mv_ctrlPts_1stD(i+1);
 	    idx++;
 	}
 
-	/*for (int i = 0; i < mv_ptsX.extent(0); i++) {
-	    std::cout << mv_ptsX(i) << std::endl;
-	}
-	std::cout << "|" << std::endl;*/
-
 	//We only need 1 copy of the local knots
 	idx = 0;
 	Kokkos::View<double*, MemSpace> localKnots("local knots", 2*order_t-2);
 	auto mv_localKnots = Kokkos::create_mirror_view(localKnots);
-	for (int i = lKnot-order_t+2; i < lKnot+order_t+1; i++) {
+
+
+	for (int i = lKnot-order_t+2; i < lKnot+order_t; i++) {
 	    mv_localKnots(idx) = mv_knots(i);
+	    idx++;
 	}
-	//std::cout << "Local knots collection complete" << std::endl;
 
 	//Copy allocated value back to device
         Kokkos::deep_copy(localKnots, mv_localKnots);
 	Kokkos::deep_copy(ptsX, mv_ptsX);	
 	Kokkos::deep_copy(ptsY, mv_ptsY);
 
-	Kokkos::parallel_for("1st derivative loop", order_t, KOKKOS_LAMBDA(int r) {
-	    for (int i = order_t-1; i >= r+1; i--) {
+	Kokkos::parallel_for("1st derivative loop", Kokkos::RangePolicy<>(1, order_t+1), KOKKOS_LAMBDA(int r) {
+       	    for (int i = order_t-1; i >= r; i--) {
 	        double aLeft = localKnots(i-1);
-	        double aRight = localKnots(i+order_t-(r+1)-1);
+	        double aRight = localKnots(i+order_t-(r)-1);
 	        double alpha;
 	        if (aLeft == aRight) {
 		    alpha = 0.;
 	        }
 	        else {
 		    alpha = (x-aLeft)/(aRight-aLeft);
-		}
-		ptsX(i) = (1. - alpha) * ptsX(i-1)+alpha*ptsX(i);
-		ptsY(i) = (1. - alpha) * ptsY(i-1)+alpha*ptsY(i);
+		} 
+		ptsX(i) = ((1. - alpha) * ptsX(i-1))+(alpha*ptsX(i));
+		ptsY(i) = ((1. - alpha) * ptsY(i-1))+(alpha*ptsY(i));
 	    }
-	});
+        });
+
+	Kokkos::fence();
         //std::cout << "Before deep copy of pts" << std::endl;
 	Kokkos::deep_copy(mv_ptsX, ptsX);
 	Kokkos::deep_copy(mv_ptsY, ptsY);
 	//std::cout << "After deep copy of pts" << std::endl;
-	/*for (int i = 0; i < mv_ptsX.extent(0); i++) {
-	    std::cout << mv_ptsX(i) << std::endl;
-	}*/
+	for (int i = 0; i < mv_ptsX.extent(0); i++) {
+	    std::cout << "Result idx: " << i << ":" << mv_ptsX(i) << "|"<< mv_ptsY(i) <<std::endl;
+	}
+
 	std::vector<double> result;
 	result.push_back(mv_ptsX(order_t-1));
-	 result.push_back(mv_ptsY(order_t-1));
+	result.push_back(mv_ptsY(order_t-1));
 	return result;
     }
     
@@ -344,7 +344,7 @@ public:
 	Kokkos::deep_copy(ptsX, mv_ptsX);
 	Kokkos::deep_copy(ptsY, mv_ptsY);
 
-	Kokkos::parallel_for ("2nd derivative loop", order_t, KOKKOS_LAMBDA(int r){
+	/*Kokkos::parallel_for ("2nd derivative loop", order_t, KOKKOS_LAMBDA(int r){
 	    for (int i = order_t-1; i >= r+1; i--) {
 		double aLeft = localKnots(i-1);
 		double aRight = localKnots(i+order_t-(r+1)-1);
@@ -359,7 +359,8 @@ public:
 		ptsX(i) = (1. - alpha) * ptsX(i-1)+alpha*ptsX(i);
 			
 	    }
-	});
+	});*/
+
 	Kokkos::deep_copy(mv_ptsX, ptsX);
 	return mv_ptsX(order_t-1);
 	
