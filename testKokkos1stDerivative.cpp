@@ -59,9 +59,10 @@ void printVector(const std::string& name, std::vector<double>& vector) {
     }
 }
 
-double epsilon = 0.005;
+double EPSILON = 0.005;
 
 int main(int argc, char* argv[]) {
+    int retVal = 0;
     Kokkos::initialize(argc, argv);
     {
         
@@ -105,182 +106,29 @@ int main(int argc, char* argv[]) {
 
 	BSplineKokkos<ExecutionSpace> kokkosBSP(order, ctrlPtsX, ctrlPtsY, knots);
         //printSpline(kokkosBSP);
+	std::vector<double> evalAt = {0, 0.2, 0.41, 0.5, 0.66, 0.73, 0.75, 0.89, 0.94, 1};
 	
+	for (int i = 0; i < 10; i++) {
+	    double derivX = serialBSP.x.evalFirstDeriv(evalAt[i]);
+            double derivY = serialBSP.y.evalFirstDeriv(evalAt[i]);
+	    std::vector<double> kokkos1stDeriv = kokkosBSP.eval1stDeriv(evalAt[i], 0);
+            double kokkosDerivX = kokkos1stDeriv[0];
+            double kokkosDerivY = kokkos1stDeriv[1];
 
-	/*INITALIZATION COMPLETE, TEST STARTS BELOW*/
-	//TEST 1 HERE
-	 std::cout << "TEST 1, EVAL AT 0" << std::endl;
-	 double derivX = serialBSP.x.evalFirstDeriv(0);
-	 double derivY = serialBSP.y.evalFirstDeriv(0);
-	 std::cout << "SERIAL: 1st derivative, input x = 0: " << derivX << ", " << derivY << std::endl;
+	    double derivXDiff = std::fabs(derivX - kokkosDerivX);
+            double derivYDiff = std::fabs(derivY - kokkosDerivY);
 
-	 std::vector<double> kokkos1stDeriv = kokkosBSP.eval1stDeriv(0, 0);
-	 double kokkosDerivX = kokkos1stDeriv[0];
-	 double kokkosDerivY = kokkos1stDeriv[1];
-
-	 double derivXDiff = derivX - kokkosDerivX;
-	 double derivYDiff = derivY - kokkosDerivY;
-	 std::cout << "KOKKOS: 1st derivative, input x = 0: " << kokkosDerivX <<", " << kokkosDerivY  << std::endl;
-	
-	 std::cout << "Serial and Kokkos Difference: " << derivXDiff << ", " << derivYDiff << std::endl;
-
-	
-	//TEST 2 HERE
-	std::cout << "TEST 2, EVAL AT 0.2" << std::endl;
-	derivX = serialBSP.x.evalFirstDeriv(0.2);
-	derivY = serialBSP.y.evalFirstDeriv(0.2);
-        std::cout << "SERIAL: 1st derivative, input x = 0.2: " << derivX << ", " << derivY << std::endl;
-	kokkos1stDeriv = kokkosBSP.eval1stDeriv(0.2, 0);
-	kokkosDerivX = kokkos1stDeriv[0];
-	kokkosDerivY = kokkos1stDeriv[1];
-
-	derivXDiff = derivX - kokkosDerivX;
-        derivYDiff = derivY - kokkosDerivY;
-
-        std::cout << "KOKKOS: 1st derivative, input x = 0.2: " << kokkosDerivX << ", " << kokkosDerivY << std::endl;
-
-        std::cout << "Serial and Kokkos Difference: " << derivXDiff << ", " << derivYDiff << std::endl;
-
-
-	//TEST 3
-	std::cout << "TEST 3: EVAL AT 0.41" << std::endl;
-	derivX = serialBSP.x.evalFirstDeriv(0.41);
-        derivY = serialBSP.y.evalFirstDeriv(0.41);
-	std::cout << "SERIAL: 1st derivative, input x = 0.41: " << derivX << ", " << derivY << std::endl;
-
-        kokkos1stDeriv = kokkosBSP.eval1stDeriv(0.41, 0);
-        kokkosDerivX = kokkos1stDeriv[0];
-        kokkosDerivY = kokkos1stDeriv[1];
-        
-	derivXDiff = derivX - kokkosDerivX;
-        derivYDiff = derivY - kokkosDerivY;
-
-        std::cout << "KOKKOS: 1st derivative, input x = 0.41: " << kokkosDerivX << ", " << kokkosDerivY << std::endl;
-
-        std::cout << "Serial and Kokkos Difference: " << derivXDiff << ", " << derivYDiff << std::endl;
-
-
-	//TEST 4
-	std::cout << "TEST 4: EVAL AT 0.5" << std::endl;
-        derivX = serialBSP.x.evalFirstDeriv(0.5);
-        derivY = serialBSP.y.evalFirstDeriv(0.5);
-        std::cout << "SERIAL: 1st derivative, input x = 0.5: " << derivX << ", " << derivY << std::endl;
-
-        kokkos1stDeriv = kokkosBSP.eval1stDeriv(0.5, 0);
-        kokkosDerivX = kokkos1stDeriv[0];
-        kokkosDerivY = kokkos1stDeriv[1];
-
-        derivXDiff = derivX - kokkosDerivX;
-        derivYDiff = derivY - kokkosDerivY;
-
-        std::cout << "KOKKOS: 1st derivative, input x = 0.5: " << kokkosDerivX << ", " << kokkosDerivY << std::endl;
-
-        std::cout << "Serial and Kokkos Difference: " << derivXDiff << ", " << derivYDiff << std::endl;
-
-	//TEST 5
-	std::cout << "TEST 5: EVAL AT 0.66" << std::endl;
-        derivX = serialBSP.x.evalFirstDeriv(0.66);
-        derivY = serialBSP.y.evalFirstDeriv(0.66);
-        std::cout << "SERIAL: 1st derivative, input x = 0.66: " << derivX << ", " << derivY << std::endl;
-                                                
-	kokkos1stDeriv = kokkosBSP.eval1stDeriv(0.66, 0);
-        kokkosDerivX = kokkos1stDeriv[0];
-        kokkosDerivY = kokkos1stDeriv[1];
-
-        derivXDiff = derivX - kokkosDerivX;
-        derivYDiff = derivY - kokkosDerivY;
-
-        std::cout << "KOKKOS: 1st derivative, input x = 0.66: " << kokkosDerivX << ", " << kokkosDerivY << std::endl;
-
-        std::cout << "Serial and Kokkos Difference: " << derivXDiff << ", " << derivYDiff << std::endl;
-
-
-	//TEST 6
-	std::cout << "Test 6: EVAL AT 0.73" << std::endl;
-        derivX = serialBSP.x.evalFirstDeriv(0.73);
-        derivY = serialBSP.y.evalFirstDeriv(0.73);
-        std::cout << "SERIAL: 1st derivative, input x = 0.73: " << derivX << ", " << derivY << std::endl;
-                                                                        kokkos1stDeriv = kokkosBSP.eval1stDeriv(0.73, 0);
-        kokkosDerivX = kokkos1stDeriv[0];
-        kokkosDerivY = kokkos1stDeriv[1];
-
-        derivXDiff = derivX - kokkosDerivX;
-        derivYDiff = derivY - kokkosDerivY;
-
-        std::cout << "KOKKOS: 1st derivative, input x = 0.73: " << kokkosDerivX << ", " << kokkosDerivY << std::endl;
-
-        std::cout << "Serial and Kokkos Difference: " << derivXDiff << ", " << derivYDiff << std::endl;
-
-
-	//TEST 7 
-	std::cout << "TEST 7: EVAL AT 0.75" << std::endl;
-        derivX = serialBSP.x.evalFirstDeriv(0.75);
-        derivY = serialBSP.y.evalFirstDeriv(0.75);
-        std::cout << "SERIAL: 1st derivative, input x = 0.75: " << derivX << ", " << derivY << std::endl;
-                                                                        kokkos1stDeriv = kokkosBSP.eval1stDeriv(0.75, 0);
-        kokkosDerivX = kokkos1stDeriv[0];
-        kokkosDerivY = kokkos1stDeriv[1];
-
-        derivXDiff = derivX - kokkosDerivX;
-        derivYDiff = derivY - kokkosDerivY;
-
-        std::cout << "KOKKOS: 1st derivative, input x = 0.75: " << kokkosDerivX << ", " << kokkosDerivY << std::endl;
-
-        std::cout << "Serial and Kokkos Difference: " << derivXDiff << ", " << derivYDiff << std::endl;
-
-
-	//TEST 8
-	std::cout << "TEST 8: EVAL AT 0.89" << std::endl;
-        derivX = serialBSP.x.evalFirstDeriv(0.89);
-        derivY = serialBSP.y.evalFirstDeriv(0.89);
-        std::cout << "SERIAL: 1st derivative, input x = 0.89: " << derivX << ", " << derivY << std::endl;
-                          
-	kokkos1stDeriv = kokkosBSP.eval1stDeriv(0.89, 0);
-        kokkosDerivX = kokkos1stDeriv[0];
-        kokkosDerivY = kokkos1stDeriv[1];
-
-        derivXDiff = derivX - kokkosDerivX;
-        derivYDiff = derivY - kokkosDerivY;
-
-        std::cout << "KOKKOS: 1st derivative, input x = 0.89: " << kokkosDerivX << ", " << kokkosDerivY << std::endl;
-
-        std::cout << "Serial and Kokkos Difference: " << derivXDiff << ", " << derivYDiff << std::endl;
-
-	
-	//TEST 9 
-	std::cout << "TEST 9: EVAL AT 0.94" << std::endl;
-        derivX = serialBSP.x.evalFirstDeriv(0.94);
-        derivY = serialBSP.y.evalFirstDeriv(0.94);
-        std::cout << "SERIAL: 1st derivative, input x = 0.94: " << derivX << ", " << derivY << std::endl;
-                                                                        kokkos1stDeriv = kokkosBSP.eval1stDeriv(0.94, 0);
-        kokkosDerivX = kokkos1stDeriv[0];
-        kokkosDerivY = kokkos1stDeriv[1];
-
-        derivXDiff = derivX - kokkosDerivX;
-        derivYDiff = derivY - kokkosDerivY;
-
-        std::cout << "KOKKOS: 1st derivative, input x = 0.94: " << kokkosDerivX << ", " << kokkosDerivY << std::endl;
-
-        std::cout << "Serial and Kokkos Difference: " << derivXDiff << ", " << derivYDiff << std::endl;
-
-
-	//TEST 10
-	std::cout << "TEST 10: EVAL AT 1" << std::endl;
-        derivX = serialBSP.x.evalFirstDeriv(1);
-        derivY = serialBSP.y.evalFirstDeriv(1);
-        std::cout << "SERIAL: 1st derivative, input x = 1: " << derivX << ", " << derivY << std::endl;
-
-	kokkos1stDeriv = kokkosBSP.eval1stDeriv(1, 0);
-        kokkosDerivX = kokkos1stDeriv[0];
-        kokkosDerivY = kokkos1stDeriv[1];
-
-        derivXDiff = derivX - kokkosDerivX;
-        derivYDiff = derivY - kokkosDerivY;
-
-        std::cout << "KOKKOS: 1st derivative, input x = 1: " << kokkosDerivX << ", " << kokkosDerivY << std::endl;
-
-        std::cout << "Serial and Kokkos Difference: " << derivXDiff << ", " << derivYDiff << std::endl;
+	    if (derivXDiff > EPSILON || derivYDiff > EPSILON) {
+	         std::cout << "Test " << i+1 << " failed, eval at: " << evalAt[i] << std::endl;
+		 std::cout << "EPSILON = " << EPSILON << std::endl;
+		 std::cout << "SERIAL/KOKKOS DIFFERENCE: xcoor = " << derivXDiff << " ycoor = " << derivYDiff << std::endl;
+		 std::cout << "SERIAL 1st Derivative: x = " << derivX << " y = " << derivY << std::endl;
+		 std::cout << "KOKKOS 1st Derivative: x = " << kokkosDerivX << " y = " << kokkosDerivY << std::endl;
+	    	 retVal = 1;
+	    }
+	}
 
     }
     Kokkos::finalize();
+    return retVal;
 }
