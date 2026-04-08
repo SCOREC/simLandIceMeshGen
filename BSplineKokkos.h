@@ -19,18 +19,18 @@ public:
 	//In the original implementation, we had the x and y components separated and was storing redundant knots information
 	//The implementation now change to interleave the x and y coordinates
 	//We store just 1 set of knots rather than 2
-	std::cout << "Start BSpline Construction" << std::endl;
+	//std::cout << "Start BSpline Construction" << std::endl;
 	Kokkos::View<int*, MemSpace> orderV("Orders", 1);
 	auto host_orderV = Kokkos::create_mirror_view(orderV);
 	host_orderV(0) = order_p;
 	order = orderV;
 	Kokkos::deep_copy(order, host_orderV);
-	std::cout << "Order inputted" << std::endl;
+	//std::cout << "Order inputted" << std::endl;
 	//Initialize control points and their offset
 	Kokkos::View<double*, MemSpace> ctrlPtsV("CtrlPoints", 2*ctrlPts_x.size());
 	//Create the mirror on host so we can access the vector values
 	auto host_ctrlPtsV = Kokkos::create_mirror_view(ctrlPtsV);
-	std::cout << "ctrlPts size: " << host_ctrlPtsV.extent(0) << std::endl;
+	//std::cout << "ctrlPts size: " << host_ctrlPtsV.extent(0) << std::endl;
 
 	for (int i = 0; i < ctrlPts_x.size(); i++) {
 	    host_ctrlPtsV(2*i) = ctrlPts_x[i];
@@ -65,10 +65,10 @@ public:
 	knotsOffset = knotsOffsetV;
 	Kokkos::deep_copy(knotsOffset, host_knotsOffsetV);
 
-	std::cout << "All good, before derivative coe" << std::endl;	
+	//std::cout << "All good, before derivative coe" << std::endl;	
 	//Derivative coefficients
 	calculateDerivCoeff();
-	std::cout << "single spline initialization ok" << std::endl;
+	//std::cout << "single spline initialization ok" << std::endl;
     }
 
 
@@ -250,10 +250,13 @@ public:
 	Kokkos::deep_copy(ptsX, mv_ptsX);	
 	Kokkos::deep_copy(ptsY, mv_ptsY);
 
+
+	//TO DO: Debug the below for kokkos parallel for loop 
+	//We have found the error restricted to this for loop
 	Kokkos::parallel_for("1st derivative loop", Kokkos::RangePolicy<>(1, order_t+1), KOKKOS_LAMBDA(int r) {
        	    for (int i = order_t-1; i >= r; i--) {
 	        double aLeft = localKnots(i-1);
-	        double aRight = localKnots(i+order_t-(r)-1);
+	        double aRight = localKnots(((i+order_t)-r)-1);
 	        double alpha;
 	        if (aLeft == aRight) {
 		    alpha = 0.;
@@ -271,9 +274,6 @@ public:
 	Kokkos::deep_copy(mv_ptsX, ptsX);
 	Kokkos::deep_copy(mv_ptsY, ptsY);
 	//std::cout << "After deep copy of pts" << std::endl;
-	for (int i = 0; i < mv_ptsX.extent(0); i++) {
-	    std::cout << "Result idx: " << i << ":" << mv_ptsX(i) << "|"<< mv_ptsY(i) <<std::endl;
-	}
 
 	std::vector<double> result;
 	result.push_back(mv_ptsX(order_t-1));
@@ -344,7 +344,7 @@ public:
 	Kokkos::deep_copy(ptsX, mv_ptsX);
 	Kokkos::deep_copy(ptsY, mv_ptsY);
 
-	/*Kokkos::parallel_for ("2nd derivative loop", order_t, KOKKOS_LAMBDA(int r){
+	Kokkos::parallel_for ("2nd derivative loop", order_t, KOKKOS_LAMBDA(int r){
 	    for (int i = order_t-1; i >= r+1; i--) {
 		double aLeft = localKnots(i-1);
 		double aRight = localKnots(i+order_t-(r+1)-1);
@@ -359,7 +359,7 @@ public:
 		ptsX(i) = (1. - alpha) * ptsX(i-1)+alpha*ptsX(i);
 			
 	    }
-	});*/
+	});
 
 	Kokkos::deep_copy(mv_ptsX, ptsX);
 	return mv_ptsX(order_t-1);
@@ -409,7 +409,7 @@ public:
 	//Calculate first order derivative
 	//Allocate the space
 	
-	std::cout << "calculating derivative coeff" << std::endl; 
+	//std::cout << "calculating derivative coeff" << std::endl; 
 	Kokkos::View<double*, MemSpace> ctrlPts_1stDV("ctrlPts1Derivative", ctrlPts.extent(0)-(2*cPOffset.extent(0)));
 	Kokkos::View<int*, MemSpace> cP1stDOffsetV("ctrlPts1DerivativeOffset", cPOffset.extent(0));
 	Kokkos::View<int*, MemSpace> cP2ndDOffsetV("ctrlPts2DerivativeOffset", cPOffset.extent(0));
@@ -418,7 +418,7 @@ public:
 
 	auto host_cP1stDOffsetV = Kokkos::create_mirror_view(cP1stDOffsetV);
 	
-	std::cout << "offset views and 1stctrlPts views construct" << std::endl;
+	//std::cout << "offset views and 1stctrlPts views construct" << std::endl;
 
 	//Adjust the offset to include be 1 & 2 less than the ctrlPtsOffset
 
@@ -438,7 +438,7 @@ public:
 	    host_cP2ndDOffsetV(0) = host_cPOffset(0)-4;
 	}
 
-	std::cout << "offset view populated" << std::endl;
+	//std::cout << "offset view populated" << std::endl;
 
 	//We need to partition the x and y while we calculate the coefficient
 	int idx = 0;
@@ -456,7 +456,7 @@ public:
 	Kokkos::deep_copy(host_order, order);
 	Kokkos::deep_copy(host_ctrlPts, ctrlPts);
 
-	std::cout << "Copied ctrlPts, knots, order" << std::endl;
+	//std::cout << "Copied ctrlPts, knots, order" << std::endl;
 	//We need to keep track of the indicies of the splines
 	//We ignore the first ctrl point, starting at idx = 2
 	for (int i = 2; i < host_ctrlPts.extent(0); i++) {
@@ -475,7 +475,7 @@ public:
 	    host_ctrlPts_1stDV(i-2) = (host_ctrlPts(i)-host_ctrlPts(i-2))*deltaHold;
 	}
 
-	std::cout << "1stD coeff populated" << std::endl;
+	//std::cout << "1stD coeff populated" << std::endl;
 
 	Kokkos::View<double*, MemSpace> ctrlPts_2ndDV("ctrlPts2Derivative", ctrlPts.extent(0)-(2*cPOffset.extent(0))-2);
         auto host_ctrlPts_2ndDV = Kokkos::create_mirror_view(ctrlPts_2ndDV);
