@@ -59,10 +59,18 @@ void printVector(const std::string& name, std::vector<double>& vector) {
     }
 }
 
-double EPSILON = 0.005;
+double EPSILON = 1e-12;
 
 int main(int argc, char* argv[]) {
     int retVal = 0;
+                                               
+    if (argc != 3) {
+        //Check for the arguments needed 
+	std::cerr<< "Input arguments: <input csv file> <expected curve length>" << std::endl;
+	std::cerr << "input csv need these columns: ";
+	std::cerr << "coordinate x, coordinate y, coordinate z,isOnCurve,angle,isMdlVtx" << std::endl;
+	return 1;
+    }
     Kokkos::initialize(argc, argv);
     {
         
@@ -78,10 +86,6 @@ int main(int argc, char* argv[]) {
 
         using ExecutionSpace = MemSpace::execution_space;
 
-
-        if (argc != 3) {                                                    //Check for the arguments needed                                std::cerr<<"Input arguments: <input csv file> <expected curve length>" << std::endl;                                            std::cerr << "input csv need these columns: ";
-            std::cerr << "x,y,z,isOnCurve,angle,isMdlVtx" << std::endl;
-            return 1;                                                   }
 	std::string inputCSV = argv[1];
         int extensionPos = inputCSV.rfind(".");
         int slashPos = inputCSV.rfind("/");
@@ -93,7 +97,7 @@ int main(int argc, char* argv[]) {
         SplineInterp::BSpline2d serialBSP;
         if (curve.x.size() == 2) {
             serialBSP = SplineInterp::attach_piecewise_linear_curve(curve.x, curve.y);
-        }                                                               else {
+        } else {
             serialBSP = SplineInterp::fitCubicSplineToPoints(curve.x, curve.y);
         }
 	
