@@ -74,7 +74,6 @@ int main(int argc, char* argv[]) {
 	using ExecutionSpace = MemSpace::execution_space;
 	//We will try to test with dummy data for BSplineKokkos creation
 	std::vector<double> dummyCtrlPtsX{2.14, 3.98, 1.56, 9.10, 11.87};
-
 	std::vector<double> dummyCtrlPtsY{7.928, 12.18, 9.17, 6.67, 12.78};
 	std::vector<double> dummyKnotsX{5.99, 8.98, 17.71, 21.1, 2.154, 9.17, 6.32};
 	//std::vector<double> dummyKnotsY{2.85, 1.16, 0.82, 1.89, 9.82, 12.0, 7.19};
@@ -184,13 +183,18 @@ int main(int argc, char* argv[]) {
         for (int i = 1; i < host_dView.extent(0); i+=2) {
             std::cout <<"Point: " <<  host_dView(i-1) << ", " << host_dView(i) << std::endl;
         }
-        std::cout << "1st derivative, input x = 0: " << kokkosBSP.eval1stDeriv(0, 0) << std::endl;
+        std::cout << "1st derivative, input x = 0: " << kokkosBSP.eval1stDeriv({0}, 0)[0] << std::endl;
 
-        std::cout << "1st derivative, input x = 1: " << kokkosBSP.eval1stDeriv(1, 0) << std::endl;
+        std::cout << "1st derivative, input x = 1: " << kokkosBSP.eval1stDeriv({1}, 0)[0] << std::endl;
         
 	std::cout << "----Serial 2nd derivative----" << std::endl;
-        std::cout << "2nd derivative, input x = 0: " << serialBSP.x.evalSecondDeriv(0) << ", " << serialBSP.y.evalSecondDeriv(0) << std::endl;
-        std::cout << "2nd derivative, input x = 1: " << serialBSP.x.evalSecondDeriv(1) << ", " << serialBSP.y.evalSecondDeriv(1) << std::endl;
+        double x2ndD = serialBSP.x.evalSecondDeriv(0);
+	double y2ndD = serialBSP.y.evalSecondDeriv(0);
+	std::cout << "2nd derivative, input x = 0: " << x2ndD << ", " << y2ndD << std::endl;
+
+	x2ndD = serialBSP.x.evalSecondDeriv(1);	
+	y2ndD = serialBSP.y.evalSecondDeriv(1);
+        std::cout << "2nd derivative, input x = 1: " << x2ndD << ", " << y2ndD << std::endl;
 
 	std::cout << "----Kokkos 2nd derivative----" << std::endl;
         //Get and copy the control points here so we could print them
