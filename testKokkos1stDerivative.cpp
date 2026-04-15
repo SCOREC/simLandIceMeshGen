@@ -115,7 +115,7 @@ int main(int argc, char* argv[]) {
 	for (int i = 0; i < 10; i++) {
 	    double derivX = serialBSP.x.evalFirstDeriv(evalAt[i]);
             double derivY = serialBSP.y.evalFirstDeriv(evalAt[i]);
-	    std::vector<double> kokkos1stDeriv = kokkosBSP.eval1stDeriv(evalAt[i], 0);
+	    std::vector<double> kokkos1stDeriv = kokkosBSP.eval1stDeriv({evalAt[i]}, 0);
             double kokkosDerivX = kokkos1stDeriv[0];
             double kokkosDerivY = kokkos1stDeriv[1];
 
