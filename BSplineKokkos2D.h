@@ -156,6 +156,16 @@ public:
 
     }
 
+    void calculateDerivCoeff() {
+        //Allocate the views we need
+	Kokkos::View<double*[2], MemSpace> ctrlPts1stDV("ctrlPts1stDeriv", ctrlPts.extent(0)-cpOffset.extent(0));
+	Kokkos::View<int*, MemSpace> cP1stDOffsetV("cP1stDOffset", cpOffset.extent(0));
+	Kokkos::View<int*, MemSpace> cP2ndDOffsetV("cP2ndDOffset", cpOffset.extent(0));
+	//Start by calculating cP1stDeriv coeff calculation
+	
+    
+    }
+
     //Accessors
     Kokkos::View<int*, MemSpace> getOrder() const {return order;}
     Kokkos::View<double*[2], MemSpace> getCtrlPts() const {return ctrlPts;}
