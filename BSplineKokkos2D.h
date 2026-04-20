@@ -50,7 +50,7 @@ public:
 	knotsOffset = knotsOffsetV;
 	Kokkos::deep_copy(knotsOffset, host_knotsOffsetV);
 
-	//Later we need to address the coef calculation situation
+	//TO DO: Implement 1st&2nd Coef function
     }
 
     BSplineKokkos2DView(std::vector<BSplineKokkos2DView>& multiSplines) {
@@ -62,8 +62,98 @@ public:
 	int knotsOffsetSize = 0;
 
 	for (int i = 0; i < multiSplines.size(); i++) {
-	    orderSize += multiSplines[i];
+	    orderSize += multiSplines[i].getOrder().extent(0);
+	    ctrlPtsSize += multiSplines[i].getCtrlPts().extent(0);
+	    cpOffsetSize += multiSplines[i].getCPOffset().extent(0);
+	    knotSize += multiSplines[i].getKnots().extent(0);
+	    knotsOffsetSize += multiSpline[i].getKnotsOffset().extent(0);
 	}
+
+	//Populate the views
+	Kokkos::View<int*, MemSpace> orderV ("order", orderSize);
+	Kokkos::View<double*[2], MemSpace> ctrlPtsV("ctrlPts", ctrlPtsSize);
+	Kokkos::View<int*, MemSpace> cPOffsetV("ctrlPtsOffset", cPOffsetSize);
+	Kokkos::View<double*, MemSpace> knotsV("knots", knotSize);
+	Kokkos::View<int*, MemSpace> knotsOffsetV("knotsOffset", knotsOffsetSize);
+
+	//Create the mirror view on host to move the data over
+	auto mvOrderV = Kokkos::create_mirror_view(orderV);
+	auto mvCtrlPtsV = Kokkos::create_mirror_view(ctrlPtsV);
+	auto mvCPOffsetV = Kokkos::create_mirror_view(cPOffsetV);
+	auto mvKnotsV = Kokkos::create_mirror_view(knotsV);
+	auto mvKnotsOffsetV = Kokkos::create_mirror_view(knotsOffsetV);
+	//Copy the data over
+	int oidx = 0;
+	int cPidx = 0;
+	int cOidx = 0;
+	int kidx = 0;
+	int kOidx = 0;
+	for (int i = 0; i < multiSplines.size(); i++) {
+	    //Populate orders	
+	    Kokkos::View<int*, MemSpace> intView = multiSplines[i].getOrder();
+	    auto mvIntView = Kokkos::create_mirror_view(intView);
+	    Kokkos::deep_copy(mvIntView, intView);
+	    for (int j = 0; j < intView.extent(0); j++) {
+		mvOrderV(oidx+j) = mvIntView(j);
+	    }
+	    oidx += mvIntView.extent(0);
+
+	    //Populate ctrlPts
+	    Kokkos::View<double*[2], MemSpace> double2DView = multiSplines[i].getCtrlPts();
+	    auto mvDouble2DView = Kokkos::create_mirror_view(double2DView);
+	    Kokkos::deep_copy(mvDouble2DView, double2DView);
+	    for (int j = 0; j < mvDouble2DView.extent(0); j++) {
+	        mvCtrlPtsV(cPidx+j, 0) = mvDouble2DView(j, 0);
+		mvCtrlPtsV(cPidx+j, 1) = mvDouble2DView(j, 1);
+	    }
+	    cPidx += mvDouble2dView.extent(0);
+
+	    //Populate ctrlPtsOffset
+	    intView = mutiSplines[i].getCPOffset();
+	    mvIntView = Kokkos::create_mirror_view(intView);
+	    Kokkos::deep_copy(mvIntView, intView);
+
+	    for (int j = 0; j < intView.extent(0); j++) {
+		mvCPOffsetV(cOidx + j) = intView(j);
+	    }
+	    cOidx += intView.extent(0);
+
+	    //Populate knots
+	    Kokkos::View<double*, MemSpace> doubleView = multiSplines[i].getKnots();
+	    auto mvDoubleView = Kokkos::create_mirror_view(doubleView);
+	    Kokkos::deep_copy(mvDoubleView, doubleView);
+
+	    for (int j = 0; j < doubleView.extent(0); j++) {
+		mvKnotsV(kidx+j) = doubleView(j);
+	    }
+	    kidx += doubleView.extent(0);
+
+	    //Populate knots offset
+	    intView = multiSpliens[i].getKnotsOffset();
+	    mvIntView = Kokkos::create_mirror_view(intView);
+	    Kokkos::deep_copy(mvIntView, intView);
+
+	    for (int j = 0; j < intView.extent(0); j++) {
+		mvKnotsOffsetV(kOidx+j) = mvIntView(j);
+	    }
+	    kOidx += mvIntView.extent(0);
+	}
+
+	//Copy the data on host to device
+	order = orderV;
+	ctrlPts = ctrlPtsV;
+	cPOffset = cPOffset;
+	knots = knotsV;
+	knotsOffset = knotsOffsetV;
+
+	Kokkos::deep_copy(order, mvOrderV);
+	Kokkos::deep_copy(ctrlPts, mvCtrlPtsV);
+	Kokkos::deep_copy(cPOffset, mvCPOffsetV);
+	Kokkos::deep_copy(knots, mvKnotsV);
+	Kokkos::deep_copy(knotsOffset, mvKnotsOffsetV);
+	
+	//TO DO: Implement 1st&2nd Coef function
+
     }
 
     //Accessors
