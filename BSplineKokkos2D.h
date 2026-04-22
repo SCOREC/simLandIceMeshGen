@@ -234,6 +234,58 @@ public:
 	ctrlPts2ndD = ctrlPts2ndDV;
     }
 
+    KOKKOS_FUNCTION void evalDeBoor(double x, int splineo, int lKnot, Kokkos::View<double*, MemSpace> result, const Kokkos::View<int*, MemSpace> order, const Kokkos::View<double*, MemSpace> knots, const Kokkos::View<double*[2], MemSpace> ctrlPts_1stD) const {
+	//DeBoor's algorithm for BSpline 1st deriv calculation
+	int order_t = lKnot;
+	int leftPt = 0;
+
+	while (x > knots(lKnot+1)) {
+	    lKnot++;
+	    leftPt++;
+	}
+
+	//Allocate temporary points
+	double ptsX[3];
+	double ptsY[3];
+
+	int idx = 0;
+	for (int i = leftPt; i < leftPt + order_t; i++) {
+	   ptsX[idx] = ctrlPts_1stD(i, 0);
+	   ptsY[idx] = ctrlPts_1stD(i, 1);
+	   idx++;
+	}
+
+	auto localKnots = Kokkos::subview(knots, Kokkos::pair<int, int>(lKnot-order+2, lKnot+order_t));
+
+	//Calculation loop
+	for (int r = 1; r <= order_t; r++) {
+	    for(int i = order_t-1; i >= r; i--) {
+		double alpha;
+		if (localKnots(i-1) - localKnots(i+order_t-r-1) > 1e-12) {
+		    alpha = 0;
+		}
+		else {
+		    alpha = (x - localKnots(i-1)) / (knots(i+order_t-r-1) - knots(i-1));
+		}
+		ptsX[i] = (1. - alpha) * ptsX[i-1]+alpha * ptsX[i];
+		ptsY[i] = (1. - alpha) * ptsY[i-1]+alpha * ptsY[i];
+	    }
+
+	    result(0) = ptsX[order_t-1];
+	    result(1) = ptsY[order_t-1];
+	}
+    }
+
+    Kokkos::View<double*,MemSpace> eval1stDeriv(std::vector<double> xVals, int splineo) const {
+        int lKnot;
+	Kokkos::deep_copy(lKnot, Kokkos::subview(order, splineo));
+	lKnot--;
+	Kokkos::View<double*, MemSpace> res("result", 2);
+	Kokkos::parallel_for("parallel evalDeBoors", xVals.size(), KOKKOS_CLASS_LAMBDA(int i){
+	    evalDeBoor(xVals[i], splineo, lKnot, res, order, knots, ctrlPts1stD);
+        });
+	return res;
+    }
     //Accessors
     Kokkos::View<int*, MemSpace> getOrder() const {return order;}
     Kokkos::View<double*[2], MemSpace> getCtrlPts() const {return ctrlPts;}
