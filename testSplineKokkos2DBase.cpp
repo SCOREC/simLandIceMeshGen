@@ -14,6 +14,11 @@
 #include <fstream>
 #include <numeric>
 
+//For checking if the content of the splines are correct
+//
+
+double EPSILON = 1e-12;
+
 int main(int argc, char* argv[]) {
     //We check how many arguments are given
     int retVal = 0;
@@ -56,6 +61,44 @@ int main(int argc, char* argv[]) {
 	serialBSP.y.getpara(order, ctrlPtsY, knots, weight);
 
 	BSplineKokkos2D<ExecutionSpace> kokkosBSP(order, ctrlPtsX, ctrlPtsY, knots);
+
+	auto intView = Kokkos::create_mirror_view(kokkosBSP.getOrder());
+	Kokkos::deep_copy(intView, kokkosBSP.getOrder());
+	//Testing the order initialization
+	double diff = std::fabs(order - intView(0));
+	if (diff > EPSILON) {
+	    std::cout << "Order difference : " << diff << std::endl;
+	    std::cout << "Serial: " << order << " Kokkos: " << intView(0) << std::endl;
+	    retVal = 1;
+	}
+
+	auto double2DView = Kokkos::create_mirror_view(kokkosBSP.getCtrlPts());
+	Kokkos::deep_copy(double2DView, kokkosBSP.getCtrlPts());
+
+	//Testing ctrlPts initialization
+	double xDiff, yDiff;
+	for (int i = 0; i < ctrlPtsX.size(); i++) {
+	    xDiff = std::fabs(ctrlPtsX[i] - double2DView(i, 0));
+	    yDiff = std::fabs(ctrlPtsY[i] - double2DView(i, 1));
+	    if (xDiff > EPSILON || yDiff > EPSILON) {
+		std::cout << "CtrlPts difference: x = " << xDiff << " y = " << yDiff << std::endl;
+		std::cout << "Serial: " << ctrlPtsX[i] << ", " << ctrlPtsY[i] << std::endl;
+		std::cout << "Kokkos: " << double2DView(i, 0) << ", " << double2DView(i, 1) << std::endl;
+		retVal = 1;
+		break;
+	    }
+	}
+
+	auto doubleView = Kokkos::create_mirror_view(kokkosBSP.getKnots());
+	Kokkos::deep_copy(doubleView, kokkosBSP.getKnots());
+	for (int i = 0; i < knots.size(); i++) {
+	    diff = std::fabs(knots[i] - doubleView(i));
+	    if (diff > EPSILON) {
+                std::cout << "Knots difference: " << diff << std::endl;
+		std::cout << "Serial: " << knots[i] << std::endl;
+		std::cout << "Kokkos: " << doubleView(i) << std::endl;	
+	    }
+	}
 
     }
     Kokkos::finalize();
