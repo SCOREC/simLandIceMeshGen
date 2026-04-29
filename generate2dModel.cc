@@ -174,7 +174,8 @@ int main(int argc, char **argv) {
     splinesOuter.writeSamplesToCsv(prefix + "_splinesOuter.csv");
 
     auto planeBounds = getBoundingPlane(features.outer);
-    createFaces(mdlTopo, planeBounds);
+    const bool hasBoundingBox = features.inner.numVtx > 0;
+    createFaces(mdlTopo, planeBounds, hasBoundingBox);
 
     printModelInfo(mdlTopo.model);
 
