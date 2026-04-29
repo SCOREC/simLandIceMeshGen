@@ -408,8 +408,9 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool hasBoundingB
           mdlTopo.faceDirs.data(),
           numLoopsOuterFace, loopFirstEdgeIdx,
           planarSurface, sameNormal));
-    if(debug)
+    if(debug) {
       std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
+    }
     assert(GF_area(mdlTopo.faces[0], 0.2) > 0);
   }
 }
