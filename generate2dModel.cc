@@ -118,7 +118,7 @@ int main(int argc, char **argv) {
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
 
-  const auto debug = false;
+  const auto debug = true;
 
   // You will want to place a try/catch around all SimModSuite calls,
   // as errors are thrown.
@@ -154,7 +154,6 @@ int main(int argc, char **argv) {
     auto splinesOuter = SplineInterp::SplineInfo(numOuterMdlVerts);
     PointClassification ptClassInner(features.inner.numVtx);
     PointClassification ptClassOuter(features.outer.numVtx);
-    const bool debug = false;
     createEdges(mdlTopo, features.outer, ptClassOuter, splinesOuter, isPointOnCurveOuter, isMdlVtxOuter, debug);
     createEdges(mdlTopo, features.inner, ptClassInner, splinesInner, isPointOnCurveInner, isMdlVtxInner, debug);
 
@@ -175,7 +174,7 @@ int main(int argc, char **argv) {
 
     auto planeBounds = getBoundingPlane(features.outer);
     const bool hasBoundingBox = features.inner.numVtx > 0;
-    createFaces(mdlTopo, planeBounds, hasBoundingBox);
+    createFaces(mdlTopo, planeBounds, hasBoundingBox, debug);
 
     printModelInfo(mdlTopo.model);
 
