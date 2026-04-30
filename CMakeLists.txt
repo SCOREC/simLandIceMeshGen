@@ -66,6 +66,13 @@ if(USE_SIMMODSUITE)
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 571")
   set_tests_properties(simModelGen2d_ais PROPERTIES
     PASS_REGULAR_EXPRESSION "mesh faces in surface: 60870")
+
+  add_test(NAME simModelGen2d_gis_noBbox
+    COMMAND ./generate2dModel ${testDataDir}/gis_noBbox.vtk gis_noBbox 1 100 100 1 "m")
+  set_tests_properties(simModelGen2d_gis_noBbox PROPERTIES
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 310")
+  set_tests_properties(simModelGen2d_gis_noBbox PROPERTIES
+    PASS_REGULAR_EXPRESSION "mesh faces in surface: 27932")
   
   add_test(NAME simModelGen2d_oneSquare_jig
     COMMAND ./generate2dModel ${testDataDir}/oneSquare.msh one_jig 1e-6 100 100 1 "km")
