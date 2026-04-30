@@ -111,9 +111,13 @@ int main(int argc, char **argv) {
     convertMetersToKm(features.inner);
     convertMetersToKm(features.outer);
   }
+  const bool hasSingleContour = (features.inner.numVtx == 0);
   const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
+  //force all contours to be positive (CCW)
   features.inner = cleanGeom(features.inner, coincidentPtTolSquared, false);
   makeOrientationPositive(features.inner);
+  features.outer = cleanGeom(features.outer, coincidentPtTolSquared, false);
+  makeOrientationPositive(features.outer);
 
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
@@ -173,8 +177,7 @@ int main(int argc, char **argv) {
     splinesOuter.writeSamplesToCsv(prefix + "_splinesOuter.csv");
 
     auto planeBounds = getBoundingPlane(features.outer);
-    const bool hasBoundingBox = features.inner.numVtx > 0;
-    createFaces(mdlTopo, planeBounds, hasBoundingBox, debug);
+    createFaces(mdlTopo, planeBounds, hasSingleContour, debug);
 
     printModelInfo(mdlTopo.model);
 

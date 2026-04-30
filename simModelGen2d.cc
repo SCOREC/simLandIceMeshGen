@@ -313,7 +313,7 @@ void createFace(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
   assert(GF_area(mdlTopo.faces.at(0), 0.2) > 0);
 }
 
-void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool hasBoundingBox, bool debug) {
+void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool hasSingleContour, bool debug) {
   // Now add the faces
   double corner[3], xPt[3], yPt[3]; // the points defining the surface of the face
 
@@ -336,7 +336,7 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool hasBoundingB
   const int faceDirectionRev = 0;
   const int sameNormal = 1;
 
-  if (hasBoundingBox) {
+  if (!hasSingleContour) {
     // **************
     // Create the face between the bounding rectangle and the grounding line
     // (water)
@@ -396,6 +396,7 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool hasBoundingB
     // **************
     // Single contour: the contour itself is the domain boundary
     // **************
+    // the contour is CCW; faceDirectionFwd places the face on the left
     for (int i = 0; i < (int)mdlTopo.edges.size(); i++) {
       mdlTopo.faceDirs.push_back(faceDirectionFwd);
       mdlTopo.faceEdges.push_back(mdlTopo.edges.at(i));
