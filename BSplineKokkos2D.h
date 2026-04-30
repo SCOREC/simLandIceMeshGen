@@ -195,16 +195,12 @@ public:
 	//Calculate 1st derivative coef
 	int offidx = 0;	//Offset index
 	int oidx = 0; //Order index
-	for (int i = 1; i < mvCtrlPts1stDV.extent(0); i++) {
+	for (int i = 1; i < mvCtrlPts1stDV.extent(0)+1; i++) {
 	    //We need to check whether we are on the border for the next spline in our structure
-	    if (i == mvCP1stDOffsetV(offidx)) {
-		oidx++;
-		offidx++;
-		continue;	//Skip to the next
-	    }
-	    double delta = double(mvOrder(oidx-1)) / (mvKnots(i+mvOrder(oidx-1)) - mvKnots(i));
-	    mvCtrlPts1stDV(i, 0) = (mvCtrlPts(i, 0) - mvCtrlPts(i-1, 0))*delta;
-	    mvCtrlPts1stDV(i, 1) = (mvCtrlPts(i, 1) - mvCtrlPts(i-1, 1))*delta;
+	    double delta = double(mvOrder(oidx)-1) / (mvKnots(i+mvOrder(oidx)-1) - mvKnots(i));
+
+	    mvCtrlPts1stDV(i-1, 0) = (mvCtrlPts(i, 0) - mvCtrlPts(i-1, 0))*delta;
+	    mvCtrlPts1stDV(i-1, 1) = (mvCtrlPts(i, 1) - mvCtrlPts(i-1, 1))*delta;
 	}
 
 	//Calculate 2nd derivative coef
@@ -218,6 +214,7 @@ public:
 		continue;
 	    }
 	    double delta = double(mvOrder(oidx)-2) / (mvKnots(i+mvOrder(oidx)-1) - mvKnots(i+1));
+
 	    mvCtrlPts2ndDV(i, 0) = (mvCtrlPts(i, 0) - mvCtrlPts(i-1, 0)) * delta;
 	    mvCtrlPts2ndDV(i, 1) = (mvCtrlPts(i, 1) - mvCtrlPts(i-1, 1)) * delta;
 	}
@@ -232,6 +229,8 @@ public:
 	cp2ndDOffset = cP2ndDOffsetV;
 	ctrlPts1stD = ctrlPts1stDV;
 	ctrlPts2ndD = ctrlPts2ndDV;
+
+
     }
 
     KOKKOS_FUNCTION void evalDeBoor(double x, int splineo, int lKnot, Kokkos::View<double*, MemSpace> result, const Kokkos::View<int*, MemSpace> order, const Kokkos::View<double*, MemSpace> knots, const Kokkos::View<double*[2], MemSpace> ctrlPts_1stD) const {
@@ -255,7 +254,7 @@ public:
 	   idx++;
 	}
 
-	auto localKnots = Kokkos::subview(knots, Kokkos::pair<int, int>(lKnot-order+2, lKnot+order_t));
+	auto localKnots = Kokkos::subview(knots, Kokkos::pair<int, int>(lKnot-order_t+2, lKnot+order_t));
 
 	//Calculation loop
 	for (int r = 1; r <= order_t; r++) {
