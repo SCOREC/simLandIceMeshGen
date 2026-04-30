@@ -313,7 +313,7 @@ void createFace(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
   assert(GF_area(mdlTopo.faces.at(0), 0.2) > 0);
 }
 
-void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
+void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool hasSingleContour, bool debug) {
   // Now add the faces
   double corner[3], xPt[3], yPt[3]; // the points defining the surface of the face
 
@@ -321,10 +321,6 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
   // faceEdges array
   pSurface planarSurface;
 
-  // **************
-  // Create the face between the bounding rectangle and the grounding line
-  // (water)
-  // **************
   // Define the surface
   corner[0] = planeBounds.minX;
   corner[1] = planeBounds.minY;
@@ -339,14 +335,17 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
   const int faceDirectionFwd = 1;
   const int faceDirectionRev = 0;
   const int sameNormal = 1;
-  const int oppositeNormal = 0;
 
-  // the first four edges define the outer bounding rectangle
-  for (int i = 0; i < 4; i++) {
-    mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
-    mdlTopo.faceEdges.push_back(mdlTopo.edges.at(i));
-  }
-  if (mdlTopo.edges.size() > 4) {
+  if (!hasSingleContour) {
+    // **************
+    // Create the face between the bounding rectangle and the grounding line
+    // (water)
+    // **************
+    // the first four edges define the outer bounding rectangle
+    for (int i = 0; i < 4; i++) {
+      mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
+      mdlTopo.faceEdges.push_back(mdlTopo.edges.at(i));
+    }
     // the remaining edges define the grounding line
     // TODO generalize loop creation
     int j = mdlTopo.edges.size() - 1;
@@ -356,7 +355,6 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
       // reverse the order so the face is on the left (simmetrix requirement)
       mdlTopo.faceEdges.push_back(mdlTopo.edges.at(j--));
     }
-
     int numLoopsOuterFace = 2;
     int loopFirstEdgeIdx[2] = {0, 4};
     planarSurface = SSurface_createPlane(corner, xPt, yPt);
@@ -369,7 +367,40 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
       std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
     }
     assert(GF_area(mdlTopo.faces[0], 0.2) > 0);
+
+    mdlTopo.faceEdges.clear();
+    mdlTopo.faceDirs.clear();
+
+    // **************
+    // Create the 'ice' face bounded by the grounding line
+    // **************
+    planarSurface = SSurface_createPlane(corner, xPt, yPt);
+    const int numEdgesInnerFace = mdlTopo.edges.size() - 4;
+    const int numLoopsInnerFace = 1;
+    int loopFirstEdgeInnerIdx[1] = {0};
+    int k = 4;
+    for (int i = 0; i < numEdgesInnerFace; i++) {
+      mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
+      mdlTopo.faceEdges.push_back(mdlTopo.edges.at(k++));
+    }
+    mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, numEdgesInnerFace,
+          mdlTopo.faceEdges.data(),
+          mdlTopo.faceDirs.data(),
+          numLoopsInnerFace, loopFirstEdgeInnerIdx,
+          planarSurface, sameNormal));
+    if(debug) {
+      std::cout << "faces[1] area: " << GF_area(mdlTopo.faces[1], 0.2) << "\n";
+    }
+    assert(GF_area(mdlTopo.faces[1], 0.2) > 0);
   } else {
+    // **************
+    // Single contour: the contour itself is the domain boundary
+    // **************
+    // the contour is CCW; faceDirectionFwd places the face on the left
+    for (int i = 0; i < (int)mdlTopo.edges.size(); i++) {
+      mdlTopo.faceDirs.push_back(faceDirectionFwd);
+      mdlTopo.faceEdges.push_back(mdlTopo.edges.at(i));
+    }
     int numLoopsOuterFace = 1;
     int loopFirstEdgeIdx[1] = {0};
     planarSurface = SSurface_createPlane(corner, xPt, yPt);
@@ -382,33 +413,6 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
       std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
     }
     assert(GF_area(mdlTopo.faces[0], 0.2) > 0);
-  }
-
-  mdlTopo.faceEdges.clear();
-  mdlTopo.faceDirs.clear();
-
-  if (mdlTopo.edges.size() > 4) {
-    // **************
-    // Create the 'ice' face bounded by the grounding line
-    // **************
-    planarSurface = SSurface_createPlane(corner, xPt, yPt);
-    const int numEdgesInnerFace = mdlTopo.edges.size() - 4;
-    const int numLoopsInnerFace = 1;
-    int loopFirstEdgeIdx[1] = {0};
-    int j = 4;
-    for (int i = 0; i < numEdgesInnerFace; i++) {
-      mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
-      mdlTopo.faceEdges.push_back(mdlTopo.edges.at(j++));
-    }
-    mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, numEdgesInnerFace,
-          mdlTopo.faceEdges.data(),
-          mdlTopo.faceDirs.data(),
-          numLoopsInnerFace, loopFirstEdgeIdx,
-          planarSurface, sameNormal));
-    if(debug) {
-      std::cout << "faces[1] area: " << GF_area(mdlTopo.faces[1], 0.2) << "\n";
-    }
-    assert(GF_area(mdlTopo.faces[1], 0.2) > 0);
   }
 }
 

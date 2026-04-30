@@ -111,14 +111,18 @@ int main(int argc, char **argv) {
     convertMetersToKm(features.inner);
     convertMetersToKm(features.outer);
   }
+  const bool hasSingleContour = (features.inner.numVtx == 0);
   const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
+  //force all contours to be positive (CCW)
   features.inner = cleanGeom(features.inner, coincidentPtTolSquared, false);
   makeOrientationPositive(features.inner);
+  features.outer = cleanGeom(features.outer, coincidentPtTolSquared, false);
+  makeOrientationPositive(features.outer);
 
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
 
-  const auto debug = false;
+  const auto debug = true;
 
   // You will want to place a try/catch around all SimModSuite calls,
   // as errors are thrown.
@@ -154,7 +158,6 @@ int main(int argc, char **argv) {
     auto splinesOuter = SplineInterp::SplineInfo(numOuterMdlVerts);
     PointClassification ptClassInner(features.inner.numVtx);
     PointClassification ptClassOuter(features.outer.numVtx);
-    const bool debug = false;
     createEdges(mdlTopo, features.outer, ptClassOuter, splinesOuter, isPointOnCurveOuter, isMdlVtxOuter, debug);
     createEdges(mdlTopo, features.inner, ptClassInner, splinesInner, isPointOnCurveInner, isMdlVtxInner, debug);
 
@@ -174,7 +177,7 @@ int main(int argc, char **argv) {
     splinesOuter.writeSamplesToCsv(prefix + "_splinesOuter.csv");
 
     auto planeBounds = getBoundingPlane(features.outer);
-    createFaces(mdlTopo, planeBounds);
+    createFaces(mdlTopo, planeBounds, hasSingleContour, debug);
 
     printModelInfo(mdlTopo.model);
 

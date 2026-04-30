@@ -165,11 +165,11 @@ PlaneBounds getBoundingPlane(GeomInfo &geom) {
 }
 
 ModelFeatures splitIntoInnerAndOuter(GeomInfo& geom) {
-  GeomInfo outer;
   //if the fourth edge's second point is the same
   //as the first edge's first point then we have
   //a bbox defined by four points
   if( geom.edges[0][0] == geom.edges[3][1] ) {
+    GeomInfo outer;
     //move the points and edges that define the bbox
     //to its own GeomInfo
     outer.numVtx = 4;
@@ -193,8 +193,15 @@ ModelFeatures splitIntoInnerAndOuter(GeomInfo& geom) {
     geom.vtx_x.resize(geom.numVtx);
     geom.vtx_y.resize(geom.numVtx);
     geom.edges.resize(geom.numEdges);
+    return {geom, outer};
   }
-  return {geom,outer};
+  //else we have a single contour; the inner contour
+  //will be empty and the outer contour will define
+  //the domain boundary
+  GeomInfo inner;
+  inner.numVtx = 0;
+  inner.numEdges = 0;
+  return {inner,geom};
 }
 
 std::array<double, 3> readPoint(std::ifstream &in, bool debug = true) {
