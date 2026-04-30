@@ -422,13 +422,13 @@ pMesh createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progres
 
   pModelItem domain = GM_domain(mdlTopo.model);
   const auto relativeSizeType = 2;
-  MS_setMeshSize(meshCase, domain, relativeSizeType, 0.02, NULL);
+  MS_setMeshSize(meshCase, domain, relativeSizeType, 0.1, NULL);
   const auto calcCurvatureFromEdgesAndFaces = 3;
-  MS_setMeshCurv(meshCase, domain, relativeSizeType, 0.01, calcCurvatureFromEdgesAndFaces);
-  MS_setMinCurvSize(meshCase, domain, relativeSizeType, 0.002);
+  MS_setMeshCurv(meshCase, domain, relativeSizeType, 0.001, calcCurvatureFromEdgesAndFaces);
+  MS_setMinCurvSize(meshCase, domain, relativeSizeType, 0.0005);
   //make the transition from the fine mesh to the coarse mesh slower, default
   //rate ~= 2/3
-  const auto slowGradationRate = 0.2;
+  const auto slowGradationRate = 0.3;
   MS_setGlobalSizeGradationRate(meshCase, slowGradationRate);
 
   pSurfaceMesher surfMesh = SurfaceMesher_new(meshCase, mesh);
