@@ -1,5 +1,5 @@
 #include <Kokkos_Core.hpp>
-#include "BSplineKokkos.h"
+#include "BSplineKokkos2D.h"
 #include "BSpline.h"
 #include <vector>
 
@@ -56,7 +56,7 @@ int main(int argc, char* argv[]) {
 	serialBSP.x.getpara(order, ctrlPtsX, knots, weight);
 	serialBSP.y.getpara(order, ctrlPtsY, knots, weight);
 
-	BSplineKokkos<ExecutionSpace> kokkosBSP(order, ctrlPtsX, ctrlPtsY, knots);
+	BSplineKokkos2D<ExecutionSpace> kokkosBSP(order, ctrlPtsX, ctrlPtsY, knots);
 
 	std::vector<double> evalAt = {0, 0.2, 0.41, 0.5, 0.66, 0.73, 0.75, 0.89, 0.94, 1};
 	for (int i = 0; i < 10; i++) {
