@@ -223,7 +223,7 @@ public:
 	    double delta = double(mvOrder(oidx)-2) / (mvKnots(i+mvOrder(oidx)-1) - mvKnots(i+1));
 
 	    mvCtrlPts2ndDV(i-1, 0) = (mvCtrlPts1stDV(i, 0) - mvCtrlPts1stDV(i-1, 0)) * delta;
-	    mvCtrlPts2ndDV(i-1, 1) = (mvCtrlPts1stDV(i, 1) - mvCtrlPts1stDV(i-1, 1)) * deltag
+	    mvCtrlPts2ndDV(i-1, 1) = (mvCtrlPts1stDV(i, 1) - mvCtrlPts1stDV(i-1, 1)) * delta;
 	}
 
 	//Copy to device
