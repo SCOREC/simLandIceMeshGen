@@ -196,6 +196,11 @@ public:
 	int offidx = 0;	//Offset index
 	int oidx = 0; //Order index
 	for (int i = 1; i < mvCtrlPts1stDV.extent(0)+1; i++) {
+	    if (i == mvCP1stDOffsetV(offidx)+1) {
+	    	oidx++;
+                offidx++;
+                continue;
+	    }
 	    //We need to check whether we are on the border for the next spline in our structure
 	    double delta = double(mvOrder(oidx)-1) / (mvKnots(i+mvOrder(oidx)-1) - mvKnots(i));
 
@@ -207,16 +212,18 @@ public:
 	Kokkos::View<double*[2], MemSpace> ctrlPts2ndDV("ctrlPts2ndDeriv", ctrlPts.extent(0)-(2*cpOffset.extent(0)));
 	auto mvCtrlPts2ndDV = Kokkos::create_mirror_view(ctrlPts2ndDV);
 
+	offidx = 0;
+	oidx = 0;
 	for (int i = 1; i < ctrlPts1stDV.extent(0); i++) {
-	    if (i == mvCP2ndDOffsetV(offidx)) {
+	    if (i == mvCP2ndDOffsetV(offidx)+2) {
 		oidx++;
 		offidx++;
 		continue;
 	    }
 	    double delta = double(mvOrder(oidx)-2) / (mvKnots(i+mvOrder(oidx)-1) - mvKnots(i+1));
 
-	    mvCtrlPts2ndDV(i, 0) = (mvCtrlPts(i, 0) - mvCtrlPts(i-1, 0)) * delta;
-	    mvCtrlPts2ndDV(i, 1) = (mvCtrlPts(i, 1) - mvCtrlPts(i-1, 1)) * delta;
+	    mvCtrlPts2ndDV(i-1, 0) = (mvCtrlPts1stDV(i, 0) - mvCtrlPts1stDV(i-1, 0)) * delta;
+	    mvCtrlPts2ndDV(i-1, 1) = (mvCtrlPts1stDV(i, 1) - mvCtrlPts1stDV(i-1, 1)) * deltag
 	}
 
 	//Copy to device
