@@ -37,8 +37,9 @@ int main(int argc, char* argv[]) {
         #ifndef MemSpace
         #define MemSpace Kokkos::HostSpace
         #endif
-	
+	    
 	using ExecutionSpace = MemSpace::execution_space;
+
 	std::string inputCSV = argv[1];
 	int extensionPos = inputCSV.rfind(".");
         int slashPos = inputCSV.rfind("/");
@@ -85,10 +86,10 @@ int main(int argc, char* argv[]) {
 		std::cout << "Serial: " << ctrlPtsX[i] << ", " << ctrlPtsY[i] << std::endl;
 		std::cout << "Kokkos: " << double2DView(i, 0) << ", " << double2DView(i, 1) << std::endl;
 		retVal = 1;
-		break;
 	    }
 	}
 
+	//Test knots initialization
 	auto doubleView = Kokkos::create_mirror_view(kokkosBSP.getKnots());
 	Kokkos::deep_copy(doubleView, kokkosBSP.getKnots());
 	for (int i = 0; i < knots.size(); i++) {
@@ -96,9 +97,56 @@ int main(int argc, char* argv[]) {
 	    if (diff > EPSILON) {
                 std::cout << "Knots difference: " << diff << std::endl;
 		std::cout << "Serial: " << knots[i] << std::endl;
-		std::cout << "Kokkos: " << doubleView(i) << std::endl;	
+		std::cout << "Kokkos: " << doubleView(i) << std::endl;
+		retVal = 1;
 	    }
 	}
+
+	//Test 1st deriv coef initialization
+	Kokkos::View<double*[2], MemSpace> coef ("getCPCoe2", kokkosBSP.getCP1stD().extent(0));
+
+        coef = kokkosBSP.getCP1stD();
+
+        auto mv_coef = Kokkos::create_mirror_view(coef);
+
+        Kokkos::deep_copy(mv_coef, coef);
+
+        std::vector<double> serialCoefX = serialBSP.x.getCtrlPts_1st();
+        std::vector<double> serialCoefY = serialBSP.y.getCtrlPts_1st();
+
+	for (int i = 0; i < serialCoefX.size(); i++) {
+	    double diffX = std::fabs(serialCoefX[i] - mv_coef(i, 0));
+	    double diffY = std::fabs(serialCoefY[i] - mv_coef(i, 1));
+	    if (diffX > EPSILON || diffY > EPSILON) {
+		std::cout << "diffX: " << diffX << std::endl;
+		std::cout << "diffY: " << diffY << std::endl;
+		std::cout << "Serial 1st coef: " << serialCoefX[i] << ", " << serialCoefY[i] << std::endl;
+		std::cout << "Kokkos 1st coef: " << mv_coef(i, 0)<< ", " << mv_coef(i, 1) << std::endl;
+		retVal = 1;
+	    }
+	
+	}
+
+	Kokkos::View<double*[2], MemSpace>coef2 ("getCPCoe2", kokkosBSP.getCP2ndD().extent(0));
+	coef2 = kokkosBSP.getCP2ndD();
+
+        mv_coef = Kokkos::create_mirror_view(coef2);
+
+        Kokkos::deep_copy(mv_coef, coef2);
+
+        serialCoefX = serialBSP.x.getCtrlPts_2nd();
+        serialCoefY = serialBSP.y.getCtrlPts_2nd();
+	for (int i = 0; i < serialCoefX.size(); i++) {
+	    double diffX = std::fabs(serialCoefX[i] - mv_coef(i, 0));
+	    double diffY = std::fabs(serialCoefY[i] - mv_coef(i, 1));
+	    if (diffX > EPSILON || diffY > EPSILON) {
+		std::cout << "diffX: " << diffX << std::endl;
+		std::cout << "diffY: " << diffY << std::endl;
+		std::cout << "Serial 2nd coef: " << serialCoefX[i] << ", " << serialCoefY[i] << std::endl;
+                std::cout << "Kokkos 2nd coef: " << mv_coef(i, 0)<< ", " << mv_coef(i, 1) << std::endl;
+                retVal = 1;
+            }
+        }
 
     }
     Kokkos::finalize();
