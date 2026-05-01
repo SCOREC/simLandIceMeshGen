@@ -26,14 +26,17 @@ int main(int argc, char* argv[]) {
     Kokkos::initialize(argc, argv);
     {
         #ifdef KOKKOS_ENABLE_CUDA
-	#endif
+	#define MemSpace Kokkos::CudaSpace
+        #endif
 	#ifndef MemSpace
 	#define MemSpace Kokkos::HostSpace
 	#endif
 	
+	using ExecutionSpace = MemSpace::execution_space;
+	
 	std::string inputCSV = argv[1];
 	int extensionPos = inputCSV.rfind(".");
-	int slashPos = input.rfind("/");
+	int slashPos = inputCSV.rfind("/");
 	std::string fileNameNoExt = inputCSV.substr(slashPos+1, extensionPos);
 	double expectedCurveLength = std::stod(argv[2]);
 	auto curve = CurveReader::readCurveInfo(inputCSV);
