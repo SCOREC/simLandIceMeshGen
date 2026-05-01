@@ -62,8 +62,15 @@ int main(int argc, char* argv[]) {
 	for (int i = 0; i < 10; i++) {
 	    double derivX = serialBSP.x.evalFirstDeriv(evalAt[i]);
 	    double derivY = serialBSP.y.evalFirstDeriv(evalAt[i]);
+	    
 	    Kokkos::View<double*, MemSpace> res("deriv result", 2);
-	    res = kokkosBSP.eval1stDeriv({evalAt[i]}, 0);
+	    Kokkos::View<double*, MemSpace> xVals ("paraCoor", 1);
+	    auto mvXVals = Kokkos::create_mirror_view(xVals);
+	    mvXVals(0) = evalAt[i];
+	    Kokkos::deep_copy(xVals, mvXVals);
+
+	    res = kokkosBSP.eval1stDeriv(xVals, 0);
+	    
 	    auto mvRes = Kokkos::create_mirror_view(res);
 	    Kokkos::deep_copy(mvRes, res);
 

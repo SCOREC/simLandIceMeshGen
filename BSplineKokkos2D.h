@@ -282,13 +282,13 @@ public:
 	}
     }
 
-    Kokkos::View<double*,MemSpace> eval1stDeriv(std::vector<double> xVals, int splineo) const {
+    Kokkos::View<double*,MemSpace> eval1stDeriv(Kokkos::View<double*, MemSpace> xVals, int splineo) const {
         int lKnot;
 	Kokkos::deep_copy(lKnot, Kokkos::subview(order, splineo));
 	lKnot--;
 	Kokkos::View<double*, MemSpace> res("result", 2);
 	Kokkos::parallel_for("parallel evalDeBoors", xVals.size(), KOKKOS_CLASS_LAMBDA(int i){
-	    evalDeBoor(xVals[i], splineo, lKnot, res, order, knots, ctrlPts1stD);
+	    evalDeBoor(xVals(i), splineo, lKnot, res, order, knots, ctrlPts1stD);
         });
 	return res;
     }
@@ -344,13 +344,13 @@ public:
 
     }
 
-    Kokkos::View<double*, MemSpace> eval2ndDeriv(std::vector<double> xVals, int splineo) const {
+    Kokkos::View<double*, MemSpace> eval2ndDeriv(Kokkos::View<double*, MemSpace> xVals, int splineo) const {
 	int lKnot;
 	Kokkos::deep_copy(lKnot, Kokkos::subview(order, splineo));
 	lKnot--;
 	Kokkos::View<double*, MemSpace> res("result", 2);
 	Kokkos::parallel_for("parallel evalDeBoors 2", xVals.size(), KOKKOS_CLASS_LAMBDA(int i) {
-	    evalDeBoor2(xVals[i], splineo, lKnot, res, order, knots, ctrlPts2ndD); 
+	    evalDeBoor2(xVals(i), splineo, lKnot, res, order, knots, ctrlPts2ndD); 
 	});
 	return res;
     }
