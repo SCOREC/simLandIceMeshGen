@@ -310,8 +310,8 @@ public:
 	    leftPt++;
 	}
 
-	double ptsX[2];
-	double ptsY[2];
+	double ptsX[3];
+	double ptsY[3];
 
 	int idx = 0;
 	for (int i = leftPt; i < leftPt+order_t; i++) {
@@ -320,17 +320,15 @@ public:
 	    idx++;
 	}
 
-
-
 	auto localKnots = Kokkos::subview(knots, Kokkos::pair<int, int>(lKnot-order_t+2, lKnot+order_t));
 
 	for (int r = 1; r <= order_t; r++) {
-	    for (int i = order_t-1; i>= r; i++) {
+	    for (int i = order_t-1; i >= r; i--) {
 	        double aLeft = localKnots(i-1);
 		double aRight = localKnots(i+order_t-r-1);
 		double alpha;
 		if (aLeft == aRight) {
-		    alpha = 0;
+		    alpha = 0.;
 		}
 		else {
 		    alpha = (x - aLeft) / (aRight - aLeft);
