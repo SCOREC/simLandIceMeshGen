@@ -281,15 +281,15 @@ public:
 	    result(1) = ptsY[order_t-1];
 	}
     }
-
+    
     Kokkos::View<double*,MemSpace> eval1stDeriv(Kokkos::View<double*, MemSpace> xVals, int splineo) const {
-        int lKnot;
+	int lKnot;
 	Kokkos::deep_copy(lKnot, Kokkos::subview(order, splineo));
 	lKnot--;
 	Kokkos::View<double*, MemSpace> res("result", 2);
 	Kokkos::parallel_for("parallel evalDeBoors", xVals.size(), KOKKOS_CLASS_LAMBDA(int i){
 	    evalDeBoor(xVals(i), splineo, lKnot, res, order, knots, ctrlPts1stD);
-        });
+        v});
 	return res;
     }
 
