@@ -18,9 +18,9 @@ int main(int argc, char* argv[]) {
     int retVal;
     if (argc != 3) {
         std::cerr<< "Input arguments: <input csv file> <expected curve length>" << std::endl;
-	std::cerr << "input csv need these columns: ";
-	std::cerr << "coordinate x, coordinate y, coordinate z,isOnCurve,angle,isMdlVtx" << std::endl;
-	return 1;
+		std::cerr << "input csv need these columns: ";
+		std::cerr << "coordinate x, coordinate y, coordinate z,isOnCurve,angle,isMdlVtx" << std::endl;
+		return 1;
     }
 
     Kokkos::initialize(argc, argv);
