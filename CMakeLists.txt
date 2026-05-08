@@ -5,6 +5,10 @@ project(simLandIceMeshGen VERSION 0.0.1 LANGUAGES CXX C)
 enable_testing()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
+#Enabling Address Sanitizer (ASan)
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
+#set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+
 option(USE_SIMMODSUITE "Enable SimModSuite support" ON)
 
 if(USE_SIMMODSUITE)
@@ -29,6 +33,14 @@ add_library(modelGen2d modelGen2d.cc geomReaders.cc)
 target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Quadtree/include)
 target_link_libraries(modelGen2d PRIVATE splineInterp Omega_h::omega_h)
+
+#NEED TO ADD THE FILES USED FOR BSpline_Kokkos HERE
+add_library(splineKokkos BSplineKokkos.cpp)
+target_link_libraries(splineKokkos PRIVATE Kokkos::kokkos)
+
+add_library(splineKokkos2D BSplineKokkos2D.cpp)
+target_link_libraries(splineKokkos2D PRIVATE Kokkos::kokkos)
+
 
 set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
 
@@ -192,4 +204,56 @@ add_test(NAME testDiscoverTopo_L11pts
   COMMAND ./testDiscoverTopo ${testDataDir}/L_11pts.csv)
 set_tests_properties(testDiscoverTopo_L11pts PROPERTIES
   PASS_REGULAR_EXPRESSION "number of model vertices: 3")
+
+#THE FOLLOWING IS FOR BSPLINE_KOKKOS TESTS, MAY HAVE A LOT OF ERROR
+
+add_executable(testSplineKokkosBase testSplineKokkosBase.cpp)
+target_link_libraries(testSplineKokkosBase PRIVATE splineInterp curveReader modelGen2d splineKokkos Kokkos::kokkos)
+add_test(NAME testBSplineKokkosSerialStraightEdge
+  COMMAND ./testSplineKokkosBase ${testDataDir}/testCurveStrightLine.csv 9)
+add_test(NAME testBSplineKokkosSerial_edge_2pts
+  COMMAND ./testSplineKokkosBase ${testDataDir}/testCurve2pts.csv 1)
+
+#TEST FOR BSPLINEKOKKOS 1ST DERIVATIVE
+add_executable(testKokkos1stDerivative testKokkos1stDerivative.cpp)
+target_link_libraries(testKokkos1stDerivative PRIVATE splineInterp curveReader modelGen2d splineKokkos Kokkos::kokkos)
+
+add_test(NAME testKokkos1stDerivativeStraightEdge
+  COMMAND ./testKokkos1stDerivative contour_test_data/testCurveStraightLine.csv 9)
+
+add_test(NAME testKokkos1stDerivativeEdge2Pts
+  COMMAND ./testKokkos1stDerivative contour_test_data/testCurve2pts.csv 1)
+
+add_test(NAME testKokkos1stDerivativeSingleEdge
+  COMMAND ./testKokkos1stDerivative ${testDataDir}/testCurveSplineFitting.csv 12.2685)
+
+#TEST FOR BSPLINEKOKKOS2D CONSTRUCTOR
+add_executable(testSplineKokkos2DBase testSplineKokkos2DBase.cpp)
+target_link_libraries(testSplineKokkos2DBase PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos)
+add_test(NAME testSplineKokkos2DStraightEdge
+  COMMAND ./testSplineKokkos2DBase contour_test_data/testCurveStraightLine.csv 9)
+add_test(NAME testSplineKokkos2D2Pts
+  COMMAND ./testSplineKokkos2DBase contour_test_data/testCurve2pts.csv 1)
+add_test(NAME testSplineKokkos2DSingleEdge
+  COMMAND ./testSplineKokkos2DBase ${testDataDir}/testCurveSplineFitting.csv 12.2685)
+
+#TEST FOR BSPLINEKOKKOS2D 1ST DERIVATIVE
+add_executable(testKokkos2D1stDeriv testKokkos2D1stDeriv.cpp)
+target_link_libraries(testKokkos2D1stDeriv PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos)
+add_test(NAME testDeriv2DStraightEdge
+  COMMAND ./testKokkos2D1stDeriv contour_test_data/testCurveStraightLine.csv 9)
+add_test(NAME testDeriv2D2Pts
+  COMMAND ./testKokkos2D1stDeriv contour_test_data/testCurve2pts.csv 1)
+add_test(NAME testDeriv2DSingleEdge
+  COMMAND ./testKokkos2D1stDeriv ${testDataDir}/testCurveSplineFitting.csv 12.2685)
+
+#TEST FOR BSPLINEKOKKOS2D 2ND DERIVATIVE
+add_executable(testKokkos2D2ndDeriv testKokkos2D2ndDeriv.cpp)
+target_link_libraries(testKokkos2D2ndDeriv PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos)
+add_test(NAME test2NDDeriv2DStraightEdge
+  COMMAND ./testKokkos2D2ndDeriv contour_test_data/testCurveStraightLine.csv 9)
+add_test(NAME test2NDDeriv2D2Pts
+  COMMAND ./testKokkos2D2ndDeriv contour_test_data/testCurve2pts.csv 1)
+add_test(NAME test2NDDerive2DSingleEdge
+  COMMAND ./testKokkos2D2ndDeriv contour_test_data/testSplineFitting.csv 12.2685)
 
