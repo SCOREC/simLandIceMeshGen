@@ -12,7 +12,7 @@ template<typename ExecutionSpace>
 class BSplineKokkos2D {
 public:
   using MemSpace = typename ExecutionSpace::memory_space;
-    
+
   BSplineKokkos2D(int order_p, std::vector<double>& ctrlPts_x, std::vector<double>& ctrlPts_y, std::vector<double>& knotsI) {
     Kokkos::View<int*, MemSpace> orderV("Orders", 1);
     auto host_orderV = Kokkos::create_mirror_view(orderV);
@@ -53,7 +53,6 @@ public:
 
     //TO DO: Implement 1st&2nd Coef function
     calculateDerivCoeff();
-
   }
 
   BSplineKokkos2D(std::vector<BSplineKokkos2D>& multiSplines) {
@@ -141,7 +140,6 @@ public:
       }
       kOidx += mvIntView.extent(0);
     }
-
     //Copy the data on host to device
     order = orderV;
     ctrlPts = ctrlPtsV;
@@ -154,10 +152,7 @@ public:
     Kokkos::deep_copy(cpOffset, mvCPOffsetV);
     Kokkos::deep_copy(knots, mvKnotsV);
     Kokkos::deep_copy(knotsOffset, mvKnotsOffsetV);
-  
-    //TO DO: Implement 1st&2nd Coef function
     calculateDerivCoeff();
-
   }
 
   void calculateDerivCoeff() {
@@ -192,9 +187,9 @@ public:
     Kokkos::deep_copy(mvKnots, knots);
     Kokkos::deep_copy(mvCtrlPts, ctrlPts);
 
-	//Calculate 1st derivative coef
-    int offidx = 0;	//Offset index
-    int oidx = 0; //Order index
+    //Calculate 1st derivative coef
+    int offidx = 0;  //Offset index
+    int oidx = 0;  //Order index
     for (int i = 1; i < mvCtrlPts1stDV.extent(0)+1; i++) {
       if (i == mvCP1stDOffsetV(offidx)+1) {
         oidx++;
@@ -225,8 +220,6 @@ public:
       mvCtrlPts2ndDV(i-1, 0) = (mvCtrlPts1stDV(i, 0) - mvCtrlPts1stDV(i-1, 0)) * delta;
       mvCtrlPts2ndDV(i-1, 1) = (mvCtrlPts1stDV(i, 1) - mvCtrlPts1stDV(i-1, 1)) * delta;
     }
-
-    //Copy to device
     Kokkos::deep_copy(cP1stDOffsetV, mvCP1stDOffsetV);
     Kokkos::deep_copy(cP2ndDOffsetV, mvCP2ndDOffsetV);
     Kokkos::deep_copy(ctrlPts1stDV, mvCtrlPts1stDV);
@@ -236,8 +229,6 @@ public:
     cp2ndDOffset = cP2ndDOffsetV;
     ctrlPts1stD = ctrlPts1stDV;
     ctrlPts2ndD = ctrlPts2ndDV;
-
-
   }
 
   KOKKOS_FUNCTION void evalDeBoor(double x, int splineo, int lKnot, Kokkos::View<double*, MemSpace> result, const Kokkos::View<int*, MemSpace> order, const Kokkos::View<double*, MemSpace> knots, const Kokkos::View<double*[2], MemSpace> ctrlPts_1stD) const {

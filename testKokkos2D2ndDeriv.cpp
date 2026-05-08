@@ -48,7 +48,6 @@ int main(int argc, char* argv[]) {
     else {
       serialBSP = SplineInterp::fitCubicSplineToPoints(curve.x, curve.y);
     }
-
     std::vector<double> ctrlPtsX, ctrlPtsY, knots, weight;
     int order;
     serialBSP.x.getpara(order, ctrlPtsX, knots, weight);
