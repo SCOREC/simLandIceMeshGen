@@ -54,10 +54,24 @@ void writePointParametricCoords(Omega_h::Reals paraCoords_d, std::string filenam
 }
 
 int main(int argc, char **argv) {
+  bool failIfCleaned = false;
+  for (int i = 1; i < argc; ++i) {
+    if (std::string(argv[i]) == "--fail-if-cleaned") {
+      failIfCleaned = true;
+      // shift remaining args down
+      for (int j = i; j < argc - 1; ++j)
+        argv[j] = argv[j + 1];
+      --argc;
+      break;
+    }
+  }
+
   const int numExpectedArgs = 8;
   if (argc != numExpectedArgs) {
     std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
-                 "<coincidentVtxTolerance> <angleTolerance> <createMesh> <inputDataUnits>\n";
+                 "<coincidentVtxTolerance> <angleTolerance> <createMesh> <inputDataUnits>\n"
+                 "Optional flags:\n"
+                 "  --fail-if-cleaned: exit with error if cleaning removes any input points\n";
     std::cerr << "coincidentVtxTolerance is the mininum allowed "
                  "distance between adjacent vertices in the "
                  "input.  Vertices within the specified distance will "
@@ -94,6 +108,7 @@ int main(int argc, char **argv) {
 
   assert(units == "m" || units == "km");
 
+  const auto debug = true;
 
   ModelFeatures features;
   if (ext == ".vtk") {
@@ -114,15 +129,28 @@ int main(int argc, char **argv) {
   const bool hasSingleContour = (features.inner.numVtx == 0);
   const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
   //force all contours to be positive (CCW)
-  features.inner = cleanGeom(features.inner, coincidentPtTolSquared, false);
+  const int preCleanInnerVtx = features.inner.numVtx;
+  const int preCleanOuterVtx = features.outer.numVtx;
+  features.inner = cleanGeom(features.inner, coincidentPtTolSquared, debug);
   makeOrientationPositive(features.inner);
-  features.outer = cleanGeom(features.outer, coincidentPtTolSquared, false);
+  features.outer = cleanGeom(features.outer, coincidentPtTolSquared, debug);
   makeOrientationPositive(features.outer);
+  if (failIfCleaned) {
+    const bool innerRemoved = features.inner.numVtx < preCleanInnerVtx;
+    const bool outerRemoved = features.outer.numVtx < preCleanOuterVtx;
+    if (innerRemoved)
+      std::cerr << "ERROR: cleaning removed " << (preCleanInnerVtx - features.inner.numVtx)
+                << " inner contour point(s)\n";
+    if (outerRemoved)
+      std::cerr << "ERROR: cleaning removed " << (preCleanOuterVtx - features.outer.numVtx)
+                << " outer contour point(s)\n";
+    if (innerRemoved || outerRemoved)
+      return 1;
+  }
 
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
 
-  const auto debug = true;
 
   // You will want to place a try/catch around all SimModSuite calls,
   // as errors are thrown.
