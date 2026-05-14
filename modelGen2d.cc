@@ -234,6 +234,7 @@ ModelFeatures splitIntoInnerAndOuter(GeomInfo& geom) {
     geom.numEdges-=4;
     geom.vtx_x.resize(geom.numVtx);
     geom.vtx_y.resize(geom.numVtx);
+    geom.verts.resize(geom.numVtx);
     geom.edges.resize(geom.numEdges);
     return {geom, outer};
   }
@@ -326,10 +327,10 @@ ModelFeatures readVtkGeom(std::string fname, bool debug) {
   assert(keyword == "POINTS");
   geom.numVtx = numPoints;
 
-  // DID not change
   geom.vtx_x.reserve(geom.numVtx);
   geom.vtx_y.reserve(geom.numVtx);
   geom.verts.reserve(geom.numVtx);
+  geom.vtxIds.reserve(geom.numVtx);
 
   // point coordinates
   for (int i = 0; i < geom.numVtx; i++) {
@@ -355,6 +356,25 @@ ModelFeatures readVtkGeom(std::string fname, bool debug) {
     if (debug)
       std::cout << "edge " << geom.edges[i][0] << ", " << geom.edges[i][1]
                 << std::endl;
+  }
+
+  // Optionally read vertex IDs from POINT_DATA / SCALARS section
+  std::string nextKeyword;
+  if (vtkFile >> nextKeyword && nextKeyword == "POINT_DATA") {
+    int numPointData;
+    vtkFile >> numPointData;
+    assert(numPointData == geom.numVtx);
+    std::string scalarsKeyword, fieldName, dataType;
+    vtkFile >> scalarsKeyword >> fieldName >> dataType;
+    assert(scalarsKeyword == "SCALARS");
+    std::string lookupKeyword, lookupName;
+    vtkFile >> lookupKeyword >> lookupName;
+    assert(lookupKeyword == "LOOKUP_TABLE");
+    for (int i = 0; i < geom.numVtx; i++) {
+      vtkFile >> geom.vtxIds[i];
+      if (debug)
+        std::cout << "vtx " << i << " id " << geom.verts[i] << std::endl;
+    }
   }
 
   auto features = splitIntoInnerAndOuter(geom);
