@@ -72,6 +72,11 @@ if(USE_SIMMODSUITE)
   set_tests_properties(simModelGen2d_gis_failIfCleaned PROPERTIES
     WILL_FAIL TRUE)
 
+  add_test(NAME simModelGen2d_gis_domainBoundary
+    COMMAND ./generate2dModel --fail-if-cleaned ${testDataDir}/gis_domain_boundary.vtk gis_domain_boundary 1 100 100 0 "m")
+  set_tests_properties(simModelGen2d_gis_domainBoundary PROPERTIES
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 123")
+
   add_test(NAME simModelGen2d_gis_noBbox
     COMMAND ./generate2dModel ${testDataDir}/gis_noBbox.vtk gis_noBbox 1 100 100 1 "m")
   set_tests_properties(simModelGen2d_gis_noBbox PROPERTIES
