@@ -364,8 +364,8 @@ ModelFeatures readVtkGeom(std::string fname, bool debug) {
     int numPointData;
     vtkFile >> numPointData;
     assert(numPointData == geom.numVtx);
-    std::string scalarsKeyword, fieldName, dataType;
-    vtkFile >> scalarsKeyword >> fieldName >> dataType;
+    std::string scalarsKeyword, fieldName, dataType, dataSize;
+    vtkFile >> scalarsKeyword >> fieldName >> dataType >> dataSize;
     assert(scalarsKeyword == "SCALARS");
     std::string lookupKeyword, lookupName;
     vtkFile >> lookupKeyword >> lookupName;
