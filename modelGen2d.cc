@@ -1,3 +1,32 @@
+// The isPointInContour function is adapted from W. Randolph Franklin's PNPOLY.
+// https://wrfranklin.org/Research/Short_Notes/pnpoly.html
+//
+// Copyright (c) 1970-2003, Wm. Randolph Franklin
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// 1. Redistributions of source code must retain the above copyright notice,
+//    this list of conditions and the following disclaimers.
+// 2. Redistributions in binary form must reproduce the above copyright notice,
+//    this list of conditions and the following disclaimers in the documentation
+//    and/or other materials provided with the distribution.
+// 3. The name of W. Randolph Franklin may not be used to endorse or promote
+//    products derived from this Software without specific prior written
+//    permission.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
 #include "modelGen2d.h"
 #include "Quadtree.h"
 #include <map>
@@ -164,6 +193,19 @@ PlaneBounds getBoundingPlane(GeomInfo &geom) {
   return {*minX, *maxX, *minY, *maxY};
 }
 
+bool isPointInContour(const GeomInfo& contour, double testx, double testy) {
+  int c = 0;
+  const int nvert = contour.numVtx;
+  for (int i = 0, j = nvert-1; i < nvert; j = i++) {
+    if (((contour.vtx_y[i] > testy) != (contour.vtx_y[j] > testy)) &&
+        (testx < (contour.vtx_x[j] - contour.vtx_x[i]) *
+                 (testy - contour.vtx_y[i]) /
+                 (contour.vtx_y[j] - contour.vtx_y[i]) + contour.vtx_x[i]))
+      c = !c;
+  }
+  return c;
+}
+
 ModelFeatures splitIntoInnerAndOuter(GeomInfo& geom) {
   //if the fourth edge's second point is the same
   //as the first edge's first point then we have
@@ -315,7 +357,16 @@ ModelFeatures readVtkGeom(std::string fname, bool debug) {
                 << std::endl;
   }
 
-  return splitIntoInnerAndOuter(geom);
+  auto features = splitIntoInnerAndOuter(geom);
+  if (features.inner.numVtx > 0) {
+    //assert that the inner contour is strictly inside the outer contour
+    //note, this check requires that
+    // - each contour doesn't self-intersect and
+    // - that the two contours don't intersect each other.
+    //THESE PROPERTIES ARE NOT CHECKED
+    assert(isPointInContour(features.outer, features.inner.vtx_x[0], features.inner.vtx_y[0]));
+  }
+  return features;
 }
 
 ModelFeatures readJigGeom(std::string fname, bool debug) {
