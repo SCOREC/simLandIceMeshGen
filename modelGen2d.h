@@ -84,6 +84,11 @@ namespace Omega_h {
   class Library; //fwd declare
 };
 GeomInfo readOmegahGeom(Omega_h::Library& lib, std::string fname, bool debug = false);
+// W. R. Franklin, "PNPOLY - Point Inclusion in Polygon Test"
+// https://wrfranklin.org/Research/Short_Notes/pnpoly.html
+// M. Shimrat, "Algorithm 112: Position of point relative to polygon,"
+// Communications of the ACM, 5(8):434, 1962.
+bool isPointInContour(const GeomInfo& contour, double testx, double testy);
 ModelFeatures readVtkGeom(std::string fname, bool debug = false);
 ModelFeatures readJigGeom(std::string fname, bool debug = false);
 
