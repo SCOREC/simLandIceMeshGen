@@ -357,7 +357,16 @@ ModelFeatures readVtkGeom(std::string fname, bool debug) {
                 << std::endl;
   }
 
-  return splitIntoInnerAndOuter(geom);
+  auto features = splitIntoInnerAndOuter(geom);
+  if (features.inner.numVtx > 0) {
+    //assert that the inner contour is strictly inside the outer contour
+    //note, this check requires that
+    // - each contour doesn't self-intersect and
+    // - that the two contours don't intersect each other.
+    //THESE PROPERTIES ARE NOT CHECKED
+    assert(isPointInContour(features.outer, features.inner.vtx_x[0], features.inner.vtx_y[0]));
+  }
+  return features;
 }
 
 ModelFeatures readJigGeom(std::string fname, bool debug) {
