@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
     Sim_setMessageHandler(messageHandler);
     pProgress progress = NULL;
     if(debug) {
-      pProgress progress = Progress_new();
+      progress = Progress_new();
       Progress_setDefaultCallback(progress);
     }
 
