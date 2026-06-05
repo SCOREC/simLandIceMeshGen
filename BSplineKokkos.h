@@ -168,7 +168,7 @@ public:
     Kokkos::deep_copy(cPOffset, host_cPOffsetV);
     Kokkos::deep_copy(knotsOffset, host_knotsOffsetV);
 
-    //TO DO: Work on calculate derivative coeff
+    //Evaluate the coefficients for 1st and 2nd derivatives
     calculateDerivCoeff();
 
   }
@@ -347,7 +347,6 @@ public:
   }
 
   void calculateDerivCoeff() {
-    //Moved here from the .cpp file since it uses <ExecutionSpace>
     //Calculate first order derivative
     //Allocate the space
 
