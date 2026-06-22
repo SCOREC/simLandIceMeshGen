@@ -229,8 +229,10 @@ public:
     ctrlPts2ndD = ctrlPts2ndDV;
   }
 
-  KOKKOS_FUNCTION void evalDeBoor(double x, int splineIdx, int lKnot, Kokkos::View<double*, MemSpace> result, const Kokkos::View<int*, MemSpace> order, const Kokkos::View<double*, MemSpace> knots, const Kokkos::View<double*[2], MemSpace> ctrlPts_1stD) const {
+  KOKKOS_FUNCTION void eval1stDerivDeBoor(double x, int splineIdx, Kokkos::View<double*, MemSpace> result, const Kokkos::View<int*, MemSpace> order, const Kokkos::View<double*, MemSpace> knots, const Kokkos::View<double*[2], MemSpace> ctrlPts_1stD) const {
     //DeBoor's algorithm for BSpline 1st deriv calculation
+    int lKnot = Kokkos::subview(order, splineIdx);
+    lKnot--;
     int order_t = lKnot;
     int leftPt = 0;
 
@@ -240,8 +242,8 @@ public:
     }
 
     //Allocate temporary points
-    double ptsX[3];
-    double ptsY[3];
+    double ptsX[5];
+    double ptsY[5];
 
     int idx = 0;
     for (int i = leftPt; i < leftPt + order_t; i++) {
@@ -272,23 +274,22 @@ public:
   }
 
   Kokkos::View<double*,MemSpace> eval1stDeriv(Kokkos::View<double*, MemSpace> xVals, int splineIdx) const {
-    int lKnot;
-    Kokkos::deep_copy(lKnot, Kokkos::subview(order, splineIdx));
-    lKnot--;
     Kokkos::View<double*, MemSpace> res("result", 2);
     Kokkos::parallel_for("parallel evalDeBoors", xVals.size(), KOKKOS_CLASS_LAMBDA(int i){
-      evalDeBoor(xVals(i), splineIdx, lKnot, res, order, knots, ctrlPts1stD);
+      eval1stDerivDeBoor(xVals(i), splineIdx, res, order, knots, ctrlPts1stD);
     });
     return res;
   }
 
   //Second derivative calculation
-  KOKKOS_FUNCTION void evalDeBoor2(double x, int splineIdx, int lKnot, Kokkos::View<double*, MemSpace> result, const Kokkos::View<int*, MemSpace> order, const Kokkos::View<double*, MemSpace> knots, const Kokkos::View<double*[2], MemSpace> ctrlPts_2ndD) const {
+  KOKKOS_FUNCTION void eval2ndDerivDeBoor(double x, int splineIdx, int lKnot, Kokkos::View<double*, MemSpace> result, const Kokkos::View<int*, MemSpace> order, const Kokkos::View<double*, MemSpace> knots, const Kokkos::View<double*[2], MemSpace> ctrlPts_2ndD) const {
     if (order(splineIdx) == 2) {
       result(0) = 0;
       result(1) = 0;
       return;
     }
+    int lKnot = Kokkos::subview(order, splineIdx);
+    lKnot--;
 
     int order_t = lKnot-1;
     int leftPt = 0;
@@ -298,8 +299,8 @@ public:
       leftPt++;
     }
 
-    double ptsX[3];
-    double ptsY[3];
+    double ptsX[5];
+    double ptsY[5];
 
     int idx = 0;
     for (int i = leftPt; i < leftPt+order_t; i++) {
@@ -332,12 +333,9 @@ public:
   }
 
   Kokkos::View<double*, MemSpace> eval2ndDeriv(Kokkos::View<double*, MemSpace> xVals, int splineIdx) const {
-    int lKnot;
-    Kokkos::deep_copy(lKnot, Kokkos::subview(order, splineIdx));
-    lKnot--;
     Kokkos::View<double*, MemSpace> res("result", 2);
     Kokkos::parallel_for("parallel evalDeBoors 2", xVals.size(), KOKKOS_CLASS_LAMBDA(int i) {
-      evalDeBoor2(xVals(i), splineIdx, lKnot, res, order, knots, ctrlPts2ndD); 
+      eval2ndDerivDeBoor(xVals(i), splineIdx, res, order, knots, ctrlPts2ndD); 
     });
     return res;
   }
