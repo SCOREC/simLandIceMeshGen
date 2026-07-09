@@ -275,7 +275,7 @@ public:
 
   Kokkos::View<double*,MemSpace> eval1stDeriv(Kokkos::View<double*, MemSpace> xVals, int splineIdx) const {
     Kokkos::View<double*, MemSpace> res("result", 2);
-    Kokkos::parallel_for("parallel evalDeBoors", xVals.size(), KOKKOS_CLASS_LAMBDA(int i){
+    Kokkos::parallel_for("parallel De Boor's for 1st derivative", xVals.size(), KOKKOS_CLASS_LAMBDA(int i){
       eval1stDerivDeBoor(xVals(i), splineIdx, res, order, knots, ctrlPts1stD);
     });
     return res;
@@ -334,7 +334,7 @@ public:
 
   Kokkos::View<double*, MemSpace> eval2ndDeriv(Kokkos::View<double*, MemSpace> xVals, int splineIdx) const {
     Kokkos::View<double*, MemSpace> res("result", 2);
-    Kokkos::parallel_for("parallel evalDeBoors 2", xVals.size(), KOKKOS_CLASS_LAMBDA(int i) {
+    Kokkos::parallel_for("parallel De Boor's for 2nd derivative", xVals.size(), KOKKOS_CLASS_LAMBDA(int i) {
       eval2ndDerivDeBoor(xVals(i), splineIdx, res, order, knots, ctrlPts2ndD); 
     });
     return res;
