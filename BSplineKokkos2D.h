@@ -130,9 +130,10 @@ public:
 
   KOKKOS_FUNCTION void eval1stDerivDeBoor(double x, int splineIdx, Kokkos::View<double*, MemSpace> result, const Kokkos::View<int*, MemSpace> order, const Kokkos::View<double*, MemSpace> knots, const Kokkos::View<double*[2], MemSpace> ctrlPts_1stD) const {
     //DeBoor's algorithm for BSpline 1st deriv calculation
+    int MAX_ORDER = 4;
     int lKnot = order(splineIdx);
     lKnot--;
-    int order_t = lKnot;
+    int resultOrder = lKnot;
     int leftPt = 0;
 
     while (x > knots(lKnot+1)) {
@@ -141,34 +142,34 @@ public:
     }
 
     //Allocate temporary points
-    double ptsX[5];
-    double ptsY[5];
+    double ptsX[MAX_ORDER+1];
+    double ptsY[MAX_ORDER+1];
 
     int idx = 0;
-    for (int i = leftPt; i < leftPt + order_t; i++) {
+    for (int i = leftPt; i < leftPt + resultOrder; i++) {
       ptsX[idx] = ctrlPts_1stD(i, 0);
       ptsY[idx] = ctrlPts_1stD(i, 1);
       idx++;
     }
 
-    auto localKnots = Kokkos::subview(knots, Kokkos::pair<int, int>(lKnot-order_t+2, lKnot+order_t));
+    auto localKnots = Kokkos::subview(knots, Kokkos::pair<int, int>(lKnot-resultOrder+2, lKnot+resultOrder));
 
     //Calculation loop
-    for (int r = 1; r <= order_t; r++) {
-      for(int i = order_t-1; i >= r; i--) {
+    for (int r = 1; r <= resultOrder; r++) {
+      for(int i = resultOrder-1; i >= r; i--) {
         double alpha;
-        if (localKnots(i-1) - localKnots(i+order_t-r-1) > 1e-12) {
+        if (localKnots(i-1) - localKnots(i+resultOrder-r-1) > 1e-12) {
           alpha = 0;
         }
         else {
-          alpha = (x - localKnots(i-1)) / (knots(i+order_t-r-1) - knots(i-1));
+          alpha = (x - localKnots(i-1)) / (knots(i+resultOrder-r-1) - knots(i-1));
         }
         ptsX[i] = (1. - alpha) * ptsX[i-1]+alpha * ptsX[i];
         ptsY[i] = (1. - alpha) * ptsY[i-1]+alpha * ptsY[i];
       }
 
-      result(0) = ptsX[order_t-1];
-      result(1) = ptsY[order_t-1];
+      result(0) = ptsX[resultOrder-1];
+      result(1) = ptsY[resultOrder-1];
     }
   }
 
@@ -187,10 +188,11 @@ public:
       result(1) = 0;
       return;
     }
+    int MAX_ORDER = 4;
     int lKnot = order(splineIdx);
     lKnot--;
 
-    int order_t = lKnot-1;
+    int resultOrder = lKnot-1;
     int leftPt = 0;
 
     while (knots(lKnot+1) < x) {
@@ -198,22 +200,22 @@ public:
       leftPt++;
     }
 
-    double ptsX[5];
-    double ptsY[5];
+    double ptsX[MAX_ORDER+1];
+    double ptsY[MAX_ORDER+1];
 
     int idx = 0;
-    for (int i = leftPt; i < leftPt+order_t; i++) {
+    for (int i = leftPt; i < leftPt+resultOrder; i++) {
       ptsX[idx] = ctrlPts_2ndD(i, 0);
       ptsY[idx] = ctrlPts_2ndD(i, 1);
       idx++;
     }
 
-    auto localKnots = Kokkos::subview(knots, Kokkos::pair<int, int>(lKnot-order_t+2, lKnot+order_t));
+    auto localKnots = Kokkos::subview(knots, Kokkos::pair<int, int>(lKnot-resultOrder+2, lKnot+resultOrder));
 
-    for (int r = 1; r <= order_t; r++) {
-      for (int i = order_t-1; i >= r; i--) {
+    for (int r = 1; r <= resultOrder; r++) {
+      for (int i = resultOrder-1; i >= r; i--) {
         double aLeft = localKnots(i-1);
-        double aRight = localKnots(i+order_t-r-1);
+        double aRight = localKnots(i+resultOrder-r-1);
         double alpha;
         if (aLeft == aRight) {
           alpha = 0.;
@@ -226,8 +228,8 @@ public:
       }
     }
 
-    result(0) = ptsX[order_t-1];
-    result(1) = ptsY[order_t-1];
+    result(0) = ptsX[resultOrder-1];
+    result(1) = ptsY[resultOrder-1];
 
   }
 
