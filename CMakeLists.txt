@@ -26,11 +26,8 @@ target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Quadtree/include)
 target_link_libraries(modelGen2d PRIVATE splineInterp Omega_h::omega_h)
 
-add_library(splineKokkos)
-target_link_libraries(splineKokkos PRIVATE Kokkos::kokkos)
-
-add_library(splineKokkos2D)
-target_link_libraries(splineKokkos2D PRIVATE Kokkos::kokkos)
+add_library(splineKokkos2D INTERFACE)
+target_link_libraries(splineKokkos2D INTERFACE Kokkos::kokkos)
 
 
 set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
@@ -175,26 +172,6 @@ add_test(NAME testDiscoverTopo_L11pts
   COMMAND ./testDiscoverTopo ${testDataDir}/L_11pts.csv)
 set_tests_properties(testDiscoverTopo_L11pts PROPERTIES
   PASS_REGULAR_EXPRESSION "number of model vertices: 3")
-
-add_executable(testSplineKokkosBase testSplineKokkosBase.cpp)
-target_link_libraries(testSplineKokkosBase PRIVATE splineInterp curveReader modelGen2d splineKokkos Kokkos::kokkos)
-add_test(NAME testBSplineKokkosSerialStraightEdge
-  COMMAND ./testSplineKokkosBase ${testDataDir}/testCurveStrightLine.csv 9)
-add_test(NAME testBSplineKokkosSerial_edge_2pts
-  COMMAND ./testSplineKokkosBase ${testDataDir}/testCurve2pts.csv 1)
-
-#TEST FOR BSPLINEKOKKOS 1ST DERIVATIVE
-add_executable(testKokkos1stDerivative testKokkos1stDerivative.cpp)
-target_link_libraries(testKokkos1stDerivative PRIVATE splineInterp curveReader modelGen2d splineKokkos Kokkos::kokkos)
-
-add_test(NAME testKokkos1stDerivativeStraightEdge
-  COMMAND ./testKokkos1stDerivative contour_test_data/testCurveStraightLine.csv 9)
-
-add_test(NAME testKokkos1stDerivativeEdge2Pts
-  COMMAND ./testKokkos1stDerivative contour_test_data/testCurve2pts.csv 1)
-
-add_test(NAME testKokkos1stDerivativeSingleEdge
-  COMMAND ./testKokkos1stDerivative ${testDataDir}/testCurveSplineFitting.csv 12.2685)
 
 #TEST FOR BSPLINEKOKKOS2D CONSTRUCTOR
 add_executable(testSplineKokkos2DBase testSplineKokkos2DBase.cpp)

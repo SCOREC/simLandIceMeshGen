@@ -19,6 +19,9 @@
 
 double EPSILON = 1e-12;
 
+using ExecutionSpace = Kokkos::DefaultExecutionSpace;
+using MemSpace = ExecutionSpace::memory_space;
+
 int main(int argc, char* argv[]) {
   //We check how many arguments are given
   int retVal = 0;
@@ -30,15 +33,6 @@ int main(int argc, char* argv[]) {
   }
   Kokkos::initialize(argc, argv); 
   {
-    #ifdef KOKKOS_ENABLE_CUDA
-    #define MemSpace Kokkos::CudaSpace
-    #endif
-    #ifndef MemSpace
-    #define MemSpace Kokkos::HostSpace
-    #endif
-
-    using ExecutionSpace = MemSpace::execution_space;
-
     std::string inputCSV = argv[1];
     int extensionPos = inputCSV.rfind(".");
     int slashPos = inputCSV.rfind("/");
