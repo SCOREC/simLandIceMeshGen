@@ -130,7 +130,7 @@ public:
 
   KOKKOS_FUNCTION void eval1stDerivDeBoor(double x, int splineIdx, Kokkos::View<double*, MemSpace> result, const Kokkos::View<int*, MemSpace> order, const Kokkos::View<double*, MemSpace> knots, const Kokkos::View<double*[2], MemSpace> ctrlPts_1stD) const {
     //DeBoor's algorithm for BSpline 1st deriv calculation
-    int MAX_ORDER = 4;
+    int MAX_DEGREE = 3;
     int lKnot = order(splineIdx);
     lKnot--;
     int resultOrder = lKnot;
@@ -142,8 +142,8 @@ public:
     }
 
     //Allocate temporary points
-    double ptsX[MAX_ORDER+1];
-    double ptsY[MAX_ORDER+1];
+    double ptsX[MAX_DEGREE+1];
+    double ptsY[MAX_DEGREE+1];
 
     int idx = 0;
     for (int i = leftPt; i < leftPt + resultOrder; i++) {
@@ -188,7 +188,7 @@ public:
       result(1) = 0;
       return;
     }
-    int MAX_ORDER = 4;
+    int MAX_DEGREE = 3;
     int lKnot = order(splineIdx);
     lKnot--;
 
@@ -200,8 +200,8 @@ public:
       leftPt++;
     }
 
-    double ptsX[MAX_ORDER+1];
-    double ptsY[MAX_ORDER+1];
+    double ptsX[MAX_DEGREE+1];
+    double ptsY[MAX_DEGREE+1];
 
     int idx = 0;
     for (int i = leftPt; i < leftPt+resultOrder; i++) {
