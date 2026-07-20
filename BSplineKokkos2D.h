@@ -5,12 +5,24 @@
 #include<vector>
 #include<iostream>
 #include<string>
-template<typename ExecutionSpace>
 
+template<typename MemSpace = Kokkos::DefaultExecutionSpace::memory_space>
+struct derivCSR {
+  derivCSR(const size_t splineIdxSize, const size_t offsetSize, const size_t valSize) :
+    splineIdx("splineIdx", splineIdxSize),
+    offset("offset", offsetSize),
+    vals("values", valSize) {};
+  Kokkos::View<int*, MemSpace> splineIdx;
+  Kokkos::View<int*, MemSpace> offset;
+  Kokkos::View<double*, MemSpace> vals;
+};
+
+
+
+template<typename ExecutionSpace>
 class BSplineKokkos2D {
 public:
   using MemSpace = typename ExecutionSpace::memory_space;
-
   BSplineKokkos2D(int order_p, std::vector<double>& ctrlPts_x, std::vector<double>& ctrlPts_y, std::vector<double>& knotsI) {
     Kokkos::View<int*, MemSpace> orderV("Orders", 1);
     auto host_orderV = Kokkos::create_mirror_view(orderV);
@@ -174,7 +186,14 @@ public:
   }
 
   Kokkos::View<double*,MemSpace> eval1stDeriv(Kokkos::View<double*, MemSpace> xVals, int splineIdx) const {
+    //Create the result view based on the CSR
+    /*auto offsetMirror = Kokkos::create_mirror_view(derivSplines.offset);
+    int resultSize = 0;
+    for (int i = 1; i < offsetMirror.extent(0); i+=2) {
+      resultSize += offsetMirror(i) - offsetMirror(i-1);
+    }*/
     Kokkos::View<double*, MemSpace> res("result", 2);
+    //Kokkos::View<double*, MemSpace> res("result", resultSize);
     Kokkos::parallel_for("parallel De Boor's for 1st derivative", xVals.size(), KOKKOS_CLASS_LAMBDA(int i){
       eval1stDerivDeBoor(xVals(i), splineIdx, res, order, knots, ctrlPts1stD);
     });
