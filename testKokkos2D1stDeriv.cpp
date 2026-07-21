@@ -55,11 +55,10 @@ int main(int argc, char* argv[]) {
     std::vector<double> evalAt = {0, 0.2, 0.41, 0.5, 0.66, 0.73, 0.75, 0.89, 0.94, 1};
 
     //Create a derivCSR that will be used during deriv eval
-    const size_t valSize = evalAt.size();
+    const size_t paraSize = evalAt.size();
     const size_t splineIdxSize = 3;
-    const size_t offsetSize = 6;
-    derivCSR kokkosBSPCSR(splineIdxSize, offsetSize, valSize);
-    auto valsMirror = Kokkos::create_mirror_view(kokkosBSPCSR.vals);
+    DerivCSR kokkosBSPCSR(splineIdxSize, paraSize);
+    auto valsMirror = Kokkos::create_mirror_view(kokkosBSPCSR.paraCoor);
     for (int i = 0; i < evalAt.size(); i++) {
       valsMirror(i) = evalAt[i];
     }
@@ -73,34 +72,34 @@ int main(int argc, char* argv[]) {
     //Third interval: values at 3 - 8
     offsetMirror(0) = 0;
     offsetMirror(1) = 3;
-    offsetMirror(2) = 9;
+    offsetMirror(2) = 4;
     offsetMirror(3) = 10;
-    offsetMirror(4) = 3;
-    offsetMirror(5) = 8;
     
     Kokkos::deep_copy(kokkosBSPCSR.splineIdx,splineIdxMirror);
     Kokkos::deep_copy(kokkosBSPCSR.offset, offsetMirror);
-    Kokkos::deep_copy(kokkosBSPCSR.vals, valsMirror);
+    Kokkos::deep_copy(kokkosBSPCSR.paraCoor, valsMirror);
+    
+    //Calling our batch 1st derivative function
+    Kokkos::View<double*[2], MemSpace> res("deriv result", offsetMirror(offsetMirror.extent(0)-1));
+    res = kokkosBSP.eval1stDeriv(kokkosBSPCSR);
+    auto mvRes = Kokkos::create_mirror_view(res);
+    Kokkos::deep_copy(mvRes, res);
+    
     for (int i = 0; i < 10; i++) {
       double derivX = serialBSP.x.evalFirstDeriv(evalAt[i]);
       double derivY = serialBSP.y.evalFirstDeriv(evalAt[i]);
     
-      Kokkos::View<double*, MemSpace> res("deriv result", 2);
-      Kokkos::View<double*, MemSpace> xVals ("paraCoor", 1);
-      auto mvXVals = Kokkos::create_mirror_view(xVals);
-      mvXVals(0) = evalAt[i];
-      Kokkos::deep_copy(xVals, mvXVals);
-      res = kokkosBSP.eval1stDeriv(xVals, 0);
-      auto mvRes = Kokkos::create_mirror_view(res);
-      Kokkos::deep_copy(mvRes, res);
+      double xDiff = std::fabs(derivX) - std::fabs(mvRes(i, 0));
+      double yDiff = std::fabs(derivY) - std::fabs(mvRes(i,1));
+      
+      //std::cout << "Serial x, y: " << derivX << "|" << derivY << std::endl;
+      //std::cout << "Kokkos x, y: " << mvRes(i, 0) << "|" << mvRes(i, 1) << std::endl;
 
-      double xDiff = std::fabs(derivX) - std::fabs(mvRes(0));
-      double yDiff = std::fabs(derivY) - std::fabs(mvRes(1));
       if (xDiff > EPSILON || yDiff > EPSILON) {
         std::cout << "Test " << i+1 << " failed, eval at: " << evalAt[i] << std::endl;
         std::cout << "Difference: x = " << xDiff << " y = " << yDiff << std::endl;
         std::cout << "SERIAL 1st deriv: x = " << derivX << " y = " << derivY << std::endl;
-        std::cout << "KOKKOS 1st deriv: x = " << mvRes(0) << " y = " << mvRes(1) << std::endl;
+        std::cout << "KOKKOS 1st deriv: x = " << mvRes(i, 0) << " y = " << mvRes(i, 1) << std::endl;
         retVal = 1;
       }
     }
