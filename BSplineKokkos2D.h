@@ -149,11 +149,11 @@ public:
     ctrlPts2ndD = ctrlPts2ndDV;
   }
 
-  KOKKOS_FUNCTION void eval1stDerivDeBoor(Kokkos::View<double*, MemSpace> xVals, Kokkos::View<int*, MemSpace> splineList, int splineIdx, int offset, Kokkos::View<double*[2], MemSpace> result, const Kokkos::View<int*, MemSpace> order, const Kokkos::View<double*, MemSpace> knots, const Kokkos::View<double*[2], MemSpace> ctrlPts_1stD) const {
+  KOKKOS_FUNCTION void eval1stDerivDeBoor(Kokkos::View<double*, MemSpace> xVals, Kokkos::View<int*, MemSpace> splineList, int indexOfIndex, int offset, Kokkos::View<double*[2], MemSpace> result, const Kokkos::View<int*, MemSpace> order, const Kokkos::View<double*, MemSpace> knots, const Kokkos::View<double*[2], MemSpace> ctrlPts_1stD) const {
     //DeBoor's algorithm for BSpline 1st deriv calculation
     const int MAX_DEGREE = 3;
-    int idxOfIdx = splineList(splineIdx);
-    int lKnot = order(idxOfIdx);
+    int splineIdx = splineList(indexOfIndex);
+    int lKnot = order(splineIdx);
     lKnot--;
     int resultOrder = lKnot;
     int leftPt = 0;
@@ -164,7 +164,7 @@ public:
       leftPt++;
     }
 
-    //Allocate temporary points
+    //Allocate temporary points(MAX_DEGREE+1 is sufficient)
     double ptsX[MAX_DEGREE+1];
     double ptsY[MAX_DEGREE+1];
 
@@ -174,18 +174,21 @@ public:
       ptsY[idx] = ctrlPts_1stD(i, 1);
       idx++;
     }
+    /*TO DELETE: SO FAR SO GOOD, GRABBED THE CORRECT CTRLPTS*/
 
     auto localKnots = Kokkos::subview(knots, Kokkos::pair<int, int>(lKnot-resultOrder+2, lKnot+resultOrder));
 
-    //Calculation loop(ALPHA IS NAN right now)
+    /*TO DELETE: SO FAR SO GOOD, GRABBED THE CORRECT LOCAL KNOTS*/
+
+    //Calculation loop(aLeft and aRight are correct, alpha is incorrect)
     for (int r = 1; r <= resultOrder; r++) {
       for(int i = resultOrder-1; i >= r; i--) {
         double alpha;
-        if (localKnots(i-1) - localKnots(i+resultOrder-r-1) < 1e-12) {
-          alpha = 0;
+        if (localKnots(i+resultOrder-r-1)-localKnots(i-1) < 1e-12) {
+          alpha = 0.;
         }
         else {
-          alpha = (x - localKnots(i-1)) / (knots(i+resultOrder-r-1) - knots(i-1));
+          alpha = (x - localKnots(i-1)) / (localKnots(i+resultOrder-r-1) - localKnots(i-1));
         }
         ptsX[i] = (1. - alpha) * ptsX[i-1]+alpha * ptsX[i];
         ptsY[i] = (1. - alpha) * ptsY[i-1]+alpha * ptsY[i];
@@ -200,13 +203,19 @@ public:
     auto offsetMirror = Kokkos::create_mirror_view(derivSplines.offset);
     int resultSize = offsetMirror(offsetMirror.extent(0)-1);
     Kokkos::View<double*[2], MemSpace> res("result", resultSize);
+    //Okay so it is not the matter of which way to put the for loop?
+    Kokkos::parallel_for("parallel De Boor's for 1st derivative", offsetMirror.extent(0)-1, KOKKOS_CLASS_LAMBDA(int i) {
+      for (int j = offsetMirror(i); j < offsetMirror(i+1); j++) {
+        eval1stDerivDeBoor(derivSplines.paraCoor, derivSplines.splineIdx, i, j, res, order, knots, ctrlPts1stD);
+      }
+    });
 
-    for (int i = 1; i < offsetMirror.extent(0); i++) {
+    /*for (int i = 1; i < offsetMirror.extent(0); i++) {
       int curOffset = offsetMirror(i-1);
       Kokkos::parallel_for("parallel De Boor's for 1st derivative", Kokkos::RangePolicy<ExecutionSpace>(offsetMirror(i-1), offsetMirror(i)), KOKKOS_CLASS_LAMBDA(int j) {
         eval1stDerivDeBoor(derivSplines.paraCoor, derivSplines.splineIdx, i-1, j, res, order, knots, ctrlPts1stD);
       });
-    } 
+    }*/ 
     /*Kokkos::parallel_for("parallel De Boor's for 1st derivative", resultSize, KOKKOS_CLASS_LAMBDA(int i) {
       eval1stDerivDeBoor(derivSplines.paraCoor(i), derivSplines.splineIdx(spIdx), i, res, order, knots, ctrlPts1stD);
     });*/
@@ -249,7 +258,7 @@ public:
         double aLeft = localKnots(i-1);
         double aRight = localKnots(i+resultOrder-r-1);
         double alpha;
-        if (aLeft == aRight) {
+        if (aLeft - aRight < 1e-12) {
           alpha = 0.;
         }
         else {
