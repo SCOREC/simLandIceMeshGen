@@ -151,6 +151,7 @@ public:
 
   KOKKOS_FUNCTION void eval1stDerivDeBoor(Kokkos::View<double*, MemSpace> xVals, Kokkos::View<int*, MemSpace> splineList, int indexOfIndex, int offset, Kokkos::View<double*[2], MemSpace> result, const Kokkos::View<int*, MemSpace> order, const Kokkos::View<double*, MemSpace> knots, const Kokkos::View<double*[2], MemSpace> ctrlPts_1stD) const {
     //DeBoor's algorithm for BSpline 1st deriv calculation
+    //Kokkos::printf("In device function");
     const int MAX_DEGREE = 3;
     int splineIdx = splineList(indexOfIndex);
     int lKnot = order(splineIdx);
@@ -203,9 +204,12 @@ public:
     auto offsetMirror = Kokkos::create_mirror_view(derivSplines.offset);
     int resultSize = offsetMirror(offsetMirror.extent(0)-1);
     Kokkos::View<double*[2], MemSpace> res("result", resultSize);
-    //Okay so it is not the matter of which way to put the for loop?
+    //Kokkos::printf("Before parallel_for\n");
     Kokkos::parallel_for("parallel De Boor's for 1st derivative", offsetMirror.extent(0)-1, KOKKOS_CLASS_LAMBDA(int i) {
-      for (int j = offsetMirror(i); j < offsetMirror(i+1); j++) {
+      //Kokkos::printf("Entered outer loop\n");
+      //Kokkos::printf("offsetMirror(i): %d, offsetMirror(i+1): %d\n", derivSplines.offset(i), derivSplines.offset(i+1));
+      for (int j = derivSplines.offset(i); j < derivSplines.offset(i+1); j++) {
+        //Kokkos::printf("Calling device de boors\n");
         eval1stDerivDeBoor(derivSplines.paraCoor, derivSplines.splineIdx, i, j, res, order, knots, ctrlPts1stD);
       }
     });
