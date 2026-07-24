@@ -57,7 +57,7 @@ int main(int argc, char* argv[]) {
     //Create a derivCSR that will be used during deriv eval
     const size_t paraSize = evalAt.size();
     const size_t splineIdxSize = 3;
-    DerivCSR kokkosBSPCSR(splineIdxSize, paraSize);
+    BSplineKokkos2D<ExecutionSpace>::CSR kokkosBSPCSR(splineIdxSize, paraSize);
     auto valsMirror = Kokkos::create_mirror_view(kokkosBSPCSR.paraCoor);
     for (int i = 0; i < evalAt.size(); i++) {
       valsMirror(i) = evalAt[i];
@@ -67,9 +67,7 @@ int main(int argc, char* argv[]) {
       splineIdxMirror(i) = 0;
     }
     auto offsetMirror = Kokkos::create_mirror_view(kokkosBSPCSR.offset);
-    //First interval: values at 0 - 2
-    //Second interval: values at 9
-    //Third interval: values at 3 - 8
+
     offsetMirror(0) = 0;
     offsetMirror(1) = 3;
     offsetMirror(2) = 4;

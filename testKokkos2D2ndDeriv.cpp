@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
     //DerivCSR for derivative evaluation, initialized with data
     const size_t paraSize = evalAt.size();
     const size_t splineIdxSize = 3;
-    DerivCSR kokkosBSPCSR(splineIdxSize, paraSize);
+    BSplineKokkos2D<ExecutionSpace>::CSR kokkosBSPCSR(splineIdxSize, paraSize);
     auto valsMirror = Kokkos::create_mirror_view(kokkosBSPCSR.paraCoor);
     for (int i = 0; i < evalAt.size(); i++) {
       valsMirror(i) = evalAt[i];
