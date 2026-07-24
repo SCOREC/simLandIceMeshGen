@@ -88,10 +88,7 @@ int main(int argc, char* argv[]) {
       double derivY = serialBSP.y.evalFirstDeriv(evalAt[i]);
     
       double xDiff = std::fabs(derivX) - std::fabs(mvRes(i, 0));
-      double yDiff = std::fabs(derivY) - std::fabs(mvRes(i,1));
-      
-      //std::cout << "Serial x, y: " << derivX << "|" << derivY << std::endl;
-      //std::cout << "Kokkos x, y: " << mvRes(i, 0) << "|" << mvRes(i, 1) << std::endl;
+      double yDiff = std::fabs(derivY) - std::fabs(mvRes(i, 1));
 
       if (xDiff > EPSILON || yDiff > EPSILON) {
         std::cout << "Test " << i+1 << " failed, eval at: " << evalAt[i] << std::endl;
