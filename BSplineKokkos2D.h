@@ -240,8 +240,6 @@ public:
         else {
           alpha = (x - aLeft) / (aRight - aLeft);
         }
-        //Alpha calculated was correct
-        //Kokkos::printf("X: %lf, KOKKOS ALPHA: %lf\n", x, alpha);
         ptsX[i] = (1. - alpha) * ptsX[i-1] + alpha * ptsX[i];
         ptsY[i] = (1. - alpha) * ptsY[i-1] + alpha * ptsY[i];
       }
