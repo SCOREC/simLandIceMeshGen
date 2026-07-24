@@ -139,15 +139,13 @@ public:
     ctrlPts2ndD = ctrlPts2ndDV;
   }
 
-  KOKKOS_FUNCTION void eval1stDerivDeBoor(Kokkos::View<double*, MemSpace> xVals, Kokkos::View<int*, MemSpace> splineList, int indexOfIndex, int offset, Kokkos::View<double*[2], MemSpace> result, const Kokkos::View<int*, MemSpace> order, const Kokkos::View<double*, MemSpace> knots, const Kokkos::View<double*[2], MemSpace> ctrlPts_1stD) const {
+  KOKKOS_FUNCTION void eval1stDerivDeBoor(const double x, int offset, Kokkos::View<double*[2], MemSpace> result, const int order, const Kokkos::View<double*, MemSpace> knots, const Kokkos::View<double*[2], MemSpace> ctrlPts_1stD) const {
     //DeBoor's algorithm for BSpline 1st deriv calculation
     const int MAX_DEGREE = 3;
-    int splineIdx = splineList(indexOfIndex);
-    int lKnot = order(splineIdx);
+    int lKnot = order;
     lKnot--;
     int resultOrder = lKnot;
     int leftPt = 0;
-    double x = xVals(offset);
 
     while (x > knots(lKnot+1)) {
       lKnot++;
@@ -193,25 +191,27 @@ public:
     int offsetSize = derivSplines.offset.extent(0);
     Kokkos::parallel_for("parallel De Boor's for 1st derivative", offsetSize-1, KOKKOS_CLASS_LAMBDA(const int i) {
       for (int j = derivSplines.offset(i); j < derivSplines.offset(i+1); j++) {
-        eval1stDerivDeBoor(derivSplines.paraCoor, derivSplines.splineIdx, i, j, res, order, knots, ctrlPts1stD);
+        auto x = Kokkos::subview(derivSplines.paraCoor, j);
+        auto splineIdx = Kokkos::subview(derivSplines.splineIdx, i);
+        auto splineOrder = Kokkos::subview(order, splineIdx());
+        eval1stDerivDeBoor(x(), j, res, splineOrder(), knots, ctrlPts1stD);
       }
     });
     return res;
   }
 
   //Second derivative calculation
-  KOKKOS_FUNCTION void eval2ndDerivDeBoor(Kokkos::View<double*, MemSpace> xVals, Kokkos::View<int*, MemSpace> splineList, int indexOfIndex, int offset, Kokkos::View<double*[2], MemSpace> result, const Kokkos::View<int*, MemSpace> order, const Kokkos::View<double*, MemSpace> knots, const Kokkos::View<double*[2], MemSpace> ctrlPts_2ndD) const {
-    int splineIdx = splineList(indexOfIndex);
-    if (order(splineIdx) == 2) {
+  KOKKOS_FUNCTION void eval2ndDerivDeBoor(const double x, int offset, Kokkos::View<double*[2], MemSpace> result, const int order, const Kokkos::View<double*, MemSpace> knots, const Kokkos::View<double*[2], MemSpace> ctrlPts_2ndD) const {
+    if (order == 2) {
       result(offset, 0) = 0;
       result(offset, 1) = 0;
       return;
     }
     const int MAX_DEGREE = 3;
-    int lKnot = order(splineIdx) - 1;
-    int resultOrder = order(splineIdx)-2;
+    int lKnot = order - 1;
+    int resultOrder = order - 2;
     int leftPt = 0;
-    double x = xVals(offset);
+    //double x = xVals(offset);
     while (knots(lKnot+1) < x) {
       lKnot++;
       leftPt++;
@@ -251,13 +251,16 @@ public:
   }
 
   Kokkos::View<double*[2], MemSpace> eval2ndDeriv(const CSR& derivSplines) const {
-    auto offsetMirror = Kokkos::create_mirror_view(derivSplines.offset);
-    Kokkos::deep_copy(offsetMirror, derivSplines.offset);
-    int resultSize = offsetMirror(offsetMirror.extent(0)-1);
+    int resultSize;
+    Kokkos::deep_copy(resultSize, Kokkos::subview(derivSplines.offset, derivSplines.offset.extent(0)-1));
     Kokkos::View<double*[2], MemSpace> res("result", resultSize);
-    Kokkos::parallel_for("parallel De Boor's for 2nd derivative", offsetMirror.extent(0)-1, KOKKOS_CLASS_LAMBDA(const int i) {
+    int offsetSize = derivSplines.offset.extent(0);
+    Kokkos::parallel_for("parallel De Boor's for 2nd derivative", offsetSize-1, KOKKOS_CLASS_LAMBDA(const int i) {
       for (int j = derivSplines.offset(i); j < derivSplines.offset(i+1); j++) {
-         eval2ndDerivDeBoor(derivSplines.paraCoor, derivSplines.splineIdx, i, j, res, order, knots, ctrlPts2ndD);
+        auto x = Kokkos::subview(derivSplines.paraCoor, j);
+        auto splineIdxSub = Kokkos::subview(derivSplines.splineIdx, i);
+        auto splineOrder = Kokkos::subview(order, splineIdxSub());
+        eval2ndDerivDeBoor(x(), j, res, splineOrder(), knots, ctrlPts2ndD);
       }
     });
     return res;
