@@ -1,20 +1,20 @@
-//Constructor test for new representation of Kokkos spline
-//We will be comparing this against the serial version
-#include <Kokkos_Core.hpp>
-#include "BSplineKokkos2D.h"
+// Constructor test for new representation of Kokkos spline
+// We will be comparing this against the serial version
 #include "BSpline.h"
-#include "splineInterpolation.h"
+#include "BSplineKokkos2D.h"
 #include "curveReader.h"
+#include "splineInterpolation.h"
+#include <Kokkos_Core.hpp>
 
-#include <vector>
-#include <iostream>
-#include <string>
 #include <cassert>
-#include <math.h>
 #include <fstream>
+#include <iostream>
+#include <math.h>
 #include <numeric>
+#include <string>
+#include <vector>
 
-//For checking if the content of the splines are correct
+// For checking if the content of the splines are correct
 //
 
 double EPSILON = 1e-12;
@@ -22,25 +22,28 @@ double EPSILON = 1e-12;
 using ExecutionSpace = Kokkos::DefaultExecutionSpace;
 using MemSpace = ExecutionSpace::memory_space;
 
-int main(int argc, char* argv[]) {
-  //We check how many arguments are given
+int main(int argc, char *argv[]) {
+  // We check how many arguments are given
   int retVal = 0;
   if (argc != 3) {
-    std::cerr<< "Input arguments: <input csv file> <expected curve length>" << std::endl;
+    std::cerr << "Input arguments: <input csv file> <expected curve length>"
+              << std::endl;
     std::cerr << "input csv need these columns: ";
-    std::cerr << "coordinate x, coordinate y, coordinate z,isOnCurve,angle,isMdlVtx" << std::endl;
+    std::cerr
+        << "coordinate x, coordinate y, coordinate z,isOnCurve,angle,isMdlVtx"
+        << std::endl;
     return 1;
   }
-  Kokkos::initialize(argc, argv); 
+  Kokkos::initialize(argc, argv);
   {
     std::string inputCSV = argv[1];
     int extensionPos = inputCSV.rfind(".");
     int slashPos = inputCSV.rfind("/");
-    std::string fileNameNoExt = inputCSV.substr(slashPos+1, extensionPos);
+    std::string fileNameNoExt = inputCSV.substr(slashPos + 1, extensionPos);
     double expectedCurveLength = std::stod(argv[2]);
     auto curve = CurveReader::readCurveInfo(inputCSV);
 
-    //Construct BSpline2d object
+    // Construct BSpline2d object
     SplineInterp::BSpline2d serialBSP;
     if (curve.x.size() == 2) {
       serialBSP = SplineInterp::attach_piecewise_linear_curve(curve.x, curve.y);
@@ -58,31 +61,35 @@ int main(int argc, char* argv[]) {
 
     auto intView = Kokkos::create_mirror_view(kokkosBSP.getOrder());
     Kokkos::deep_copy(intView, kokkosBSP.getOrder());
-    //Testing the order initialization
+    // Testing the order initialization
     double diff = std::fabs(order - intView(0));
     if (diff > EPSILON) {
       std::cout << "Order difference : " << diff << std::endl;
-      std::cout << "Serial: " << order << " Kokkos: " << intView(0) << std::endl;
+      std::cout << "Serial: " << order << " Kokkos: " << intView(0)
+                << std::endl;
       retVal = 1;
     }
 
     auto double2DView = Kokkos::create_mirror_view(kokkosBSP.getCtrlPts());
     Kokkos::deep_copy(double2DView, kokkosBSP.getCtrlPts());
 
-    //Testing ctrlPts initialization
+    // Testing ctrlPts initialization
     double xDiff, yDiff;
     for (int i = 0; i < ctrlPtsX.size(); i++) {
       xDiff = std::fabs(ctrlPtsX[i] - double2DView(i, 0));
       yDiff = std::fabs(ctrlPtsY[i] - double2DView(i, 1));
       if (xDiff > EPSILON || yDiff > EPSILON) {
-        std::cout << "CtrlPts difference: x = " << xDiff << " y = " << yDiff << std::endl;
-        std::cout << "Serial: " << ctrlPtsX[i] << ", " << ctrlPtsY[i] << std::endl;
-        std::cout << "Kokkos: " << double2DView(i, 0) << ", " << double2DView(i, 1) << std::endl;
+        std::cout << "CtrlPts difference: x = " << xDiff << " y = " << yDiff
+                  << std::endl;
+        std::cout << "Serial: " << ctrlPtsX[i] << ", " << ctrlPtsY[i]
+                  << std::endl;
+        std::cout << "Kokkos: " << double2DView(i, 0) << ", "
+                  << double2DView(i, 1) << std::endl;
         retVal = 1;
       }
     }
 
-    //Test knots initialization
+    // Test knots initialization
     auto doubleView = Kokkos::create_mirror_view(kokkosBSP.getKnots());
     Kokkos::deep_copy(doubleView, kokkosBSP.getKnots());
     for (int i = 0; i < knots.size(); i++) {
@@ -95,8 +102,9 @@ int main(int argc, char* argv[]) {
       }
     }
 
-    //Test 1st deriv coef initialization
-    Kokkos::View<double*[2], MemSpace> coef ("getCPCoe2", kokkosBSP.getCP1stD().extent(0));
+    // Test 1st deriv coef initialization
+    Kokkos::View<double *[2], MemSpace> coef("getCPCoe2",
+                                             kokkosBSP.getCP1stD().extent(0));
     coef = kokkosBSP.getCP1stD();
     auto mv_coef = Kokkos::create_mirror_view(coef);
 
@@ -110,13 +118,16 @@ int main(int argc, char* argv[]) {
       if (diffX > EPSILON || diffY > EPSILON) {
         std::cout << "diffX: " << diffX << std::endl;
         std::cout << "diffY: " << diffY << std::endl;
-        std::cout << "Serial 1st coef: " << serialCoefX[i] << ", " << serialCoefY[i] << std::endl;
-        std::cout << "Kokkos 1st coef: " << mv_coef(i, 0)<< ", " << mv_coef(i, 1) << std::endl;
+        std::cout << "Serial 1st coef: " << serialCoefX[i] << ", "
+                  << serialCoefY[i] << std::endl;
+        std::cout << "Kokkos 1st coef: " << mv_coef(i, 0) << ", "
+                  << mv_coef(i, 1) << std::endl;
         retVal = 1;
       }
     }
 
-    Kokkos::View<double*[2], MemSpace>coef2 ("getCPCoe2", kokkosBSP.getCP2ndD().extent(0));
+    Kokkos::View<double *[2], MemSpace> coef2("getCPCoe2",
+                                              kokkosBSP.getCP2ndD().extent(0));
     coef2 = kokkosBSP.getCP2ndD();
     mv_coef = Kokkos::create_mirror_view(coef2);
 
@@ -130,14 +141,14 @@ int main(int argc, char* argv[]) {
       if (diffX > EPSILON || diffY > EPSILON) {
         std::cout << "diffX: " << diffX << std::endl;
         std::cout << "diffY: " << diffY << std::endl;
-        std::cout << "Serial 2nd coef: " << serialCoefX[i] << ", " << serialCoefY[i] << std::endl;
-        std::cout << "Kokkos 2nd coef: " << mv_coef(i, 0)<< ", " << mv_coef(i, 1) << std::endl;
+        std::cout << "Serial 2nd coef: " << serialCoefX[i] << ", "
+                  << serialCoefY[i] << std::endl;
+        std::cout << "Kokkos 2nd coef: " << mv_coef(i, 0) << ", "
+                  << mv_coef(i, 1) << std::endl;
         retVal = 1;
       }
     }
-
   }
   Kokkos::finalize();
   return retVal;
 }
-
