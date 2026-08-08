@@ -21,7 +21,8 @@ using MemSpace = ExecutionSpace::memory_space;
 int main(int argc, char *argv[]) {
   int retVal;
   if (argc != 4) {
-    std::cout << "Input arguments: <number of splines> <number of points per spline> <number of para coords to evaluate>"
+    std::cout << "Input arguments: <number of splines> <number of points per "
+                 "spline> <number of para coords to evaluate>"
               << std::endl;
     retVal = 1;
     return retVal;
@@ -33,7 +34,8 @@ int main(int argc, char *argv[]) {
     Kokkos::Timer timer;
     const int numSplines = std::atoi(argv[1]);
     const int ptsPerSpline = std::atoi(argv[2]);
-    Kokkos::View<double *[2], MemSpace> pts("PointsOnCircle", numSplines * ptsPerSpline);
+    Kokkos::View<double *[2], MemSpace> pts("PointsOnCircle",
+                                            numSplines * ptsPerSpline);
     pts = makeCircle(1000.0, 2000.0, 500.0, numSplines, ptsPerSpline);
     double dataGenTime = timer.seconds();
 
@@ -41,8 +43,9 @@ int main(int argc, char *argv[]) {
     // Copy the result to vectors for serial initialization
     auto ptsMirror = Kokkos::create_mirror_view(pts);
     Kokkos::deep_copy(ptsMirror, pts);
-    std::vector<double> ptsX(numSplines*ptsPerSpline), ptsY(numSplines*ptsPerSpline);
-    for (int i = 0; i < numSplines*ptsPerSpline; i++) {
+    std::vector<double> ptsX(numSplines * ptsPerSpline),
+        ptsY(numSplines * ptsPerSpline);
+    for (int i = 0; i < numSplines * ptsPerSpline; i++) {
       ptsX[i] = ptsMirror(i, 0);
       ptsY[i] = ptsMirror(i, 1);
     }
@@ -53,8 +56,7 @@ int main(int argc, char *argv[]) {
     SplineInterp::BSpline2d serialBSP;
     if (ptsX.size() == 2) {
       serialBSP = SplineInterp::attach_piecewise_linear_curve(ptsX, ptsY);
-    }
-    else {
+    } else {
       serialBSP = SplineInterp::fitCubicSplineToPoints(ptsX, ptsY);
     }
     double serialSplineCreationTime = timer.seconds();
@@ -65,7 +67,7 @@ int main(int argc, char *argv[]) {
     std::vector<double> ctrlPtsX, ctrlPtsY, knots, weight;
     serialBSP.x.getpara(order, ctrlPtsX, knots, weight);
     serialBSP.y.getpara(order, ctrlPtsY, knots, weight);
-     
+
     // Initializing BSplineKokkos2D object
     timer.reset();
     BSplineKokkos2D<ExecutionSpace> kokkosBSP(order, ctrlPtsX, ctrlPtsY, knots);
@@ -151,7 +153,7 @@ int main(int argc, char *argv[]) {
     /*-------- End of 1st Deriv Test --------*/
     /*-------- Start of 2nd Deriv Test --------*/
     // Serial evaluation
-    
+
     timer.reset();
     for (int i = 0; i < evalAt.size(); i++) {
       serialResX[i] = serialBSP.x.evalSecondDeriv(evalAt[i]);
