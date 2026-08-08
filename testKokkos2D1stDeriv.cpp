@@ -12,8 +12,6 @@
 #include <numeric>
 #include <string>
 
-double EPSILON = 1e-12;
-
 using ExecutionSpace = Kokkos::DefaultExecutionSpace;
 using MemSpace = ExecutionSpace::memory_space;
 
@@ -31,6 +29,7 @@ int main(int argc, char *argv[]) {
 
   Kokkos::initialize(argc, argv);
   {
+    const double EPSILON = 1e-12;
     std::string inputCSV = argv[1];
     int extensionPos = inputCSV.rfind(".");
     int slashPos = inputCSV.rfind("/");
