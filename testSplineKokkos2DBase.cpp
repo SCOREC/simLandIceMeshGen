@@ -57,7 +57,8 @@ int main(int argc, char *argv[]) {
 
     BSplineKokkos2D<ExecutionSpace> kokkosBSP(order, ctrlPtsX, ctrlPtsY, knots);
 
-    auto intView = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), kokkosBSP.getOrder());
+    auto intView = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),
+                                                       kokkosBSP.getOrder());
     // Testing the order initialization
     double diff = std::fabs(order - intView(0));
     if (diff > EPSILON) {
@@ -67,7 +68,8 @@ int main(int argc, char *argv[]) {
       retVal = 1;
     }
 
-    auto double2DView = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), kokkosBSP.getCtrlPts());
+    auto double2DView = Kokkos::create_mirror_view_and_copy(
+        Kokkos::HostSpace(), kokkosBSP.getCtrlPts());
 
     // Testing ctrlPts initialization
     double xDiff, yDiff;
@@ -86,7 +88,8 @@ int main(int argc, char *argv[]) {
     }
 
     // Test knots initialization
-    auto doubleView = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), kokkosBSP.getKnots());
+    auto doubleView = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),
+                                                          kokkosBSP.getKnots());
     for (int i = 0; i < knots.size(); i++) {
       diff = std::fabs(knots[i] - doubleView(i));
       if (diff > EPSILON) {
@@ -98,7 +101,8 @@ int main(int argc, char *argv[]) {
     }
 
     // Test 1st deriv coef initialization
-    auto mv_coef = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), kokkosBSP.getCP1stD());
+    auto mv_coef = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),
+                                                       kokkosBSP.getCP1stD());
     std::vector<double> serialCoefX = serialBSP.x.getCtrlPts_1st();
     std::vector<double> serialCoefY = serialBSP.y.getCtrlPts_1st();
 
@@ -116,7 +120,8 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    auto mv_coef2 = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), kokkosBSP.getCP2ndD());
+    auto mv_coef2 = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),
+                                                        kokkosBSP.getCP2ndD());
 
     serialCoefX = serialBSP.x.getCtrlPts_2nd();
     serialCoefY = serialBSP.y.getCtrlPts_2nd();
