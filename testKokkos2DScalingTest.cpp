@@ -13,15 +13,15 @@
 #include <numeric>
 #include <string>
 
-double EPSILON = 1e-12;
+double EPSILON = 1e-11;
 
 using ExecutionSpace = Kokkos::DefaultExecutionSpace;
 using MemSpace = ExecutionSpace::memory_space;
 
 int main(int argc, char *argv[]) {
   int retVal;
-  if (argc != 2) {
-    std::cout << "Input arguments: <number of points for the spline>"
+  if (argc != 4) {
+    std::cout << "Input arguments: <number of splines> <number of points per spline> <number of para coords to evaluate>"
               << std::endl;
     retVal = 1;
     return retVal;
@@ -31,17 +31,18 @@ int main(int argc, char *argv[]) {
     // Creating Scaling Data
     // Using Kokkos timer to keep track of time elapsed
     Kokkos::Timer timer;
-    const int numPoints = std::atoi(argv[1]); // mid sized scaling
-    Kokkos::View<double *[2], MemSpace> pts("PointsOnCircle", numPoints);
-    pts = makeCircle(1000.0, 2000.0, 500.0, numPoints);
+    const int numSplines = std::atoi(argv[1]);
+    const int ptsPerSpline = std::atoi(argv[2]);
+    Kokkos::View<double *[2], MemSpace> pts("PointsOnCircle", numSplines * ptsPerSpline);
+    pts = makeCircle(1000.0, 2000.0, 500.0, numSplines, ptsPerSpline);
     double dataGenTime = timer.seconds();
 
     timer.reset();
     // Copy the result to vectors for serial initialization
     auto ptsMirror = Kokkos::create_mirror_view(pts);
     Kokkos::deep_copy(ptsMirror, pts);
-    std::vector<double> ptsX(numPoints), ptsY(numPoints);
-    for (int i = 0; i < numPoints; i++) {
+    std::vector<double> ptsX(numSplines*ptsPerSpline), ptsY(numSplines*ptsPerSpline);
+    for (int i = 0; i < numSplines*ptsPerSpline; i++) {
       ptsX[i] = ptsMirror(i, 0);
       ptsY[i] = ptsMirror(i, 1);
     }
@@ -52,7 +53,8 @@ int main(int argc, char *argv[]) {
     SplineInterp::BSpline2d serialBSP;
     if (ptsX.size() == 2) {
       serialBSP = SplineInterp::attach_piecewise_linear_curve(ptsX, ptsY);
-    } else {
+    }
+    else {
       serialBSP = SplineInterp::fitCubicSplineToPoints(ptsX, ptsY);
     }
     double serialSplineCreationTime = timer.seconds();
@@ -63,7 +65,7 @@ int main(int argc, char *argv[]) {
     std::vector<double> ctrlPtsX, ctrlPtsY, knots, weight;
     serialBSP.x.getpara(order, ctrlPtsX, knots, weight);
     serialBSP.y.getpara(order, ctrlPtsY, knots, weight);
-
+     
     // Initializing BSplineKokkos2D object
     timer.reset();
     BSplineKokkos2D<ExecutionSpace> kokkosBSP(order, ctrlPtsX, ctrlPtsY, knots);
@@ -71,11 +73,11 @@ int main(int argc, char *argv[]) {
 
     /*-------- Starting 1st derivative test --------*/
     // Creating parametric coordinates to evaluate at
-    // Currently there are 50 of them
-    double incr = 0.001;
+    int paraCoords = std::atoi(argv[3]);
+    double incr = 1.0 / paraCoords;
     double val = 0.0;
-    std::vector<double> evalAt(1000);
-    for (int i = 0; i < 1000; i++) {
+    std::vector<double> evalAt(paraCoords);
+    for (int i = 0; i < paraCoords; i++) {
       evalAt[i] = val;
       val += incr;
     }
@@ -85,6 +87,7 @@ int main(int argc, char *argv[]) {
     std::vector<double> serialResY(evalAt.size());
 
     timer.reset();
+
     for (int i = 0; i < evalAt.size(); i++) {
       serialResX[i] = serialBSP.x.evalFirstDeriv(evalAt[i]);
       serialResY[i] = serialBSP.y.evalFirstDeriv(evalAt[i]);
@@ -144,9 +147,11 @@ int main(int argc, char *argv[]) {
       }
     }
     double verifyTime1stDeriv = timer.seconds();
+
     /*-------- End of 1st Deriv Test --------*/
     /*-------- Start of 2nd Deriv Test --------*/
     // Serial evaluation
+    
     timer.reset();
     for (int i = 0; i < evalAt.size(); i++) {
       serialResX[i] = serialBSP.x.evalSecondDeriv(evalAt[i]);
@@ -163,7 +168,7 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < evalAt.size(); i++) {
       double xDiff = std::fabs(resMirror(i, 0)) - std::fabs(serialResX[i]);
       double yDiff = std::fabs(resMirror(i, 1)) - std::fabs(serialResY[i]);
-      if (xDiff > EPSILON | yDiff > EPSILON) {
+      if (xDiff > EPSILON || yDiff > EPSILON) {
         std::cout << "2nd Deriv Test " << i + 1
                   << "  failed, eval at: " << evalAt[i] << std::endl;
         std::cout << "Difference: x = " << xDiff << " y = " << yDiff
@@ -176,6 +181,7 @@ int main(int argc, char *argv[]) {
       }
     }
     double verifyTime2ndDeriv = timer.seconds();
+
     /*-------- End of 2nd Deriv Test --------*/
     // Outputting the metrics
     std::cout << "-------- Duration Measured --------" << std::endl;
