@@ -1,10 +1,8 @@
-#include "BSpline.h"
 #include "BSplineKokkos2D.h"
 #include <Kokkos_Core.hpp>
 #include <vector>
 
 #include "curveReader.h"
-#include "splineInterpolation.h"
 #include <cassert>
 #include <fstream>
 #include <iostream>
