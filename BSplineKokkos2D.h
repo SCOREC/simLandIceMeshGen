@@ -78,7 +78,6 @@ public:
     Kokkos::View<int*, MemSpace> knotsOffsetV("knotsOffset", serialBSP.size()+1);
     auto host_knotsOffsetV = Kokkos::create_mirror_view(knotsOffsetV);
     host_knotsOffsetV(0) = 0;
-    
     //Obtain order, ctrlPtsOffset, knotsOffset values
     int splineOrder;
     std::vector<double> splineX, splineY, splineKnots, weights;
@@ -88,27 +87,40 @@ public:
       host_cpOffsetV(i+1) = host_cpOffsetV(i) + splineX.size();
       host_knotsOffsetV(i+1) = host_knotsOffsetV(i) + splineKnots.size();
     }
+    order = orderV;
+    Kokkos::deep_copy(order, host_orderV);
+    cpOffset = cpOffsetV;
+    Kokkos::deep_copy(cpOffset, host_cpOffsetV);
+    knotsOffset = knotsOffsetV;
+    Kokkos::deep_copy(knotsOffset, host_knotsOffsetV);
 
     //Initializing ctrlPts and knots
     Kokkos::View<double*[2], MemSpace> ctrlPtsV("ctrlPts", host_cpOffsetV(host_cpOffsetV.extent(0)-1));
     auto host_ctrlPtsV = Kokkos::create_mirror_view(ctrlPtsV);
-    Kokkos::View<double, MemSpace> knotsV("knots", host_knotsOffsetV(host_knotsOffsetV.extent(0)-1));
+    Kokkos::View<double*, MemSpace> knotsV("knots", host_knotsOffsetV(host_knotsOffsetV.extent(0)-1));
     auto host_knotsV = Kokkos::create_mirror_view(knotsV);
-    int cpIdx = 0, kIdx = 0;
+
     for (int i = 0; i < serialBSP.size(); i++) {
       serialBSP[i].x.getpara(splineOrder, splineX, splineKnots, weights);
       serialBSP[i].y.getpara(splineOrder, splineY, splineKnots, weights);
+      for (int j = 0; j < splineKnots.size(); j++) {
+        host_knotsV(host_knotsOffsetV(i) + j) = splineKnots[j];
+      }
       for (int j = 0; j < splineX.size(); j++) {
         host_ctrlPtsV(host_cpOffsetV(i) + j, 0) = splineX[j];
         host_ctrlPtsV(host_cpOffsetV(i) + j, 1) = splineY[j];
       }
-      for (int j = 0; j < splineKnots.size(); j++) {
-        host_knotsV(host_knotsOffsetV(i)+j) = splineKnots[j];
-      }
     }
-    
+    //std::cout << "break3" << std::endl;
+    //Copy result to device
+    ctrlPts = ctrlPtsV;
+    Kokkos::deep_copy(ctrlPts, host_ctrlPtsV);
+    knots = knotsV;
+    Kokkos::deep_copy(knots, host_knotsV); 
+    //std::cout << "break4" << std::endl;
     //Calculating derivative coefficient
-    calculateDerivCoeff();
+    //calculateDerivCoeff();
+    //std::cout << "break5" << std::endl;
   }
 
   void calculateDerivCoeff() {
