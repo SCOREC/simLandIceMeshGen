@@ -5,6 +5,9 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include "splineInterpolation.h"
+
+const int MAX_DEGREE = 3;
 
 template <typename ExecutionSpace> class BSplineKokkos2D {
 public:
@@ -60,6 +63,51 @@ public:
     knotsOffset = knotsOffsetV;
     Kokkos::deep_copy(knotsOffset, host_knotsOffsetV);
 
+    calculateDerivCoeff();
+  }
+
+  BSplineKokkos2D(std::vector<SplineInterp::BSpline2d> serialBSP) {
+    //Initializing order view
+    Kokkos::View<int*, MemSpace> orderV("Orders", serialBSP.size());
+    auto host_orderV = Kokkos::create_mirror_view(orderV);
+    //Initializing ctrlPtsOffset
+    Kokkos::View<int*, MemSpace> cpOffsetV("cpOffset", serialBSP.size()+1);
+    auto host_cpOffsetV = Kokkos::create_mirror_view(cpOffsetV);
+    host_cpOffsetV(0) = 0;
+    //Initializing knotsOffset
+    Kokkos::View<int*, MemSpace> knotsOffsetV("knotsOffset", serialBSP.size()+1);
+    auto host_knotsOffsetV = Kokkos::create_mirror_view(knotsOffsetV);
+    host_knotsOffsetV(0) = 0;
+    
+    //Obtain order, ctrlPtsOffset, knotsOffset values
+    int splineOrder;
+    std::vector<double> splineX, splineY, splineKnots, weights;
+    for (int i = 0; i < serialBSP.size(); i++) {
+      serialBSP[i].x.getpara(splineOrder, splineX, splineKnots, weights);
+      host_orderV(i) = splineOrder;
+      host_cpOffsetV(i+1) = host_cpOffsetV(i) + splineX.size();
+      host_knotsOffsetV(i+1) = host_knotsOffsetV(i) + splineKnots.size();
+    }
+
+    //Initializing ctrlPts and knots
+    Kokkos::View<double*[2], MemSpace> ctrlPtsV("ctrlPts", host_cpOffsetV(host_cpOffsetV.extent(0)-1));
+    auto host_ctrlPtsV = Kokkos::create_mirror_view(ctrlPtsV);
+    Kokkos::View<double, MemSpace> knotsV("knots", host_knotsOffsetV(host_knotsOffsetV.extent(0)-1));
+    auto host_knotsV = Kokkos::create_mirror_view(knotsV);
+    int cpIdx = 0, kIdx = 0;
+    for (int i = 0; i < serialBSP.size(); i++) {
+      serialBSP[i].x.getpara(splineOrder, splineX, splineKnots, weights);
+      serialBSP[i].y.getpara(splineOrder, splineY, splineKnots, weights);
+      for (int j = 0; j < splineX.size(); j++) {
+        host_ctrlPtsV(host_cpOffsetV(i) + j, 0) = splineX[j];
+        host_ctrlPtsV(host_cpOffsetV(i) + j, 1) = splineY[j];
+      }
+      for (int j = 0; j < splineKnots.size(); j++) {
+        host_knotsV(host_knotsOffsetV(i)+j) = splineKnots[j];
+      }
+    }
+    
+    //Calculating derivative coefficient
     calculateDerivCoeff();
   }
 
@@ -154,10 +202,9 @@ public:
       const int order, const Kokkos::View<double *, MemSpace> knots,
       const Kokkos::View<double *[2], MemSpace> ctrlPts_1stD) const {
     // DeBoor's algorithm for BSpline 1st deriv calculation
-    const int MAX_DEGREE = 3;
     int lKnot = order;
     lKnot--;
-    int resultOrder = lKnot;
+    int resultOrder = order - 1;
     int leftPt = 0;
 
     while (x > knots(lKnot + 1)) {
@@ -231,11 +278,9 @@ public:
       result(offset, 1) = 0;
       return;
     }
-    const int MAX_DEGREE = 3;
     int lKnot = order - 1;
     int resultOrder = order - 2;
     int leftPt = 0;
-    // double x = xVals(offset);
     while (knots(lKnot + 1) < x) {
       lKnot++;
       leftPt++;
