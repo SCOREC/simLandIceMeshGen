@@ -120,7 +120,7 @@ public:
     Kokkos::deep_copy(knots, host_knotsV); 
     
     //Calculating derivative coefficient
-    //calculateDerivCoeff();
+    calculateDerivCoeff();
   }
 
   void calculateDerivCoeff() {
@@ -152,20 +152,17 @@ public:
     auto mvCtrlPts1stDV = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), ctrlPts1stDV);
     auto mvKnotsOffset = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), knotsOffset);
 
-    for (int i = 0; i < mvCtrlPts.size(); i++) {
-      std::cout << "ctrlPtsX at " << i << ": "<< mvCtrlPts(i, 0) << std::endl;
-      std::cout << "ctrlPtsY at " << i << ": "<< mvCtrlPts(i, 1) << std::endl;
-    }
     // Calculate 1st derivative coef
     // TO DELETE: Knots view is initialized correctly, indexing is off
     int offidx = 1; // Offset index
     int oidx = 0;   // Order index
     int kOffset = 0;   // KnotsOffset index
     int kIdx = 1;
+    int ctrlOffset = 0;
     for (int i = 1; i < mvCtrlPts1stDV.extent(0) + 1; i++) {
       //Check whether we are on border for next spline
       if (i+oidx == mvCP1stDOffsetV(offidx)+1) {
-        //We need to offset the
+        ctrlOffset = mvCP1stDOffsetV(offidx)+1;
         oidx++;
         offidx++;
         kIdx = 1;
@@ -174,16 +171,13 @@ public:
       
       double delta = double(mvOrder(oidx) - 1) /
                      (mvKnots(kOffset + kIdx + mvOrder(oidx) - 1) - mvKnots(kOffset + kIdx));
-      //TO DELETE: DELTA CALCULATION CORRECT, ctrlpts accessed incorrect
-      kIdx++;
-      std::cout << "KOKKOS: ctrlPtsX at i: " << mvCtrlPts(i, 0) << std::endl;
-      std::cout << "KOKKOS: ctrlPtsX at i-1: " << mvCtrlPts(i - 1, 0) << std::endl;
-      //INDEXING HERE IS NOT RIGHT
       mvCtrlPts1stDV(i - 1, 0) =
-          (mvCtrlPts(i, 0) - mvCtrlPts(i - 1, 0)) * delta;
+          (mvCtrlPts(ctrlOffset + kIdx, 0) - mvCtrlPts(ctrlOffset + kIdx - 1, 0)) * delta;
       mvCtrlPts1stDV(i - 1, 1) =
-          (mvCtrlPts(i, 1) - mvCtrlPts(i - 1, 1)) * delta;
+          (mvCtrlPts(ctrlOffset + kIdx, 1) - mvCtrlPts(ctrlOffset + kIdx - 1, 1)) * delta;
+      kIdx++;
     }
+    //TO DELETE: 1stDerivative coeff calculation corrected
 
     // Calculate 2nd derivative coef
     Kokkos::View<double *[2], MemSpace> ctrlPts2ndDV(
