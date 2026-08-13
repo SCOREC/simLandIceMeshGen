@@ -9,7 +9,7 @@
 template <typename ExecutionSpace> class BSplineKokkos2D {
 public:
   using MemSpace = typename ExecutionSpace::memory_space;
-
+  static const int MAX_DEGREE = 3;
   // Custom CSR
   struct CSR {
     CSR(const size_t splineIdxSize, const size_t paraCoorSize)
@@ -154,9 +154,7 @@ public:
       const int order, const Kokkos::View<double *, MemSpace> knots,
       const Kokkos::View<double *[2], MemSpace> ctrlPts_1stD) const {
     // DeBoor's algorithm for BSpline 1st deriv calculation
-    const int MAX_DEGREE = 3;
-    int lKnot = order;
-    lKnot--;
+    int lKnot = order - 1;
     int resultOrder = lKnot;
     int leftPt = 0;
 
@@ -231,11 +229,9 @@ public:
       result(offset, 1) = 0;
       return;
     }
-    const int MAX_DEGREE = 3;
     int lKnot = order - 1;
     int resultOrder = order - 2;
     int leftPt = 0;
-    // double x = xVals(offset);
     while (knots(lKnot + 1) < x) {
       lKnot++;
       leftPt++;
