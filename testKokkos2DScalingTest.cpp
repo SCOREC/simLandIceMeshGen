@@ -1,19 +1,15 @@
-#include "BSpline.h"
 #include "BSplineKokkos2D.h"
 #include "makeScalingTestData.h"
 #include <Kokkos_Core.hpp>
 #include <vector>
 
 #include "curveReader.h"
-#include "splineInterpolation.h"
 #include <cassert>
 #include <fstream>
 #include <iostream>
 #include <math.h>
 #include <numeric>
 #include <string>
-
-double EPSILON = 1e-11;
 
 using ExecutionSpace = Kokkos::DefaultExecutionSpace;
 using MemSpace = ExecutionSpace::memory_space;
@@ -29,6 +25,7 @@ int main(int argc, char *argv[]) {
   }
   Kokkos::initialize(argc, argv);
   {
+    const double EPSILON = 1e-11;
     // Creating Scaling Data
     // Using Kokkos timer to keep track of time elapsed
     Kokkos::Timer timer;
@@ -39,9 +36,8 @@ int main(int argc, char *argv[]) {
     pts = makeCircle(1000.0, 2000.0, 500.0, numSplines, ptsPerSpline);
     double dataGenTime = timer.seconds();
 
-    timer.reset();
     // Copy the result to vectors for serial initialization
-    auto ptsMirror = Kokkos::create_mirror_view(pts);
+    auto ptsMirror = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), pts);
     Kokkos::deep_copy(ptsMirror, pts);
     std::vector<double> ptsX(numSplines * ptsPerSpline),
         ptsY(numSplines * ptsPerSpline);
@@ -50,27 +46,30 @@ int main(int argc, char *argv[]) {
       ptsY[i] = ptsMirror(i, 1);
     }
     double dataCopyTime = timer.seconds();
-
     timer.reset();
-    // Initializing Serial BSpline
-    SplineInterp::BSpline2d serialBSP;
-    if (ptsX.size() == 2) {
-      serialBSP = SplineInterp::attach_piecewise_linear_curve(ptsX, ptsY);
-    } else {
-      serialBSP = SplineInterp::fitCubicSplineToPoints(ptsX, ptsY);
+    
+    // Initializing Serial BSpline, divide the given points into correct number of splines to initialize
+    // A vector that holds all the BSpline2d created
+    std::vector<SplineInterp::BSpline2d> allSerial(numSplines);
+    std::vector<double> subPtsX(ptsPerSpline), subPtsY(ptsPerSpline);
+    for (int i = 0; i < numSplines; i++) {
+      int start = i*ptsPerSpline;
+      for (int j = start; j < start+ptsPerSpline; j++) {
+        subPtsX[j-start] = ptsX[j];
+        subPtsY[j-start] = ptsY[j];
+      }
+      if (ptsPerSpline == 2) {
+        allSerial[i] = SplineInterp::attach_piecewise_linear_curve(subPtsX, subPtsY);
+      }
+      else {
+        allSerial[i] = SplineInterp::fitCubicSplineToPoints(subPtsX, subPtsY);
+      }
     }
     double serialSplineCreationTime = timer.seconds();
 
-    // Getting the data from serial spline, prepare for BSPlineKokkos2D
-    // generation
-    int order;
-    std::vector<double> ctrlPtsX, ctrlPtsY, knots, weight;
-    serialBSP.x.getpara(order, ctrlPtsX, knots, weight);
-    serialBSP.y.getpara(order, ctrlPtsY, knots, weight);
-
-    // Initializing BSplineKokkos2D object
+    //BSplineKokkos2D object initialization based on serial spline
     timer.reset();
-    BSplineKokkos2D<ExecutionSpace> kokkosBSP(order, ctrlPtsX, ctrlPtsY, knots);
+    BSplineKokkos2D<ExecutionSpace> kokkosBSP(allSerial);
     double kokkosSplineCreationTime = timer.seconds();
 
     /*-------- Starting 1st derivative test --------*/
@@ -85,55 +84,55 @@ int main(int argc, char *argv[]) {
     }
 
     // Serial evaluation of 1st derivative
-    std::vector<double> serialResX(evalAt.size());
-    std::vector<double> serialResY(evalAt.size());
-
+    // Each of the splines will evaluate at all the para coords
+    std::vector<double> serialResX(evalAt.size()*numSplines);
+    std::vector<double> serialResY(evalAt.size()*numSplines);
+    int idx = 0;
     timer.reset();
-
-    for (int i = 0; i < evalAt.size(); i++) {
-      serialResX[i] = serialBSP.x.evalFirstDeriv(evalAt[i]);
-      serialResY[i] = serialBSP.y.evalFirstDeriv(evalAt[i]);
+    for (int i = 0; i < numSplines; i++) {
+      for (int j = 0; j < evalAt.size(); j++) {
+        serialResX[idx+j] = allSerial[i].x.evalFirstDeriv(evalAt[j]);
+        serialResY[idx+j] = allSerial[i].y.evalFirstDeriv(evalAt[j]);
+      }
+      idx += paraCoords;
     }
     double serial1stDerivTime = timer.seconds();
 
     // Kokkos evaluation of 1st derivative
-    // We will split this spline into 10 chunks to evaluate
     const size_t paraSize = evalAt.size();
-    const size_t splineIdxSize = 10;
 
     timer.reset(); // Recording the time needed for CSR initialization
-    BSplineKokkos2D<ExecutionSpace>::CSR kokkosBSPCSR(splineIdxSize, paraSize);
+    BSplineKokkos2D<ExecutionSpace>::CSR kokkosBSPCSR(allSerial.size(), paraSize);
+    
     auto valsMirror = Kokkos::create_mirror_view(kokkosBSPCSR.paraCoor);
     for (int i = 0; i < evalAt.size(); i++) {
       valsMirror(i) = evalAt[i];
     }
     auto splineIdxMirror = Kokkos::create_mirror_view(kokkosBSPCSR.splineIdx);
-    for (int i = 0; i < splineIdxSize; i++) {
-      splineIdxMirror(i) = 0;
+    for (int i = 0; i < allSerial.size(); i++) {
+      splineIdxMirror(i) = i;
     }
     auto offsetMirror = Kokkos::create_mirror_view(kokkosBSPCSR.offset);
-    int offsetSize = paraSize / splineIdxSize;
     int curOffset = 0;
-    for (int i = 0; i < splineIdxSize; i++) {
+    for (int i = 0; i < allSerial.size(); i++) {
       offsetMirror(i) = curOffset;
-      curOffset += offsetSize;
+      curOffset += paraCoords;
     }
-    offsetMirror(offsetMirror.extent(0) - 1) = evalAt.size();
+    offsetMirror(offsetMirror.extent(0) - 1) = curOffset;
     Kokkos::deep_copy(kokkosBSPCSR.splineIdx, splineIdxMirror);
     Kokkos::deep_copy(kokkosBSPCSR.offset, offsetMirror);
     Kokkos::deep_copy(kokkosBSPCSR.paraCoor, valsMirror);
     double csrInitTime = timer.seconds();
     // Calling batch 1st derivative function
-    Kokkos::View<double *[2], MemSpace> res("derivResult", evalAt.size());
+    Kokkos::View<double *[2], MemSpace> res("derivResult", evalAt.size()*numSplines);
     timer.reset();
     res = kokkosBSP.eval1stDeriv(kokkosBSPCSR);
     double kokkos1stDerivTime = timer.seconds();
-    auto resMirror = Kokkos::create_mirror_view(res);
-    Kokkos::deep_copy(resMirror, res);
+    auto resMirror = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), res);
 
     // Compare the serial and kokkos result
     timer.reset();
-    for (int i = 0; i < evalAt.size(); i++) {
+    for (int i = 0; i < evalAt.size()*numSplines; i++) {
       double xDiff = std::fabs(resMirror(i, 0)) - std::fabs(serialResX[i]);
       double yDiff = std::fabs(resMirror(i, 1)) - std::fabs(serialResY[i]);
       if (xDiff > EPSILON || yDiff > EPSILON) {
@@ -153,11 +152,14 @@ int main(int argc, char *argv[]) {
     /*-------- End of 1st Deriv Test --------*/
     /*-------- Start of 2nd Deriv Test --------*/
     // Serial evaluation
-
+    idx = 0;
     timer.reset();
-    for (int i = 0; i < evalAt.size(); i++) {
-      serialResX[i] = serialBSP.x.evalSecondDeriv(evalAt[i]);
-      serialResY[i] = serialBSP.y.evalSecondDeriv(evalAt[i]);
+    for (int i = 0; i < numSplines; i++) {
+      for (int j = 0; j < evalAt.size(); j++) {
+        serialResX[idx+j] = allSerial[i].x.evalSecondDeriv(evalAt[j]);
+        serialResY[idx+j] = allSerial[i].y.evalSecondDeriv(evalAt[j]);
+      }
+      idx += paraCoords;
     }
     double serial2ndDerivTime = timer.seconds();
     // Kokkos 2nd derivative function, using the existing csr
