@@ -186,8 +186,8 @@ public:
     kOffset = 0;
     kIdx = 1;
     ctrlOffset = 0;
-    for (int i = 1; i < mvCtrlPts2ndDV.extent(0); i++) {
-      if (i == mvCP2ndDOffsetV(offidx) + 1) {
+    for (int i = 1; i < mvCtrlPts2ndDV.extent(0) + 1; i++) {
+      if (i == mvCP2ndDOffsetV(offidx)+1) {
         oidx++;
         ctrlOffset =  mvCP2ndDOffsetV(offidx) + oidx;
         offidx++;
@@ -199,7 +199,7 @@ public:
       mvCtrlPts2ndDV(i - 1, 0) =
           (mvCtrlPts1stDV(ctrlOffset + kIdx, 0) - mvCtrlPts1stDV(ctrlOffset + kIdx - 1, 0)) * delta;
       mvCtrlPts2ndDV(i - 1, 1) =
-          (mvCtrlPts1stDV(ctrlOffset + kIdx, 1) - mvCtrlPts1stDV(ctrlOffset + kIdx - 1, 1)) * delta;
+          (mvCtrlPts1stDV(ctrlOffset + kIdx, 1) - mvCtrlPts1stDV(ctrlOffset + kIdx - 1, 1)) * delta; 
       kIdx++;
     }
     Kokkos::deep_copy(cP1stDOffsetV, mvCP1stDOffsetV);
