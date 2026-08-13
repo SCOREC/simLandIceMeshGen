@@ -59,7 +59,7 @@ public:
 
     Kokkos::View<int *, MemSpace> knotsOffsetV("knotsOffset", 2);
     auto host_knotsOffsetV = Kokkos::create_mirror_view(knotsOffsetV);
-    host_knotsOffsetV(0) = knotsI.size();
+    host_knotsOffsetV(0) = 0;
     host_knotsOffsetV(1) = knotsI.size();
     knotsOffset = knotsOffsetV;
     Kokkos::deep_copy(knotsOffset, host_knotsOffsetV);
@@ -120,7 +120,7 @@ public:
     Kokkos::deep_copy(knots, host_knotsV); 
     
     //Calculating derivative coefficient
-    calculateDerivCoeff();
+    //calculateDerivCoeff();
   }
 
   void calculateDerivCoeff() {
@@ -138,35 +138,47 @@ public:
     mvCP1stDOffsetV(0) = 0;
     mvCP2ndDOffsetV(0) = 0;
 
-    auto mvCPOffset = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), cpOffset);
+    auto mvCPOffset = Kokkos::create_mirror_view(cpOffset);
+    Kokkos::deep_copy(mvCPOffset, cpOffset);
 
     for (int i = 1; i < mvCPOffset.extent(0); i++) {
       mvCP1stDOffsetV(i) = mvCPOffset(i) - 1;
       mvCP2ndDOffsetV(i) = mvCPOffset(i) - 2;
     }
     
-    auto mvOrder = Kokkos::create_mirror_view(order);
-    auto mvKnots = Kokkos::create_mirror_view(knots);
-    auto mvCtrlPts = Kokkos::create_mirror_view(ctrlPts);
-    auto mvCtrlPts1stDV = Kokkos::create_mirror_view(ctrlPts1stDV);
-    Kokkos::deep_copy(mvOrder, order);
-    Kokkos::deep_copy(mvKnots, knots);
-    Kokkos::deep_copy(mvCtrlPts, ctrlPts);
+    auto mvOrder = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), order);
+    auto mvKnots = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), knots);
+    auto mvCtrlPts = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), ctrlPts);
+    auto mvCtrlPts1stDV = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), ctrlPts1stDV);
+    auto mvKnotsOffset = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), knotsOffset);
 
+    for (int i = 0; i < mvCtrlPts.size(); i++) {
+      std::cout << "ctrlPtsX at " << i << ": "<< mvCtrlPts(i, 0) << std::endl;
+      std::cout << "ctrlPtsY at " << i << ": "<< mvCtrlPts(i, 1) << std::endl;
+    }
     // Calculate 1st derivative coef
+    // TO DELETE: Knots view is initialized correctly, indexing is off
     int offidx = 1; // Offset index
     int oidx = 0;   // Order index
+    int kOffset = 0;   // KnotsOffset index
+    int kIdx = 1;
     for (int i = 1; i < mvCtrlPts1stDV.extent(0) + 1; i++) {
       //Check whether we are on border for next spline
-      if (i == mvCP1stDOffsetV(offidx) + 1) {
+      if (i+oidx == mvCP1stDOffsetV(offidx)+1) {
+        //We need to offset the
         oidx++;
         offidx++;
-        continue;
+        kIdx = 1;
+        kOffset = mvKnotsOffset(oidx);
       }
       
       double delta = double(mvOrder(oidx) - 1) /
-                     (mvKnots(i + mvOrder(oidx) - 1) - mvKnots(i));
-      
+                     (mvKnots(kOffset + kIdx + mvOrder(oidx) - 1) - mvKnots(kOffset + kIdx));
+      //TO DELETE: DELTA CALCULATION CORRECT, ctrlpts accessed incorrect
+      kIdx++;
+      std::cout << "KOKKOS: ctrlPtsX at i: " << mvCtrlPts(i, 0) << std::endl;
+      std::cout << "KOKKOS: ctrlPtsX at i-1: " << mvCtrlPts(i - 1, 0) << std::endl;
+      //INDEXING HERE IS NOT RIGHT
       mvCtrlPts1stDV(i - 1, 0) =
           (mvCtrlPts(i, 0) - mvCtrlPts(i - 1, 0)) * delta;
       mvCtrlPts1stDV(i - 1, 1) =
@@ -265,12 +277,18 @@ public:
     Kokkos::parallel_for(
         "parallel De Boor's for 1st derivative", offsetSize - 1,
         KOKKOS_CLASS_LAMBDA(const int i) {
+          int knotsStart = knotsOffset(i);
+          int knotsEnd = knotsOffset(i+1);
+          int cp1Start = cp1stDOffset(i);
+          int cp1End = cp1stDOffset(i+1);
+          //std::cout << "knotsStart: " << knotsStart << " knotsEnd: " << knotsEnd << std::endl;
+          //std::cout << "cp1Start: " << cp1Start << " cp1End: " << cp1End << std::endl;
           for (int j = derivSplines.offset(i); j < derivSplines.offset(i + 1);
                j++) {
-            auto x = Kokkos::subview(derivSplines.paraCoor, j);
+            auto x = Kokkos::subview(derivSplines.paraCoor, j - derivSplines.offset(i));
             auto splineIdx = Kokkos::subview(derivSplines.splineIdx, i);
             auto splineOrder = Kokkos::subview(order, splineIdx());
-            eval1stDerivDeBoor(x(), j, res, splineOrder(), knots, ctrlPts1stD);
+            eval1stDerivDeBoor(x(), j, res, splineOrder(), Kokkos::subview(knots, std::pair<int, int>(knotsStart, knotsEnd)), Kokkos::subview(ctrlPts1stD, std::pair<int, int>(cp1Start, cp1End), Kokkos::ALL()));
           }
         });
     return res;
