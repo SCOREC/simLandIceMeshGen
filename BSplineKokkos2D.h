@@ -277,8 +277,6 @@ public:
           int knotsEnd = knotsOffset(i+1);
           int cp1Start = cp1stDOffset(i);
           int cp1End = cp1stDOffset(i+1);
-          //std::cout << "knotsStart: " << knotsStart << " knotsEnd: " << knotsEnd << std::endl;
-          //std::cout << "cp1Start: " << cp1Start << " cp1End: " << cp1End << std::endl;
           for (int j = derivSplines.offset(i); j < derivSplines.offset(i + 1);
                j++) {
             auto x = Kokkos::subview(derivSplines.paraCoor, j - derivSplines.offset(i));
@@ -351,12 +349,16 @@ public:
     Kokkos::parallel_for(
         "parallel De Boor's for 2nd derivative", offsetSize - 1,
         KOKKOS_CLASS_LAMBDA(const int i) {
+          int knotsStart = knotsOffset(i);
+          int knotsEnd = knotsOffset(i+1);
+          int cp2Start = cp2ndDOffset(i);
+          int cp2End = cp2ndDOffset(i+1);
           for (int j = derivSplines.offset(i); j < derivSplines.offset(i + 1);
                j++) {
-            auto x = Kokkos::subview(derivSplines.paraCoor, j);
+            auto x = Kokkos::subview(derivSplines.paraCoor, j - derivSplines.offset(i));
             auto splineIdxSub = Kokkos::subview(derivSplines.splineIdx, i);
             auto splineOrder = Kokkos::subview(order, splineIdxSub());
-            eval2ndDerivDeBoor(x(), j, res, splineOrder(), knots, ctrlPts2ndD);
+            eval2ndDerivDeBoor(x(), j, res, splineOrder(), Kokkos::subview(knots, std::pair<int, int>(knotsStart, knotsEnd)), Kokkos::subview(ctrlPts2ndD, std::pair<int, int>(cp2Start, cp2End), Kokkos::ALL()));
           }
         });
     return res;
