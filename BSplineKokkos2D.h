@@ -153,7 +153,6 @@ public:
     auto mvKnotsOffset = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), knotsOffset);
 
     // Calculate 1st derivative coef
-    // TO DELETE: Knots view is initialized correctly, indexing is off
     int offidx = 1; // Offset index
     int oidx = 0;   // Order index
     int kOffset = 0;   // KnotsOffset index
@@ -168,44 +167,35 @@ public:
         kIdx = 1;
         kOffset = mvKnotsOffset(oidx);
       }
-      std::cout << "order-1 :" << mvOrder(oidx)-1 << std::endl;
-      std::cout << "kOffset + kIdx + mvOrder(oidx) - 1: " << kOffset + kIdx + mvOrder(oidx) - 1 << "kOffset + kIdx: " << kOffset + kIdx << std::endl;
       
       double delta = double(mvOrder(oidx) - 1) /
                      (mvKnots(kOffset + kIdx + mvOrder(oidx) - 1) - mvKnots(kOffset + kIdx));
-      std::cout << "Kokkos 1st deriv delta: " << delta << std::endl;
-      std::cout << "Kokkos currentX: " << mvCtrlPts(ctrlOffset + kIdx, 0) << "prevX: " << mvCtrlPts(ctrlOffset + kIdx - 1, 0) << std::endl;
-      std::cout << "Kokkos currentY: " << mvCtrlPts(ctrlOffset + kIdx, 1) << "prevY: " << mvCtrlPts(ctrlOffset + kIdx - 1, 1) << std::endl;
       mvCtrlPts1stDV(i - 1, 0) =
           (mvCtrlPts(ctrlOffset + kIdx, 0) - mvCtrlPts(ctrlOffset + kIdx - 1, 0)) * delta;
       mvCtrlPts1stDV(i - 1, 1) =
           (mvCtrlPts(ctrlOffset + kIdx, 1) - mvCtrlPts(ctrlOffset + kIdx - 1, 1)) * delta;
-      //std::cout << i - 1 << " Result X: " << mvCtrlPts1stDV(i - 1, 0) << " Y: " << mvCtrlPts1stDV(i - 1, 1) << std::endl;
       kIdx++;
     }
-    //TO DELETE: 1stDerivative coeff calculation corrected
 
     // Calculate 2nd derivative coef
     Kokkos::View<double *[2], MemSpace> ctrlPts2ndDV(
         "ctrlPts2ndDeriv", ctrlPts.extent(0) - (2 * (cpOffset.extent(0)-1)));
     auto mvCtrlPts2ndDV = Kokkos::create_mirror_view(ctrlPts2ndDV);
-    std::cout << "ctrlPts2ndDerivSize: " << mvCtrlPts2ndDV.extent(0) << std::endl;
     offidx = 1;
     oidx = 0;
     kOffset = 0;
     kIdx = 1;
     ctrlOffset = 0;
-    for (int i = 1; i < ctrlPts1stDV.extent(0); i++) {
-      if (i == mvCP2ndDOffsetV(offidx) + 2) {
-        ctrlOffset = mvCP1stDOffsetV(offidx);
+    for (int i = 1; i < mvCtrlPts2ndDV.extent(0); i++) {
+      if (i == mvCP2ndDOffsetV(offidx) + 1) {
         oidx++;
+        ctrlOffset =  mvCP2ndDOffsetV(offidx) + oidx;
         offidx++;
         kIdx = 1;
         kOffset = mvKnotsOffset(oidx);
       }
       double delta = double(mvOrder(oidx) - 2) /
                      (mvKnots(kOffset + kIdx + mvOrder(oidx) - 1) - mvKnots(kOffset + kIdx + 1));
-
       mvCtrlPts2ndDV(i - 1, 0) =
           (mvCtrlPts1stDV(ctrlOffset + kIdx, 0) - mvCtrlPts1stDV(ctrlOffset + kIdx - 1, 0)) * delta;
       mvCtrlPts2ndDV(i - 1, 1) =
