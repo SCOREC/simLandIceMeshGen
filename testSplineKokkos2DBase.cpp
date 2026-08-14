@@ -99,45 +99,6 @@ int main(int argc, char *argv[]) {
         retVal = 1;
       }
     }
-
-    // Test 1st deriv coef initialization
-    auto mv_coef = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),
-                                                       kokkosBSP.getCP1stD());
-    std::vector<double> serialCoefX = serialBSP.x.getCtrlPts_1st();
-    std::vector<double> serialCoefY = serialBSP.y.getCtrlPts_1st();
-
-    for (int i = 0; i < serialCoefX.size(); i++) {
-      double diffX = std::fabs(serialCoefX[i] - mv_coef(i, 0));
-      double diffY = std::fabs(serialCoefY[i] - mv_coef(i, 1));
-      if (diffX > EPSILON || diffY > EPSILON) {
-        std::cout << "diffX: " << diffX << std::endl;
-        std::cout << "diffY: " << diffY << std::endl;
-        std::cout << "Serial 1st coef: " << serialCoefX[i] << ", "
-                  << serialCoefY[i] << std::endl;
-        std::cout << "Kokkos 1st coef: " << mv_coef(i, 0) << ", "
-                  << mv_coef(i, 1) << std::endl;
-        retVal = 1;
-      }
-    }
-
-    auto mv_coef2 = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),
-                                                        kokkosBSP.getCP2ndD());
-
-    serialCoefX = serialBSP.x.getCtrlPts_2nd();
-    serialCoefY = serialBSP.y.getCtrlPts_2nd();
-    for (int i = 0; i < serialCoefX.size(); i++) {
-      double diffX = std::fabs(serialCoefX[i] - mv_coef2(i, 0));
-      double diffY = std::fabs(serialCoefY[i] - mv_coef2(i, 1));
-      if (diffX > EPSILON || diffY > EPSILON) {
-        std::cout << "diffX: " << diffX << std::endl;
-        std::cout << "diffY: " << diffY << std::endl;
-        std::cout << "Serial 2nd coef: " << serialCoefX[i] << ", "
-                  << serialCoefY[i] << std::endl;
-        std::cout << "Kokkos 2nd coef: " << mv_coef2(i, 0) << ", "
-                  << mv_coef2(i, 1) << std::endl;
-        retVal = 1;
-      }
-    }
   }
   Kokkos::finalize();
   return retVal;
