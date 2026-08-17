@@ -8,11 +8,9 @@ using ExecutionSpace = Kokkos::DefaultExecutionSpace;
 using MemSpace = ExecutionSpace::memory_space;
 
 Kokkos::View<double *[2], MemSpace> makeCircle(double centerX, double centerY,
-                                               double radius, int numSegments,
-                                               int ptsPerSegment);
+                                               double radius, int numPts);
 Kokkos::View<double *[2], MemSpace> makeEllipse(double centerX, double centerY,
                                                 double xRadius, double yRadius,
-                                                int numSegments,
-                                                int ptsPerSegment);
+                                                int numPts);
 
 #endif

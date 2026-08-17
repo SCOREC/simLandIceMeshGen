@@ -12,13 +12,11 @@ using MemSpace = ExecutionSpace::memory_space;
 // This function creates points that are on a circle
 // with specified center and radius
 Kokkos::View<double *[2], MemSpace> makeCircle(double centerX, double centerY,
-                                               double radius, int numSplines,
-                                               int ptsPerSpline) {
-  int numPoints = ptsPerSpline * numSplines;
-  Kokkos::View<double *[2], MemSpace> res("result", numPoints);
-  double angle = (2 * Kokkos::numbers::pi) / numPoints;
+                                               double radius, int numPts) {
+  Kokkos::View<double *[2], MemSpace> res("result", numPts);
+  double angle = (2 * Kokkos::numbers::pi) / numPts;
   Kokkos::parallel_for(
-      "parallel calculation of points on a circle", numPoints,
+      "parallel calculation of points on a circle", numPts,
       KOKKOS_LAMBDA(const int i) {
         res(i, 0) = centerX + radius * Kokkos::cos(i * angle);
         res(i, 1) = centerY + radius * Kokkos::sin(i * angle);
@@ -28,13 +26,11 @@ Kokkos::View<double *[2], MemSpace> makeCircle(double centerX, double centerY,
 
 Kokkos::View<double *[2], MemSpace> makeEllipse(double centerX, double centerY,
                                                 double xRadius, double yRadius,
-                                                int numSplines,
-                                                int ptsPerSpline) {
-  int numPoints = numSplines * ptsPerSpline;
-  Kokkos::View<double *[2], MemSpace> res("result", numPoints);
-  double angle = (2 * Kokkos::numbers::pi) / numPoints;
+                                                int numPts) {
+  Kokkos::View<double *[2], MemSpace> res("result", numPts);
+  double angle = (2 * Kokkos::numbers::pi) / numPts;
   Kokkos::parallel_for(
-      "parallel calculation of points on a circle", numPoints,
+      "parallel calculation of points on a circle", numPts,
       KOKKOS_LAMBDA(const int i) {
         res(i, 0) = centerX + xRadius * Kokkos::cos(i * angle);
         res(i, 1) = centerY + yRadius * Kokkos::sin(i * angle);
