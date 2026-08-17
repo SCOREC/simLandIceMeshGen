@@ -2,6 +2,7 @@
 #include "makeScalingTestData.h"
 #include <Kokkos_Core.hpp>
 #include <vector>
+#include <Kokkos_Random.hpp>
 
 #include "curveReader.h"
 #include <cassert>
@@ -16,9 +17,9 @@ using MemSpace = ExecutionSpace::memory_space;
 
 int main(int argc, char *argv[]) {
   int retVal;
-  if (argc != 4) {
-    std::cout << "Input arguments: <number of splines> <number of points per "
-                 "spline> <number of para coords to evaluate>"
+  if (argc != 5) {
+    std::cout << "Input arguments: <number of splines> <average number of points per "
+                 "spline> <number of para coords to evaluate> <uniform distribution or gaussian distribution>"
               << std::endl;
     retVal = 1;
     return retVal;
@@ -31,9 +32,39 @@ int main(int argc, char *argv[]) {
     Kokkos::Timer timer;
     const int numSplines = std::atoi(argv[1]);
     const int ptsPerSpline = std::atoi(argv[2]);
+    std::string mode = argv[4];
+    std::vector<int> gaussianSplineSize(numSplines);
+    Kokkos::View<int*, MemSpace> gaussianSplines("gaussian spline sizes", numSplines);
+    int numpts = 0;
+    if (mode == "gaussian") {
+      //Create a gaussian distribution based on the number of splines specified
+      //Stddev should exclude creating splines with just 2 pts if possible
+      //Currently, the stddev is set based on the 65-95-99.7 rule
+      //Should we allow user defined stddev?
+      Kokkos::Random_XorShift64_Pool<> randPool(13717);
+      double mean = ptsPerSpline * 1.0;
+      double stddev = (ptsPerSpline > 3) ? (ptsPerSpline - 3.0)/3 : (1.0)/3;
+      Kokkos::parallel_for("sampling gaussian distr", numSplines, KOKKOS_LAMBDA(const int i) {
+        auto gen = randPool.get_state();
+        int res = gen.normal(mean, stddev);
+        gaussianSplines(i) = res;
+        randPool.free_state(gen);
+      });
+      //Copy to host
+      auto gsMirror = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), gaussianSplines);
+      for (int i = 0; i < gsMirror.extent(0); i++) {
+        gaussianSplineSize[i] = gsMirror(i);
+        numpts += gaussianSplineSize[i];
+      }
+    }
+    else {
+        //Uniform number of points per spline
+        numpts = numSplines * ptsPerSpline;
+    }
     Kokkos::View<double *[2], MemSpace> pts("PointsOnCircle",
-                                            numSplines * ptsPerSpline);
-    pts = makeCircle(1000.0, 2000.0, 500.0, numSplines, ptsPerSpline);
+                                            numpts);
+    
+    pts = makeCircle(1000.0, 2000.0, 500.0, numpts);
     double dataGenTime = timer.seconds();
 
     // Copy the result to vectors for serial initialization
@@ -51,19 +82,39 @@ int main(int argc, char *argv[]) {
 
     // Initializing Serial BSpline, divide the given points into correct number
     // of splines to initialize A vector that holds all the BSpline2d created
+      //Uniform distribution mode
     std::vector<SplineInterp::BSpline2d> allSerial(numSplines);
-    std::vector<double> subPtsX(ptsPerSpline), subPtsY(ptsPerSpline);
-    for (int i = 0; i < numSplines; i++) {
-      int start = i * ptsPerSpline;
-      for (int j = start; j < start + ptsPerSpline; j++) {
-        subPtsX[j - start] = ptsX[j];
-        subPtsY[j - start] = ptsY[j];
+    if (mode == "uniform") {
+      std::vector<double> subPtsX(ptsPerSpline), subPtsY(ptsPerSpline);
+      for (int i = 0; i < numSplines; i++) {
+        int start = i * ptsPerSpline;
+        for (int j = start; j < start + ptsPerSpline; j++) {
+          subPtsX[j - start] = ptsX[j];
+          subPtsY[j - start] = ptsY[j];
+        }
+        if (ptsPerSpline == 2) {
+          allSerial[i] =
+              SplineInterp::attach_piecewise_linear_curve(subPtsX, subPtsY);
+        } else {
+          allSerial[i] = SplineInterp::fitCubicSplineToPoints(subPtsX, subPtsY);
+        }
       }
-      if (ptsPerSpline == 2) {
-        allSerial[i] =
-            SplineInterp::attach_piecewise_linear_curve(subPtsX, subPtsY);
-      } else {
-        allSerial[i] = SplineInterp::fitCubicSplineToPoints(subPtsX, subPtsY);
+    }
+    else {
+      //Make variable sized splines based on the gaussian sampling result
+      int start = 0;
+      for (int i = 0; i < numSplines; i++) {
+        std::vector<double> subPtsX(gaussianSplineSize[i]), subPtsY(gaussianSplineSize[i]);
+        for (int j = start; j < start + gaussianSplineSize[i]; j++) {
+          subPtsX[j - start] = ptsX[j];
+          subPtsY[j - start] = ptsY[j];
+        }
+        start += gaussianSplineSize[i];
+        if (ptsPerSpline == 2) {
+          allSerial[i] = SplineInterp::attach_piecewise_linear_curve(subPtsX, subPtsY);
+        } else {
+          allSerial[i] = SplineInterp::fitCubicSplineToPoints(subPtsX, subPtsY);
+        }
       }
     }
     double serialSplineCreationTime = timer.seconds();
@@ -173,7 +224,7 @@ int main(int argc, char *argv[]) {
     Kokkos::deep_copy(resMirror, res);
     // Compare serial and kokkos result
     timer.reset();
-    for (int i = 0; i < evalAt.size(); i++) {
+    for (int i = 0; i < evalAt.size() * numSplines; i++) {
       double xDiff = std::fabs(resMirror(i, 0)) - std::fabs(serialResX[i]);
       double yDiff = std::fabs(resMirror(i, 1)) - std::fabs(serialResY[i]);
       if (xDiff > EPSILON || yDiff > EPSILON) {
@@ -192,6 +243,7 @@ int main(int argc, char *argv[]) {
 
     /*-------- End of 2nd Deriv Test --------*/
     // Outputting the metrics
+    std::cout << "Scaling test mode: " << mode << std::endl;
     std::cout << "-------- Duration Measured --------" << std::endl;
     std::cout << "Large scale data generation time: " << dataGenTime
               << std::endl;
