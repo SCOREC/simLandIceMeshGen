@@ -17,9 +17,9 @@ using MemSpace = ExecutionSpace::memory_space;
 
 int main(int argc, char *argv[]) {
   int retVal;
-  if (argc != 5) {
-    std::cout << "Input arguments: <number of splines> <average number of points per "
-                 "spline> <number of para coords to evaluate> <uniform distribution or gaussian distribution>"
+  if (argc != 6) {
+    std::cerr << "Input arguments: <number of splines> <average number of points per "
+                 "spline> <number of para coords to evaluate> <uniform distribution or gaussian distribution> <output file name(file type must be .csv)>"
               << std::endl;
     retVal = 1;
     return retVal;
@@ -33,6 +33,11 @@ int main(int argc, char *argv[]) {
     const int numSplines = std::atoi(argv[1]);
     const int ptsPerSpline = std::atoi(argv[2]);
     std::string mode = argv[4];
+    const std::string outFile = argv[5];
+    if (outFile.substr(outFile.size() - 4, outFile.size()) != ".csv") {
+      std::cerr << "Output file provided is not a csv" << std::endl;
+      return 1; 
+    }
     std::vector<int> gaussianSplineSize(numSplines);
     Kokkos::View<int*, MemSpace> gaussianSplines("gaussian spline sizes", numSplines);
     int numpts = 0;
@@ -240,10 +245,21 @@ int main(int argc, char *argv[]) {
       }
     }
     double verifyTime2ndDeriv = timer.seconds();
-
     /*-------- End of 2nd Deriv Test --------*/
+    //Outputting some of the data for plotting
+    //Data here will be appended and not overwrote
+    std::ofstream output(outFile, std::ios::app);
+    output << mode << ", "
+           << numSplines << ", "
+           << paraCoords << ", "
+           << kokkos1stDerivTime << ", "
+           << kokkos2ndDerivTime << std::endl;
+    output.close();
+
     // Outputting the metrics
     std::cout << "Scaling test mode: " << mode << std::endl;
+    std::cout << "number of splines: " << numSplines << std::endl;
+    std::cout << "number of para coords: " << paraCoords << std::endl;
     std::cout << "-------- Duration Measured --------" << std::endl;
     std::cout << "Large scale data generation time: " << dataGenTime
               << std::endl;
