@@ -25,26 +25,26 @@ RUN_DIR="${BUILD_DIR}/testKokkos2DScalingTest"
 echo "Running Scaling Test with uniform number of pts per spline"
 
 #1000 splines, 10 pts per spline, 50000 paracoords
-${RUN_DIR} 1000 10 50000 uniform
+${RUN_DIR} 1000 10 50000 uniform "scalingTestResult.csv"
 
 #2000 splines, 10 pts per spline, 50000 paracoords
-${RUN_DIR} 2000 10 50000 uniform
+${RUN_DIR} 2000 10 50000 uniform "scalingTestResult.csv"
 
 #6000 splines, 10 pts per spline, 50000 paracoords
-${RUN_DIR} 6000 10 50000 uniform
+${RUN_DIR} 6000 10 50000 uniform "scalingTestResult.csv"
 
 echo "-------- END OF UNIFORM TEST --------"
 
 echo "Running Scaling Test with variable sized pts per spline, sampled from a gaussian distribution"
 
 #1000 splines, 10 pts per spline, 50000 paracoords
-${RUN_DIR} 1000 10 50000 gaussian
+${RUN_DIR} 1000 10 50000 gaussian "scalingTestResult.csv"
 
 #2000 splines, 10 pts per spline, 50000 paracoords
-${RUN_DIR} 2000 10 50000 gaussian
+${RUN_DIR} 2000 10 50000 gaussian "scalingTestResult.csv"
 
 #6000 splines, 10 pts per spline, 50000 paracoords
-${RUN_DIR} 6000 10 50000 gaussian
+${RUN_DIR} 6000 10 50000 gaussian "scalingTestResult.csv"
 echo "-------- END OF GAUSSIAN TEST --------"
 
 
