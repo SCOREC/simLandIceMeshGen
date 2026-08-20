@@ -1,87 +1,89 @@
-# This is the top level CMake file for the SCOREC build
-cmake_minimum_required(VERSION 3.10)
+#This is the top level CMake file for the SCOREC build
+cmake_minimum_required(VERSION 3.10) 
 project(simLandIceMeshGen VERSION 0.0.1 LANGUAGES CXX)
 
-enable_testing()
+enable_testing() 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 option(USE_SIMMODSUITE "Enable SimModSuite support" ON)
 
-if(USE_SIMMODSUITE)
-  find_package(SimModSuite MODULE REQUIRED)
-  message(STATUS "Building with SimModSuite support")
-else()
-  message(STATUS "Building without SimModSuite support")
+if (USE_SIMMODSUITE) 
+  find_package(SimModSuite MODULE REQUIRED) 
+  message(STATUS "Building with SimModSuite support") 
+else() 
+  message(STATUS "Building without SimModSuite support") 
 endif()
 
 find_package(BLAS REQUIRED)
 
 find_package(Omega_h REQUIRED)
 
-add_library(splineInterp splineInterpolation.cc BSpline.cc BSpline2d.cc Expression.cc PolyNomial.cc)
+add_library(splineInterp splineInterpolation.cc BSpline.cc BSpline2d.cc Expression.cc PolyNomial.cc) 
 target_link_libraries(splineInterp PRIVATE BLAS::BLAS Omega_h::omega_h)
 
-add_library(modelGen2d modelGen2d.cc geomReaders.cc)
-target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Quadtree/include)
+add_library(modelGen2d modelGen2d.cc geomReaders.cc) 
+target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}) 
+target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Quadtree/include) 
 target_link_libraries(modelGen2d PRIVATE splineInterp Omega_h::omega_h)
 
-add_library(splineKokkos2D INTERFACE)
-target_link_libraries(splineKokkos2D INTERFACE Kokkos::kokkos)
+add_library(splineKokkos2D INTERFACE) 
+target_link_libraries(splineKokkos2D INTERFACE Kokkos::kokkos splineInterp)
 
+add_library(makeScalingTestData makeScalingTestData.cpp)
+target_link_libraries(makeScalingTestData PRIVATE Kokkos::kokkos)
 
 set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
 
-if(USE_SIMMODSUITE)
-  add_library(simModelGen2d simModelGen2d.cc)
-  target_include_directories(simModelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-  target_include_directories(simModelGen2d PUBLIC ${SIMMODSUITE_INCLUDE_DIR})
-  target_link_libraries(simModelGen2d PRIVATE ${SIMMODSUITE_LIBS})
-  target_link_libraries(simModelGen2d PRIVATE splineInterp modelGen2d)
+if (USE_SIMMODSUITE) 
+  add_library(simModelGen2d simModelGen2d.cc) 
+  target_include_directories(simModelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}) 
+  target_include_directories(simModelGen2d PUBLIC ${SIMMODSUITE_INCLUDE_DIR}) 
+  target_link_libraries(simModelGen2d PRIVATE ${SIMMODSUITE_LIBS}) 
+  target_link_libraries(simModelGen2d PRIVATE splineInterp modelGen2d) 
   target_compile_definitions(simModelGen2d PRIVATE USE_SIMMODSUITE)
 
-  function(addExe name)
-    add_executable(${name} ${name}.cc)
-    target_link_libraries(${name} PRIVATE simModelGen2d Omega_h::omega_h)
+  function(addExe name) 
+    add_executable(${name} ${name}.cc) 
+    target_link_libraries(${name} PRIVATE simModelGen2d Omega_h::omega_h) 
   endfunction()
 
-  addExe(generate2dModel)
+  addExe(generate2dModel) 
   addExe(generate2dModelFromMesh)
 
   add_test(NAME simModelGen2dFromMesh_thwaites
-    COMMAND ./generate2dModelFromMesh ${testDataDir}/thwaites_basal_effectiveStrain.osh thwaites 1 100 100 "km")
-  set_tests_properties(simModelGen2dFromMesh_thwaites PROPERTIES
+    COMMAND ./generate2dModelFromMesh ${testDataDir}/thwaites_basal_effectiveStrain.osh thwaites 1 100 100 "km") 
+  set_tests_properties(simModelGen2dFromMesh_thwaites PROPERTIES 
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 26")
   add_test(NAME simModelGen2d_gis
-    COMMAND ./generate2dModel ${testDataDir}/gis.msh gis 1 100 100 1 "m")
+    COMMAND ./generate2dModel ${testDataDir}/gis.msh gis 1 100 100 1 "m") 
   set_tests_properties(simModelGen2d_gis PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 925")
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 925") 
   set_tests_properties(simModelGen2d_gis PROPERTIES
     PASS_REGULAR_EXPRESSION "mesh faces in surface: 3326")
-  
+
   add_test(NAME simModelGen2d_ais
     COMMAND ./generate2dModel ${testDataDir}/ais.vtk ais 1 100 100 1 "m")
-  
+
   add_test(NAME simModelGen2d_oneSquare_jig
-    COMMAND ./generate2dModel ${testDataDir}/oneSquare.msh one_jig 1e-6 100 100 1 "km")
+    COMMAND ./generate2dModel ${testDataDir}/oneSquare.msh one_jig 1e-6 100 100 1 "km") 
   set_tests_properties(simModelGen2d_oneSquare_jig PROPERTIES
     PASS_REGULAR_EXPRESSION "mesh faces in surface: 4")
-  
-  add_test(NAME simModelGen2d_twoSquares_jig
+
+  add_test(NAME simModelGen2d_twoSquares_jig 
     COMMAND ./generate2dModel ${testDataDir}/twoSquares.msh two_jig 1e-6 100 100 1 "km")
   set_tests_properties(simModelGen2d_twoSquares_jig PROPERTIES
     PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
-  
+
   add_test(NAME simModelGen2d_oneSquare_vtk
     COMMAND ./generate2dModel ${testDataDir}/oneSquare.vtk one_vtk 1e-6 120 30 1 "km")
   set_tests_properties(simModelGen2d_oneSquare_vtk PROPERTIES
     PASS_REGULAR_EXPRESSION "mesh faces in surface: 4")
-  
+
   add_test(NAME simModelGen2d_twoSquares_vtk
     COMMAND ./generate2dModel ${testDataDir}/twoSquares.vtk two_vtk 1e-6 120 30 1 "km")
   set_tests_properties(simModelGen2d_twoSquares_vtk PROPERTIES
     PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
-  
+
   add_test(NAME simModelGen2d_oval_vtk
     COMMAND ./generate2dModel ${testDataDir}/oval_wBbox.vtk oval 1e-8 120 120 1 "km")
   set_tests_properties(simModelGen2d_oval_vtk PROPERTIES
@@ -89,16 +91,16 @@ if(USE_SIMMODSUITE)
 endif()
 
 add_library(curveReader curveReader.cc)
-target_include_directories(curveReader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-if(USE_SIMMODSUITE)
-  addExe(testCreateEdges)
+target_include_directories(curveReader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}) 
+if (USE_SIMMODSUITE)
+  addExe(testCreateEdges) 
   target_link_libraries(testCreateEdges PRIVATE curveReader)
 
-  add_test(NAME curve4277
+  add_test(NAME curve4277 
     COMMAND ./testCreateEdges ${testDataDir}/testCurve4277.csv curve4277)
-  set_tests_properties(curve4277 PROPERTIES
+  set_tests_properties(curve4277 PROPERTIES 
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 3")
-  set_tests_properties(curve4277 PROPERTIES
+  set_tests_properties(curve4277 PROPERTIES 
     PASS_REGULAR_EXPRESSION "Number of edges in model: 3")
 
   add_test(NAME curve1293
@@ -111,12 +113,12 @@ if(USE_SIMMODSUITE)
   add_test(NAME curve1655
     COMMAND ./testCreateEdges ${testDataDir}/testCurve1655.csv curve1655)
   set_tests_properties(curve1655 PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 2")
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 2") 
   set_tests_properties(curve1655 PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of edges in model: 2")
 
   add_test(NAME intersection2339_2344
-    COMMAND ./testCreateEdges
+    COMMAND ./testCreateEdges 
     ${testDataDir}/testIntersectionEdge2339Edge2344.csv
     intersection2339_2344)
 
@@ -124,7 +126,7 @@ if(USE_SIMMODSUITE)
     COMMAND ./testCreateEdges ${testDataDir}/testEdge522.csv edge522)
   set_tests_properties(edge522 PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 4")
-  set_tests_properties(edge522 PROPERTIES
+  set_tests_properties(edge522 PROPERTIES 
     PASS_REGULAR_EXPRESSION "Number of edges in model: 4")
 
   add_test(NAME dblMdlVtx
@@ -136,46 +138,46 @@ if(USE_SIMMODSUITE)
 
   add_test(NAME fjord
     COMMAND ./testCreateEdges ${testDataDir}/fjord.csv fjord)
-
+  
   addExe(testSplineFitting)
   target_link_libraries(testSplineFitting PRIVATE curveReader splineInterp)
-  
+
   add_test(NAME testSplineFitting_straight_edge
-           COMMAND ./testSplineFitting ${testDataDir}/testCurveStraightLine.csv 9)
+    COMMAND ./testSplineFitting ${testDataDir}/testCurveStraightLine.csv 9)
   add_test(NAME testSplineFitting_edge_2pts
-           COMMAND ./testSplineFitting ${testDataDir}/testCurve2pts.csv 1)
+    COMMAND ./testSplineFitting ${testDataDir}/testCurve2pts.csv 1)
   add_test(NAME testSplineFitting_single_edge
-           COMMAND ./testSplineFitting ${testDataDir}/testCurveSplineFitting.csv 12.2685)
+    COMMAND ./testSplineFitting ${testDataDir}/testCurveSplineFitting.csv 12.2685) 
   add_test(NAME testSplineFitting_sine_edge
-           COMMAND ./testSplineFitting ${testDataDir}/testCurveSineSegment.csv 10.24227846)
+    COMMAND ./testSplineFitting ${testDataDir}/testCurveSineSegment.csv 10.24227846) 
   add_test(NAME testSplineFitting_gisCurve1_edge
-           COMMAND ./testSplineFitting ${testDataDir}/gisCurve1.csv 22.8891)
-  add_test(NAME testSplineFitting_gisCurve3_edge
-           COMMAND ./testSplineFitting ${testDataDir}/gisCurve3.csv 20.669088)
+    COMMAND ./testSplineFitting ${testDataDir}/gisCurve1.csv 22.8891)
+  add_test(NAME testSplineFitting_gisCurve3_edge 
+    COMMAND ./testSplineFitting ${testDataDir}/gisCurve3.csv 20.669088)
 endif()
 
-# Create function for executables that only use curveReader and modelGen2d (no SimModSuite)
+#Create function for executables that only use curveReader and modelGen2d(no SimModSuite)
 function(addCurveExe name)
   add_executable(${name} ${name}.cc)
   target_link_libraries(${name} PRIVATE curveReader modelGen2d)
 endfunction()
 
-# Build curve-only executables when SimModSuite is disabled
+#Build curve - only executables when SimModSuite is disabled
 addCurveExe(testOnCurve)
-add_test(NAME onCurve_edge522
+add_test(NAME onCurve_edge522 
   COMMAND ./testOnCurve ${testDataDir}/testEdge522.csv 4 0 150)
 
-addCurveExe(testDiscoverTopo)
-add_test(NAME testDiscoverTopo_dblMdlVtx
+addCurveExe(testDiscoverTopo) 
+add_test(NAME testDiscoverTopo_dblMdlVtx 
   COMMAND ./testDiscoverTopo ${testDataDir}/testDoubleMdlVtxWBbox.csv)
 add_test(NAME testDiscoverTopo_L11pts
-  COMMAND ./testDiscoverTopo ${testDataDir}/L_11pts.csv)
+  COMMAND ./testDiscoverTopo ${testDataDir}/L_11pts.csv) 
 set_tests_properties(testDiscoverTopo_L11pts PROPERTIES
   PASS_REGULAR_EXPRESSION "number of model vertices: 3")
 
 #TEST FOR BSPLINEKOKKOS2D CONSTRUCTOR
-add_executable(testSplineKokkos2DBase testSplineKokkos2DBase.cpp)
-target_link_libraries(testSplineKokkos2DBase PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos)
+add_executable(testSplineKokkos2DBase testSplineKokkos2DBase.cpp) 
+target_link_libraries(testSplineKokkos2DBase PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos) 
 add_test(NAME testSplineKokkos2DStraightEdge
   COMMAND ./testSplineKokkos2DBase contour_test_data/testCurveStraightLine.csv 9)
 add_test(NAME testSplineKokkos2D2Pts
@@ -185,21 +187,46 @@ add_test(NAME testSplineKokkos2DSingleEdge
 
 #TEST FOR BSPLINEKOKKOS2D 1ST DERIVATIVE
 add_executable(testKokkos2D1stDeriv testKokkos2D1stDeriv.cpp)
-target_link_libraries(testKokkos2D1stDeriv PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos)
+target_link_libraries(testKokkos2D1stDeriv PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos) 
 add_test(NAME testDeriv2DStraightEdge
-  COMMAND ./testKokkos2D1stDeriv contour_test_data/testCurveStraightLine.csv 9)
+  COMMAND ./testKokkos2D1stDeriv contour_test_data/testCurveStraightLine.csv 9) 
 add_test(NAME testDeriv2D2Pts
-  COMMAND ./testKokkos2D1stDeriv contour_test_data/testCurve2pts.csv 1)
+  COMMAND ./testKokkos2D1stDeriv contour_test_data/testCurve2pts.csv 1) 
 add_test(NAME testDeriv2DSingleEdge
   COMMAND ./testKokkos2D1stDeriv ${testDataDir}/testCurveSplineFitting.csv 12.2685)
 
 #TEST FOR BSPLINEKOKKOS2D 2ND DERIVATIVE
 add_executable(testKokkos2D2ndDeriv testKokkos2D2ndDeriv.cpp)
-target_link_libraries(testKokkos2D2ndDeriv PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos)
+target_link_libraries(testKokkos2D2ndDeriv PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos) 
 add_test(NAME test2NDDeriv2DStraightEdge
-  COMMAND ./testKokkos2D2ndDeriv contour_test_data/testCurveStraightLine.csv 9)
+  COMMAND ./testKokkos2D2ndDeriv contour_test_data/testCurveStraightLine.csv 9) 
 add_test(NAME test2NDDeriv2D2Pts
-  COMMAND ./testKokkos2D2ndDeriv contour_test_data/testCurve2pts.csv 1)
+  COMMAND ./testKokkos2D2ndDeriv contour_test_data/testCurve2pts.csv 1) 
 add_test(NAME test2NDDerive2DSingleEdge
   COMMAND ./testKokkos2D2ndDeriv contour_test_data/testSplineFitting.csv 12.2685)
 
+#BSPLINEKOKKOS2D SCALING TEST
+add_executable(testKokkos2DScalingTest testKokkos2DScalingTest.cpp)
+target_link_libraries(testKokkos2DScalingTest PRIVATE splineInterp curveReader modelGen2d splineKokkos2D makeScalingTestData Kokkos::kokkos)
+add_test (NAME testKokkos2DScalingTest_720pts
+  COMMAND ./testKokkos2DScalingTest 720 1 50000 uniform scalingResult.csv) 
+add_test (NAME testKokkos2DScalingTest_1200pts
+  COMMAND ./testKokkos2DScalingTest 1200 1 50000 uniform scalingResult.csv)
+add_test (NAME testKokkos2DScalingTest_3600pts
+  COMMAND ./testKokkos2DScalingTest 3600 1 50000 uniform scalingResult.csv)
+add_test (NAME testKokkos2DScalingTest_1000SplinesUniform
+  COMMAND ./testKokkos2DScalingTest 1000 10 50000 uniform scalingResult.csv)
+add_test (NAME testKokkos2DScalingTest_2000SplinesUniform
+  COMMAND ./testKokkos2DScalingTest 2000 10 50000 uniform scalingResult.csv)
+add_test (Name testKokkos2DScalingTest_6000SplinesUniform
+  COMMAND ./testKokkos2DScalingTest 6000 10 50000 uniform scalingResult.csv)
+add_test (NAME testKokkos2DScalingTest_1000SplinesGaussian
+  COMMAND ./testKokkos2DScalingTest 1000 10 50000 gaussian scalingResult.csv)
+add_test (NAME testKokkos2DScalingTest_2000SplinesGaussian
+  COMMAND ./testKokkos2DScalingTest 2000 10 50000 gaussian scalingResult.csv)
+add_test (Name testKokkos2DScalingTest_6000SplinesGaussian
+  COMMAND ./testKokkos2DScalingTest 6000 10 50000 gaussian scalingResult.csv)
+
+#BSPLINEKOKKOS2D CONSTRUCTOR FROM MULTIPLE SERIAL BSpline2d
+add_executable(testMultiSplineBase testMultiSplineBase.cpp)
+target_link_libraries(testMultiSplineBase PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos)
