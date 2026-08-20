@@ -5,8 +5,6 @@ set -e
 usage="Usage: ./run_BSplineKokkos2D_scaling_test.sh /path/to/build_dir"
 
 #Check commandline arguments
-echo $#
-echo $1
 if [[ $# -lt 1 ]]; then
   echo $usage && exit 1
 fi

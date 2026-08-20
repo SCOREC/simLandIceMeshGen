@@ -16,11 +16,6 @@ with open('scalingTestResult.csv', mode = 'r') as infile:
     if (row['mode'] == 'uniform'):
       modeCount += 1
 
-print("x: ", x)
-print("y1: ", y1)
-print("y2: ", y2)
-print("modeCount: ", modeCount)
-
 #Plotting 1st deriv result uniform
 plt.plot(x[:modeCount], y1[:modeCount], 'o', linestyle='-')
 for i in range(modeCount):
