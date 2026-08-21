@@ -1,0 +1,16 @@
+# vtk DataFile Version 3.0
+Stretched oval with 20 points and 4 bounding box points (individual lines, max x=3) (bbox split)
+ASCII
+DATASET POLYDATA
+
+POINTS 4 float
+-5.0000 -5.000 0.0000
+ 5.0000 -5.000 0.0000
+ 5.0000  5.000 0.0000
+-5.0000  5.000 0.0000
+
+LINES 4 12
+2 0 1
+2 1 2
+2 2 3
+2 3 0

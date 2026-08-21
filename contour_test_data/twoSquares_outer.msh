@@ -1,0 +1,13 @@
+# mesh.msh; created manually
+MSHID=3;euclidean-mesh
+NDIMS=2
+POINT=4
+0;0;0
+3;0;0
+3;3;0
+0;3;0
+EDGE2=4
+0;1;0
+1;2;0
+2;3;0
+3;0;0

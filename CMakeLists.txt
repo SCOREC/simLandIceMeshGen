@@ -54,66 +54,92 @@ if(USE_SIMMODSUITE)
   set_tests_properties(simModelGen2dFromMesh_thwaites PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 26")
   add_test(NAME simModelGen2d_gis
-    COMMAND ./generate2dModel ${testDataDir}/gis.msh gis 1 100 100 1 "m")
+    COMMAND ./generate2dModel
+      --contour file=${testDataDir}/gis_inner.msh,order=0,units=m
+      --contour file=${testDataDir}/gis_outer.msh,order=1,units=m
+      gis 1 100 100 1)
   set_tests_properties(simModelGen2d_gis PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 925")
   set_tests_properties(simModelGen2d_gis PROPERTIES
     PASS_REGULAR_EXPRESSION "mesh faces in surface: 68495")
-  
+
   add_test(NAME simModelGen2d_ais
-    COMMAND ./generate2dModel ${testDataDir}/ais.vtk ais 1 100 100 1 "m")
+    COMMAND ./generate2dModel
+      --contour file=${testDataDir}/ais_inner.vtk,order=0,units=m
+      --contour file=${testDataDir}/ais_outer.vtk,order=1,units=m
+      ais 1 100 100 1)
   set_tests_properties(simModelGen2d_ais PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 571")
   set_tests_properties(simModelGen2d_ais PROPERTIES
     PASS_REGULAR_EXPRESSION "mesh faces in surface: 216199")
 
   add_test(NAME simModelGen2d_gis_failIfCleaned
-    COMMAND ./generate2dModel --fail-if-cleaned ${testDataDir}/gis.msh gis_failIfCleaned 1 100 100 1 "m")
+    COMMAND ./generate2dModel
+      --contour file=${testDataDir}/gis_inner.msh,order=0,units=m,fail-if-cleaned
+      --contour file=${testDataDir}/gis_outer.msh,order=1,units=m,fail-if-cleaned
+      gis_failIfCleaned 1 100 100 1)
   set_tests_properties(simModelGen2d_gis_failIfCleaned PROPERTIES
     WILL_FAIL TRUE)
 
   add_test(NAME simModelGen2d_gis_domainBoundary
-    COMMAND ./generate2dModel --fail-if-cleaned ${testDataDir}/gis_domain_boundary.vtk gis_domain_boundary 1 100 100 0 "m")
+    COMMAND ./generate2dModel
+      --contour file=${testDataDir}/gis_domain_boundary.vtk,order=0,units=m,fail-if-cleaned
+      gis_domain_boundary 1 100 100 0)
   set_tests_properties(simModelGen2d_gis_domainBoundary PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 123")
 
   add_test(NAME simModelGen2d_gis_noBbox
-    COMMAND ./generate2dModel ${testDataDir}/gis_noBbox.vtk gis_noBbox 1 100 100 1 "m")
+    COMMAND ./generate2dModel
+      --contour file=${testDataDir}/gis_noBbox.vtk,order=0,units=m
+      gis_noBbox 1 100 100 1)
   set_tests_properties(simModelGen2d_gis_noBbox PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 310")
   set_tests_properties(simModelGen2d_gis_noBbox PROPERTIES
     PASS_REGULAR_EXPRESSION "mesh faces in surface: 118736")
-  
+
   add_test(NAME simModelGen2d_oneSquare_jig
-    COMMAND ./generate2dModel ${testDataDir}/oneSquare.msh one_jig 1e-6 100 100 1 "km")
+    COMMAND ./generate2dModel
+      --contour file=${testDataDir}/oneSquare.msh,order=0,units=km
+      one_jig 1e-6 100 100 1)
   set_tests_properties(simModelGen2d_oneSquare_jig PROPERTIES
     PASS_REGULAR_EXPRESSION "mesh faces in surface: 1122")
   set_tests_properties(simModelGen2d_oneSquare_jig PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 4")
-  
+
   add_test(NAME simModelGen2d_twoSquares_jig
-    COMMAND ./generate2dModel ${testDataDir}/twoSquares.msh two_jig 1e-6 100 100 1 "km")
+    COMMAND ./generate2dModel
+      --contour file=${testDataDir}/twoSquares_inner.msh,order=0,units=km
+      --contour file=${testDataDir}/twoSquares_outer.msh,order=1,units=km
+      two_jig 1e-6 100 100 1)
   set_tests_properties(simModelGen2d_twoSquares_jig PROPERTIES
     PASS_REGULAR_EXPRESSION "mesh faces in surface: 1176")
   set_tests_properties(simModelGen2d_twoSquares_jig PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 8")
-  
+
   add_test(NAME simModelGen2d_oneSquare_vtk
-    COMMAND ./generate2dModel ${testDataDir}/oneSquare.vtk one_vtk 1e-6 120 30 1 "km")
+    COMMAND ./generate2dModel
+      --contour file=${testDataDir}/oneSquare.vtk,order=0,units=km
+      one_vtk 1e-6 120 30 1)
   set_tests_properties(simModelGen2d_oneSquare_vtk PROPERTIES
     PASS_REGULAR_EXPRESSION "mesh faces in surface: 1122")
   set_tests_properties(simModelGen2d_oneSquare_vtk PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 4")
-  
+
   add_test(NAME simModelGen2d_twoSquares_vtk
-    COMMAND ./generate2dModel ${testDataDir}/twoSquares.vtk two_vtk 1e-6 120 30 1 "km")
+    COMMAND ./generate2dModel
+      --contour file=${testDataDir}/twoSquares_inner.vtk,order=0,units=km
+      --contour file=${testDataDir}/twoSquares_outer.vtk,order=1,units=km
+      two_vtk 1e-6 120 30 1)
   set_tests_properties(simModelGen2d_twoSquares_vtk PROPERTIES
     PASS_REGULAR_EXPRESSION "mesh faces in surface: 1176")
   set_tests_properties(simModelGen2d_twoSquares_vtk PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 8")
-  
+
   add_test(NAME simModelGen2d_oval_vtk
-    COMMAND ./generate2dModel ${testDataDir}/oval_wBbox.vtk oval 1e-8 120 120 1 "km")
+    COMMAND ./generate2dModel
+      --contour file=${testDataDir}/oval_inner.vtk,order=0,units=km
+      --contour file=${testDataDir}/oval_outer.vtk,order=1,units=km
+      oval 1e-8 120 120 1)
   set_tests_properties(simModelGen2d_oval_vtk PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 6")
 endif()

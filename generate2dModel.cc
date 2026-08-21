@@ -1,5 +1,6 @@
 #include "simModelGen2d.h"
 #include "netcdfWriter.h"
+#include <algorithm> //std::sort
 #include <numeric> //std::accumulate
 #include "Omega_h_file.hpp"
 #include "Omega_h_library.hpp"
@@ -12,6 +13,99 @@ std::string getFileExtension(const std::string &filename) {
     return filename.substr(dotPos);
   }
   return "";
+}
+
+// A single contour supplied via a repeated --contour command line flag, e.g.:
+//   --contour file=inner.msh,order=0,units=km,fail-if-cleaned
+struct ContourSpec {
+  std::string file;
+  int order = -1;
+  std::string units;
+  bool failIfCleaned = false;
+};
+
+std::vector<std::string> splitOn(const std::string &s, char delim) {
+  std::vector<std::string> parts;
+  size_t start = 0;
+  while (start <= s.size()) {
+    size_t pos = s.find(delim, start);
+    if (pos == std::string::npos) {
+      parts.push_back(s.substr(start));
+      break;
+    }
+    parts.push_back(s.substr(start, pos - start));
+    start = pos + 1;
+  }
+  return parts;
+}
+
+ContourSpec parseContourSpec(const std::string &arg) {
+  ContourSpec spec;
+  for (const auto &kv : splitOn(arg, ',')) {
+    if (kv == "fail-if-cleaned") {
+      spec.failIfCleaned = true;
+      continue;
+    }
+    auto eq = kv.find('=');
+    if (eq == std::string::npos) {
+      std::cerr << "ERROR: malformed --contour option '" << kv << "'\n";
+      exit(EXIT_FAILURE);
+    }
+    const auto key = kv.substr(0, eq);
+    const auto value = kv.substr(eq + 1);
+    if (key == "file") {
+      spec.file = value;
+    } else if (key == "order") {
+      spec.order = std::stoi(value);
+    } else if (key == "units") {
+      spec.units = value;
+    } else {
+      std::cerr << "ERROR: unknown --contour option '" << key << "'\n";
+      exit(EXIT_FAILURE);
+    }
+  }
+  if (spec.file.empty()) {
+    std::cerr << "ERROR: --contour is missing required 'file=' option\n";
+    exit(EXIT_FAILURE);
+  }
+  if (spec.order < 0) {
+    std::cerr << "ERROR: --contour '" << spec.file
+               << "' is missing required 'order=' option (0=innermost)\n";
+    exit(EXIT_FAILURE);
+  }
+  if (spec.units != "m" && spec.units != "km") {
+    std::cerr << "ERROR: --contour '" << spec.file
+               << "' has missing/invalid 'units=' option (must be 'm' or 'km')\n";
+    exit(EXIT_FAILURE);
+  }
+  return spec;
+}
+
+// Reads a single contour from a file. The file must contain exactly one
+// contour; if the legacy bbox+inner splitting heuristic in
+// splitIntoInnerAndOuter fires (i.e. the file looks like it defines two
+// contours) this is treated as an error since it's ambiguous which contour
+// the caller wants.
+GeomInfo readSingleContour(const std::string &filename, bool debug) {
+  const auto ext = getFileExtension(filename);
+  ModelFeatures features;
+  if (ext == ".vtk") {
+    features = readVtkGeom(filename, debug);
+  } else if (ext == ".msh") {
+    features = readJigGeom(filename, debug);
+  } else {
+    std::cerr << "Unsupported file extension: " << ext << "\n";
+    exit(EXIT_FAILURE);
+  }
+  const bool hasInner = features.inner.numVtx > 0;
+  const bool hasOuter = features.outer.numVtx > 0;
+  if (hasInner && hasOuter) {
+    std::cerr << "ERROR: '" << filename << "' contains two contours "
+                 "(bounding box + inner contour) but --contour expects "
+                 "exactly one contour per file\n";
+    exit(EXIT_FAILURE);
+  }
+  return hasInner ? features.inner : features.outer;
 }
 
 Omega_h::Reals setParametricCoords(GeomInfo& geom, const PointClassification& ptClass, const SplineInterp::SplineInfo& sinfo, bool debug=false) {
@@ -54,24 +148,37 @@ void writePointParametricCoords(Omega_h::Reals paraCoords_d, std::string filenam
 }
 
 int main(int argc, char **argv) {
-  bool failIfCleaned = false;
+  std::vector<ContourSpec> contourSpecs;
+  std::vector<std::string> positional;
   for (int i = 1; i < argc; ++i) {
-    if (std::string(argv[i]) == "--fail-if-cleaned") {
-      failIfCleaned = true;
-      // shift remaining args down
-      for (int j = i; j < argc - 1; ++j)
-        argv[j] = argv[j + 1];
-      --argc;
-      break;
+    const std::string arg = argv[i];
+    if (arg == "--contour") {
+      if (i + 1 >= argc) {
+        std::cerr << "ERROR: --contour requires an argument\n";
+        return 1;
+      }
+      contourSpecs.push_back(parseContourSpec(argv[++i]));
+    } else {
+      positional.push_back(arg);
     }
   }
 
-  const int numExpectedArgs = 8;
-  if (argc != numExpectedArgs) {
-    std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
-                 "<coincidentVtxTolerance> <angleTolerance> <createMesh> <inputDataUnits>\n"
-                 "Optional flags:\n"
-                 "  --fail-if-cleaned: exit with error if cleaning removes any input points\n";
+  const size_t numExpectedPositionalArgs = 5;
+  if (positional.size() != numExpectedPositionalArgs || contourSpecs.empty()) {
+    std::cerr << "Usage: --contour file=<jigsaw .msh or .vtk file>,order=<N>,units=<m|km>"
+                 "[,fail-if-cleaned] [--contour ...] "
+                 "<output prefix> <coincidentVtxTolerance> <angleTolerance> "
+                 "<onCurveAngleTolerance> <createMesh>\n";
+    std::cerr << "--contour specifies one nested contour and may be repeated. "
+                 "order is the nesting order of the contour, 0=innermost, "
+                 "N-1=outermost, where N is the total number of contours. "
+                 "Exactly one or two --contour flags are currently supported.\n";
+    std::cerr << "  file: path to a jigsaw .msh or .vtk file containing exactly "
+                 "one contour\n";
+    std::cerr << "  order: nesting order, 0=innermost, N-1=outermost\n";
+    std::cerr << "  units: m=meters, km=kilometers\n";
+    std::cerr << "  fail-if-cleaned: exit with error if cleaning removes any "
+                 "input points from this contour\n";
     std::cerr << "coincidentVtxTolerance is the mininum allowed "
                  "distance between adjacent vertices in the "
                  "input.  Vertices within the specified distance will "
@@ -85,67 +192,84 @@ int main(int argc, char **argv) {
                  "used to determine if they are part of the same curve.\n";
     std::cerr << "createMesh = 1:generate mesh, otherwise, "
                  "skip mesh generation.\n";
-    std::cerr << "inputDataUnits = m:meters, km:kilometers\n";
     return 1;
   }
-  assert(argc == numExpectedArgs);
 
-  std::string filename = argv[1];
-  std::string ext = getFileExtension(filename);
-  const auto prefix = std::string(argv[2]);
-  const auto coincidentPtTol = std::stof(argv[3]);
-  const auto angleTol = std::atof(argv[4]);
-  const auto onCurveAngleTol = std::atof(argv[5]);
-  const bool doCreateMesh = (std::stoi(argv[6]) == 1);
-  const std::string units = argv[7];
-  std::cout << "input points file: " << argv[1] << " "
+  const auto prefix = positional[0];
+  const auto coincidentPtTol = std::stof(positional[1]);
+  const auto angleTol = std::atof(positional[2].c_str());
+  const auto onCurveAngleTol = std::atof(positional[3].c_str());
+  const bool doCreateMesh = (std::stoi(positional[4]) == 1);
+
+  const size_t numContours = contourSpecs.size();
+  if (numContours > 2) {
+    std::cerr << "ERROR: " << numContours << " --contour flags given; only "
+                 "one or two nested contours are currently supported\n";
+    return 1;
+  }
+  {
+    std::vector<bool> orderSeen(numContours, false);
+    for (const auto &spec : contourSpecs) {
+      if (spec.order < 0 || static_cast<size_t>(spec.order) >= numContours ||
+          orderSeen[spec.order]) {
+        std::cerr << "ERROR: --contour order values must be exactly "
+                     "{0.."
+                  << (numContours - 1) << "} with no gaps or duplicates\n";
+        return 1;
+      }
+      orderSeen[spec.order] = true;
+    }
+  }
+  std::sort(contourSpecs.begin(), contourSpecs.end(),
+      [](const ContourSpec &a, const ContourSpec &b) { return a.order < b.order; });
+
+  std::cout << "output prefix: " << prefix << " "
             << "coincidentPtTol: " << coincidentPtTol << " "
-            << "output prefix: " << prefix << " "
             << "angleTol: " << angleTol << " "
             << "onCurveAngleTol: " << onCurveAngleTol << " "
-            << "createMesh: " << doCreateMesh << " "
-            << "input data units: " << units << "\n";
-
-  assert(units == "m" || units == "km");
+            << "createMesh: " << doCreateMesh << "\n";
+  for (const auto &spec : contourSpecs) {
+    std::cout << "contour order " << spec.order << ": file=" << spec.file
+              << " units=" << spec.units
+              << " fail-if-cleaned=" << spec.failIfCleaned << "\n";
+  }
 
   const auto debug = true;
-
-  ModelFeatures features;
-  if (ext == ".vtk") {
-    features = readVtkGeom(filename);
-  } else if (ext == ".msh") {
-    features = readJigGeom(filename);
-  } else {
-    std::cerr << "Unsupported file extension: " << ext << "\n";
-    return 1;
-  }
-
-  //simmetrix operations are done in km to avoid problems with floating point
-  //operations
-  if(units == "m") {
-    convertMetersToKm(features.inner);
-    convertMetersToKm(features.outer);
-  }
-  const bool hasSingleContour = (features.inner.numVtx == 0);
   const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
-  //force all contours to be positive (CCW)
-  const int preCleanInnerVtx = features.inner.numVtx;
-  const int preCleanOuterVtx = features.outer.numVtx;
-  features.inner = cleanGeom(features.inner, coincidentPtTolSquared, debug);
-  makeOrientationPositive(features.inner);
-  features.outer = cleanGeom(features.outer, coincidentPtTolSquared, debug);
-  makeOrientationPositive(features.outer);
-  if (failIfCleaned) {
-    const bool innerRemoved = features.inner.numVtx < preCleanInnerVtx;
-    const bool outerRemoved = features.outer.numVtx < preCleanOuterVtx;
-    if (innerRemoved)
-      std::cerr << "ERROR: cleaning removed " << (preCleanInnerVtx - features.inner.numVtx)
-                << " inner contour point(s)\n";
-    if (outerRemoved)
-      std::cerr << "ERROR: cleaning removed " << (preCleanOuterVtx - features.outer.numVtx)
-                << " outer contour point(s)\n";
-    if (innerRemoved || outerRemoved)
+
+  //load, clean, and orient each contour, in nesting order (0=innermost)
+  std::vector<GeomInfo> contours;
+  contours.reserve(numContours);
+  for (const auto &spec : contourSpecs) {
+    auto geom = readSingleContour(spec.file, debug);
+    //simmetrix operations are done in km to avoid problems with floating
+    //point operations
+    if (spec.units == "m") {
+      convertMetersToKm(geom);
+    }
+    const int preCleanNumVtx = geom.numVtx;
+    //force the contour to be positive (CCW)
+    geom = cleanGeom(geom, coincidentPtTolSquared, debug);
+    makeOrientationPositive(geom);
+    if (spec.failIfCleaned && geom.numVtx < preCleanNumVtx) {
+      std::cerr << "ERROR: cleaning removed " << (preCleanNumVtx - geom.numVtx)
+                << " point(s) from contour '" << spec.file << "'\n";
       return 1;
+    }
+    contours.push_back(std::move(geom));
+  }
+
+  //TODO: generalize createEdges/createFaces/createMesh to support an
+  //arbitrary number of nested contours. For now only one or two are
+  //supported: a single contour is the domain boundary (features.outer);
+  //two contours are the domain boundary (outermost, features.outer) and
+  //a single interior contour (innermost, features.inner).
+  ModelFeatures features;
+  if (numContours == 1) {
+    features.outer = contours[0];
+  } else {
+    features.inner = contours[0];
+    features.outer = contours[1];
   }
 
   std::string modelFileName = prefix + ".smd";
@@ -205,6 +329,7 @@ int main(int argc, char **argv) {
     splinesOuter.writeSamplesToCsv(prefix + "_splinesOuter.csv");
 
     auto planeBounds = getBoundingPlane(features.outer);
+    const bool hasSingleContour = (numContours == 1);
     createFaces(mdlTopo, planeBounds, hasSingleContour, debug);
 
     printModelInfo(mdlTopo.model);

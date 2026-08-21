@@ -1,0 +1,16 @@
+# vtk DataFile Version 3.0
+gl_wBbox.vtk written by compass/landice/mesh.py (bbox split)
+ASCII
+DATASET POLYDATA
+
+POINTS 4 float
+-3333500.0 -3333500.0 0.0
+3330500.0 -3333500.0 0.0
+3330500.0 3330500.0 0.0
+-3333500.0 3330500.0 0.0
+
+LINES 4 12
+2 0 1
+2 1 2
+2 2 3
+2 3 0

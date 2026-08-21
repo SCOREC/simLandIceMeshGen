@@ -1,0 +1,13 @@
+# mesh.msh; created by JIGSAW's PYTHON interface 
+MSHID=3;euclidean-mesh
+NDIMS=2
+POINT=4
+-713000;-3396000;0
+949000;-3396000;0
+949000;-582000;0
+-713000;-582000;0
+EDGE2=4
+0;1;0
+1;2;0
+2;3;0
+3;0;0
