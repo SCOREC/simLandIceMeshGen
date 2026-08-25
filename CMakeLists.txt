@@ -97,6 +97,12 @@ if(USE_SIMMODSUITE)
   set_tests_properties(simModelGen2d_gis_noBbox PROPERTIES
     PASS_REGULAR_EXPRESSION "mesh faces in surface: 118736")
 
+  add_test(NAME simModelGen2d_gis_boundaryTriangles
+    COMMAND ./generate2dModel
+      --contour file=${testDataDir}/gis_inner.vtk,order=0,units=m
+      --contour file=${testDataDir}/gis_boundary_triangles.vtk,order=1,units=m
+      gis_boundaryTriangles 1 100 100 1)
+
   add_test(NAME simModelGen2d_oneSquare_jig
     COMMAND ./generate2dModel
       --contour file=${testDataDir}/oneSquare.msh,order=0,units=km
