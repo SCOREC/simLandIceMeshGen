@@ -27,8 +27,8 @@ struct PointClassification {
 
 //FIXME - make this a class
 struct GeomInfo {
-  int numVtx;
-  int numEdges;
+  int numVtx = 0;
+  int numEdges = 0;
   std::vector<double> vtx_x;
   std::vector<double> vtx_y;
   std::vector<int> vtxIds; //application indexing for vertices, used to map data
