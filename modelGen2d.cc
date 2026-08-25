@@ -292,6 +292,17 @@ std::array<int, 2> readEdgeVtk(std::ifstream &in, bool debug = true) {
   return edge;
 }
 
+std::array<int, 3> readTriangleVtk(std::ifstream &in, bool debug = true) {
+  int numPoints;
+  in >> numPoints;
+  assert(numPoints == 3);
+
+  std::array<int, 3> tri;
+  in >> tri[0] >> tri[1] >> tri[2];
+
+  return tri;
+}
+
 ModelFeatures readVtkGeom(std::string fname, bool debug) {
   std::ifstream vtkFile(fname);
   if (!vtkFile.is_open()) {
@@ -342,25 +353,45 @@ ModelFeatures readVtkGeom(std::string fname, bool debug) {
       std::cout << "pt " << geom.vtx_x[i] << ", " << geom.vtx_y[i] << std::endl;
   }
 
-  // Read lines
-  vtkFile >> keyword >> geom.numEdges;
+  // Read lines or polygons
+  vtkFile >> keyword;
+  assert(keyword == "LINES" || keyword == "POLYGONS");
+  const bool hasPolygons = (keyword == "POLYGONS");
+
+  int numCells;
+  vtkFile >> numCells;
   int totalIndexCount;
   vtkFile >> totalIndexCount;
-  assert(keyword == "LINES");
 
-  geom.edges.reserve(geom.numEdges);
+  if (!hasPolygons) {
+    geom.numEdges = numCells;
+    geom.edges.reserve(geom.numEdges);
 
-  // edge indices
-  for (int i = 0; i < geom.numEdges; i++) {
-    geom.edges.push_back(readEdgeVtk(vtkFile, debug));
-    if (debug)
-      std::cout << "edge " << geom.edges[i][0] << ", " << geom.edges[i][1]
-                << std::endl;
+    // edge indices
+    for (int i = 0; i < geom.numEdges; i++) {
+      geom.edges.push_back(readEdgeVtk(vtkFile, debug));
+      if (debug)
+        std::cout << "edge " << geom.edges[i][0] << ", " << geom.edges[i][1]
+                  << std::endl;
+    }
+  } else {
+    // triangle connectivity is not needed to build the boundary contour;
+    // the per-vertex boundary order (read below from POINT_DATA) is
+    // sufficient to reconstruct the boundary edges
+    for (int i = 0; i < numCells; i++) {
+      readTriangleVtk(vtkFile, debug);
+    }
   }
 
-  // Optionally read vertex IDs from POINT_DATA / SCALARS section
+  // Read vertex IDs from POINT_DATA / SCALARS section
+  // For LINES input this is optional application-vertex-id data.
+  // For POLYGONS input this is required: it gives the 0-based position of
+  // each boundary vertex in the CW/CCW traversal around the boundary, with
+  // -1 marking interior (non-boundary) points.
   std::string nextKeyword;
-  if (vtkFile >> nextKeyword && nextKeyword == "POINT_DATA") {
+  const auto havePointData = (vtkFile >> nextKeyword) && nextKeyword == "POINT_DATA";
+  assert(!hasPolygons || havePointData);
+  if (havePointData) {
     int numPointData;
     vtkFile >> numPointData;
     assert(numPointData == geom.numVtx);
@@ -370,10 +401,43 @@ ModelFeatures readVtkGeom(std::string fname, bool debug) {
     std::string lookupKeyword, lookupName;
     vtkFile >> lookupKeyword >> lookupName;
     assert(lookupKeyword == "LOOKUP_TABLE");
+    geom.vtxIds.resize(geom.numVtx);
     for (int i = 0; i < geom.numVtx; i++) {
       vtkFile >> geom.vtxIds[i];
       if (debug)
-        std::cout << "vtx " << i << " id " << geom.verts[i] << std::endl;
+        std::cout << "vtx " << i << " id " << geom.vtxIds[i] << std::endl;
+    }
+  }
+
+  if (hasPolygons) {
+    // build the boundary contour from vertex order values (>=0), connecting
+    // consecutive order positions and wrapping around to close the loop
+    int numBoundaryPts = 0;
+    for (int i = 0; i < geom.numVtx; i++) {
+      if (geom.vtxIds[i] >= 0) {
+        numBoundaryPts++;
+      }
+    }
+    assert(numBoundaryPts > 0);
+
+    std::vector<int> orderToVtx(numBoundaryPts, -1);
+    for (int i = 0; i < geom.numVtx; i++) {
+      const auto order = geom.vtxIds[i];
+      if (order >= 0) {
+        assert(order < numBoundaryPts);
+        assert(orderToVtx[order] == -1); //order values must be unique
+        orderToVtx[order] = i;
+      }
+    }
+
+    geom.numEdges = numBoundaryPts;
+    geom.edges.reserve(geom.numEdges);
+    for (int i = 0; i < numBoundaryPts; i++) {
+      const auto vtxA = orderToVtx[i];
+      const auto vtxB = orderToVtx[(i + 1) % numBoundaryPts];
+      geom.edges.push_back({vtxA, vtxB});
+      if (debug)
+        std::cout << "edge " << vtxA << ", " << vtxB << std::endl;
     }
   }
 
