@@ -303,7 +303,7 @@ std::array<int, 3> readTriangleVtk(std::ifstream &in, bool debug = true) {
   return tri;
 }
 
-ModelFeatures readVtkGeom(std::string fname, bool debug) {
+ModelFeatures readVtkGeom(std::string fname, bool expectBoundaryTriangles, bool debug) {
   std::ifstream vtkFile(fname);
   if (!vtkFile.is_open()) {
     fprintf(stderr, "failed to open VTK geom file %s\n", fname.c_str());
@@ -357,6 +357,13 @@ ModelFeatures readVtkGeom(std::string fname, bool debug) {
   vtkFile >> keyword;
   assert(keyword == "LINES" || keyword == "POLYGONS");
   const bool hasPolygons = (keyword == "POLYGONS");
+  if (hasPolygons != expectBoundaryTriangles) {
+    fprintf(stderr, "ERROR: VTK geom file %s %s a POLYGONS section but the "
+                     "'boundary-triangles' contour flag was %sset\n",
+            fname.c_str(), hasPolygons ? "has" : "does not have",
+            expectBoundaryTriangles ? "" : "not ");
+    exit(EXIT_FAILURE);
+  }
 
   int numCells;
   vtkFile >> numCells;

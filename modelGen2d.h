@@ -93,7 +93,7 @@ GeomInfo readOmegahGeom(Omega_h::Library& lib, std::string fname, bool debug = f
 // M. Shimrat, "Algorithm 112: Position of point relative to polygon,"
 // Communications of the ACM, 5(8):434, 1962.
 bool isPointInContour(const GeomInfo& contour, double testx, double testy);
-ModelFeatures readVtkGeom(std::string fname, bool debug = false);
+ModelFeatures readVtkGeom(std::string fname, bool expectBoundaryTriangles = false, bool debug = false);
 ModelFeatures readJigGeom(std::string fname, bool debug = false);
 
 double getLengthSquared(double ax, double ay, double bx, double by);

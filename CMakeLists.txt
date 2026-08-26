@@ -100,7 +100,7 @@ if(USE_SIMMODSUITE)
   add_test(NAME simModelGen2d_gis_boundaryTriangles
     COMMAND ./generate2dModel
       --contour file=${testDataDir}/gis_inner.vtk,order=0,units=m
-      --contour file=${testDataDir}/gis_boundary_triangles.vtk,order=1,units=m
+      --contour file=${testDataDir}/gis_boundary_triangles.vtk,order=1,units=m,boundary-triangles
       gis_boundaryTriangles 1 100 100 1)
 
   add_test(NAME simModelGen2d_oneSquare_jig

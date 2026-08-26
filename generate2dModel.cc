@@ -22,6 +22,7 @@ struct ContourSpec {
   int order = -1;
   std::string units;
   bool failIfCleaned = false;
+  bool boundaryTriangles = false;
 };
 
 std::vector<std::string> splitOn(const std::string &s, char delim) {
@@ -44,6 +45,10 @@ ContourSpec parseContourSpec(const std::string &arg) {
   for (const auto &kv : splitOn(arg, ',')) {
     if (kv == "fail-if-cleaned") {
       spec.failIfCleaned = true;
+      continue;
+    }
+    if (kv == "boundary-triangles") {
+      spec.boundaryTriangles = true;
       continue;
     }
     auto eq = kv.find('=');
@@ -86,12 +91,17 @@ ContourSpec parseContourSpec(const std::string &arg) {
 // splitIntoInnerAndOuter fires (i.e. the file looks like it defines two
 // contours) this is treated as an error since it's ambiguous which contour
 // the caller wants.
-GeomInfo readSingleContour(const std::string &filename, bool debug) {
+GeomInfo readSingleContour(const std::string &filename, bool boundaryTriangles, bool debug) {
   const auto ext = getFileExtension(filename);
   ModelFeatures features;
   if (ext == ".vtk") {
-    features = readVtkGeom(filename, debug);
+    features = readVtkGeom(filename, boundaryTriangles, debug);
   } else if (ext == ".msh") {
+    if (boundaryTriangles) {
+      std::cerr << "ERROR: '" << filename << "' the 'boundary-triangles' "
+                   "contour flag is only supported for .vtk files\n";
+      exit(EXIT_FAILURE);
+    }
     features = readJigGeom(filename, debug);
   } else {
     std::cerr << "Unsupported file extension: " << ext << "\n";
@@ -166,7 +176,7 @@ int main(int argc, char **argv) {
   const size_t numExpectedPositionalArgs = 5;
   if (positional.size() != numExpectedPositionalArgs || contourSpecs.empty()) {
     std::cerr << "Usage: --contour file=<jigsaw .msh or .vtk file>,order=<N>,units=<m|km>"
-                 "[,fail-if-cleaned] [--contour ...] "
+                 "[,fail-if-cleaned][,boundary-triangles] [--contour ...] "
                  "<output prefix> <coincidentVtxTolerance> <angleTolerance> "
                  "<onCurveAngleTolerance> <createMesh>\n";
     std::cerr << "--contour specifies one nested contour and may be repeated. "
@@ -179,6 +189,11 @@ int main(int argc, char **argv) {
     std::cerr << "  units: m=meters, km=kilometers\n";
     std::cerr << "  fail-if-cleaned: exit with error if cleaning removes any "
                  "input points from this contour\n";
+    std::cerr << "  boundary-triangles: the .vtk file's cells are boundary "
+                 "triangles (VTK POLYGONS) rather than boundary edges (VTK "
+                 "LINES), and POINT_DATA gives each vertex's 0-based position "
+                 "in the CW/CCW boundary traversal (-1 for interior points). "
+                 "Only supported for .vtk files.\n";
     std::cerr << "coincidentVtxTolerance is the mininum allowed "
                  "distance between adjacent vertices in the "
                  "input.  Vertices within the specified distance will "
@@ -231,7 +246,8 @@ int main(int argc, char **argv) {
   for (const auto &spec : contourSpecs) {
     std::cout << "contour order " << spec.order << ": file=" << spec.file
               << " units=" << spec.units
-              << " fail-if-cleaned=" << spec.failIfCleaned << "\n";
+              << " fail-if-cleaned=" << spec.failIfCleaned
+              << " boundary-triangles=" << spec.boundaryTriangles << "\n";
   }
 
   const auto debug = true;
@@ -241,7 +257,7 @@ int main(int argc, char **argv) {
   std::vector<GeomInfo> contours;
   contours.reserve(numContours);
   for (const auto &spec : contourSpecs) {
-    auto geom = readSingleContour(spec.file, debug);
+    auto geom = readSingleContour(spec.file, spec.boundaryTriangles, debug);
     //simmetrix operations are done in km to avoid problems with floating
     //point operations
     if (spec.units == "m") {
@@ -249,7 +265,8 @@ int main(int argc, char **argv) {
     }
     const int preCleanNumVtx = geom.numVtx;
     //force the contour to be positive (CCW)
-    geom = cleanGeom(geom, coincidentPtTolSquared, debug);
+    if( !spec.boundaryTriangles )
+      geom = cleanGeom(geom, coincidentPtTolSquared, debug);
     makeOrientationPositive(geom);
     if (spec.failIfCleaned && geom.numVtx < preCleanNumVtx) {
       std::cerr << "ERROR: cleaning removed " << (preCleanNumVtx - geom.numVtx)
