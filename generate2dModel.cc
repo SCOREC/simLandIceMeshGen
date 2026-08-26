@@ -250,7 +250,7 @@ int main(int argc, char **argv) {
               << " boundary-triangles=" << spec.boundaryTriangles << "\n";
   }
 
-  const auto debug = true;
+  const auto debug = false;
   const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
 
   //load, clean, and orient each contour, in nesting order (0=innermost)
@@ -265,8 +265,7 @@ int main(int argc, char **argv) {
     }
     const int preCleanNumVtx = geom.numVtx;
     //force the contour to be positive (CCW)
-    if( !spec.boundaryTriangles )
-      geom = cleanGeom(geom, coincidentPtTolSquared, debug);
+    geom = cleanGeom(geom, coincidentPtTolSquared, debug);
     makeOrientationPositive(geom);
     if (spec.failIfCleaned && geom.numVtx < preCleanNumVtx) {
       std::cerr << "ERROR: cleaning removed " << (preCleanNumVtx - geom.numVtx)
@@ -327,8 +326,9 @@ int main(int argc, char **argv) {
     auto splinesOuter = SplineInterp::SplineInfo(numOuterMdlVerts);
     PointClassification ptClassInner(features.inner.numVtx);
     PointClassification ptClassOuter(features.outer.numVtx);
-    createEdges(mdlTopo, features.outer, ptClassOuter, splinesOuter, isPointOnCurveOuter, isMdlVtxOuter, debug);
-    createEdges(mdlTopo, features.inner, ptClassInner, splinesInner, isPointOnCurveInner, isMdlVtxInner, debug);
+    createEdges(mdlTopo, features.outer, ptClassOuter, splinesOuter, isPointOnCurveOuter, isMdlVtxOuter, true);
+    const auto numOuterEdges = (int)mdlTopo.edges.size();
+    createEdges(mdlTopo, features.inner, ptClassInner, splinesInner, isPointOnCurveInner, isMdlVtxInner, true);
 
     const auto paraCoordsOuter = setParametricCoords(features.outer, ptClassOuter, splinesOuter);
     const auto paraCoordsInner = setParametricCoords(features.inner, ptClassInner, splinesInner);
@@ -347,7 +347,7 @@ int main(int argc, char **argv) {
 
     auto planeBounds = getBoundingPlane(features.outer);
     const bool hasSingleContour = (numContours == 1);
-    createFaces(mdlTopo, planeBounds, hasSingleContour, debug);
+    createFaces(mdlTopo, planeBounds, hasSingleContour, numOuterEdges, true);
 
     printModelInfo(mdlTopo.model);
 

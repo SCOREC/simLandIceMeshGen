@@ -336,21 +336,18 @@ ModelFeatures readVtkGeom(std::string fname, bool expectBoundaryTriangles, bool 
   std::string dataType;
   vtkFile >> keyword >> numPoints >> dataType;
   assert(keyword == "POINTS");
-  geom.numVtx = numPoints;
 
-  geom.vtx_x.reserve(geom.numVtx);
-  geom.vtx_y.reserve(geom.numVtx);
-  geom.verts.reserve(geom.numVtx);
-  geom.vtxIds.reserve(geom.numVtx);
+  std::vector<double> all_vertices_x, all_vertices_y;
+  all_vertices_x.reserve(numPoints);
+  all_vertices_y.reserve(numPoints);
 
   // point coordinates
-  for (int i = 0; i < geom.numVtx; i++) {
+  for (int i = 0; i < numPoints; i++) {
     auto pt = readPointVtk(vtkFile, debug);
-    geom.verts.push_back(i);
-    geom.vtx_x.push_back(pt[0]);
-    geom.vtx_y.push_back(pt[1]);
+    all_vertices_x.push_back(pt[0]);
+    all_vertices_y.push_back(pt[1]);
     if (debug)
-      std::cout << "pt " << geom.vtx_x[i] << ", " << geom.vtx_y[i] << std::endl;
+      std::cout << "pt " << all_vertices_x[i] << ", " << all_vertices_y[i] << std::endl;
   }
 
   // Read lines or polygons
@@ -371,6 +368,14 @@ ModelFeatures readVtkGeom(std::string fname, bool expectBoundaryTriangles, bool 
   vtkFile >> totalIndexCount;
 
   if (!hasPolygons) {
+    geom.numVtx = numPoints;
+    geom.vtx_x = all_vertices_x;
+    geom.vtx_y = all_vertices_y;
+    geom.verts.reserve(geom.numVtx);
+    for (int i = 0; i < geom.numVtx; i++) {
+      geom.verts.push_back(i);
+    }
+
     geom.numEdges = numCells;
     geom.edges.reserve(geom.numEdges);
 
@@ -382,6 +387,9 @@ ModelFeatures readVtkGeom(std::string fname, bool expectBoundaryTriangles, bool 
                   << std::endl;
     }
   } else {
+    geom.all_vertices_x = all_vertices_x;
+    geom.all_vertices_y = all_vertices_y;
+    geom.triangles.reserve(numCells);
     for (int i = 0; i < numCells; i++) {
       geom.triangles.push_back(readTriangleVtk(vtkFile, debug));
     }
@@ -398,47 +406,59 @@ ModelFeatures readVtkGeom(std::string fname, bool expectBoundaryTriangles, bool 
   if (havePointData) {
     int numPointData;
     vtkFile >> numPointData;
-    assert(numPointData == geom.numVtx);
+    assert(numPointData == numPoints);
     std::string scalarsKeyword, fieldName, dataType, dataSize;
     vtkFile >> scalarsKeyword >> fieldName >> dataType >> dataSize;
     assert(scalarsKeyword == "SCALARS");
     std::string lookupKeyword, lookupName;
     vtkFile >> lookupKeyword >> lookupName;
     assert(lookupKeyword == "LOOKUP_TABLE");
-    geom.vtxIds.resize(geom.numVtx);
-    for (int i = 0; i < geom.numVtx; i++) {
-      vtkFile >> geom.vtxIds[i];
+    std::vector<int> pointData(numPoints);
+    for (int i = 0; i < numPoints; i++) {
+      vtkFile >> pointData[i];
       if (debug)
-        std::cout << "vtx " << i << " id " << geom.vtxIds[i] << std::endl;
+        std::cout << "vtx " << i << " id " << pointData[i] << std::endl;
+    }
+    if (hasPolygons) {
+      geom.boundaryOrder = pointData;
+    } else {
+      geom.vtxIds = pointData;
     }
   }
 
   if (hasPolygons) {
     // build the boundary contour from vertex order values (>=0), connecting
     // consecutive order positions and wrapping around to close the loop
+    const auto& boundaryOrder = geom.boundaryOrder;
     int numBoundaryPts = 0;
-    for (int i = 0; i < geom.numVtx; i++) {
-      if (geom.vtxIds[i] >= 0) {
+    for (int i = 0; i < numPoints; i++) {
+      if (boundaryOrder[i] >= 0) {
         numBoundaryPts++;
       }
     }
     assert(numBoundaryPts > 0);
 
-    std::vector<int> orderToVtx(numBoundaryPts, -1);
-    for (int i = 0; i < geom.numVtx; i++) {
-      const auto order = geom.vtxIds[i];
+    geom.numVtx = numBoundaryPts;
+    geom.vtx_x.resize(numBoundaryPts);
+    geom.vtx_y.resize(numBoundaryPts);
+    geom.verts.reserve(numBoundaryPts);
+    for (int i = 0; i < numBoundaryPts; i++) {
+      geom.verts.push_back(i);
+    }
+    for (int i = 0; i < numPoints; i++) {
+      const auto order = boundaryOrder[i];
       if (order >= 0) {
         assert(order < numBoundaryPts);
-        assert(orderToVtx[order] == -1); //order values must be unique
-        orderToVtx[order] = i;
+        geom.vtx_x[order] = all_vertices_x[i];
+        geom.vtx_y[order] = all_vertices_y[i];
       }
     }
 
     geom.numEdges = numBoundaryPts;
     geom.edges.reserve(geom.numEdges);
     for (int i = 0; i < numBoundaryPts; i++) {
-      const auto vtxA = orderToVtx[i];
-      const auto vtxB = orderToVtx[(i + 1) % numBoundaryPts];
+      const auto vtxA = i;
+      const auto vtxB = (i + 1) % numBoundaryPts;
       geom.edges.push_back({vtxA, vtxB});
       if (debug)
         std::cout << "edge " << vtxA << ", " << vtxB << std::endl;

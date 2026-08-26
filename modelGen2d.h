@@ -37,7 +37,16 @@ struct GeomInfo {
   using Triangle = std::array<int,3>;
   std::vector<std::array<int, 2>> edges;
   std::vector<Triangle> triangles;
+  std::vector<double> all_vertices_x; //all mesh points (boundary+interior),
+  std::vector<double> all_vertices_y; //in the file's original order; triangles
+                                       //index into these arrays
+  std::vector<int> boundaryOrder; //0-based position of each all_vertices
+                                   //point in the CW/CCW boundary traversal,
+                                   //-1 for interior (non-boundary) points
   static const int firstContourPt = 0; //FIXME - remove this
+  bool hasBoundaryTriangles() const {
+    return !triangles.empty();
+  }
   void addVtx(int id, double x, double y) {
     numVtx++;
     verts.push_back(id);
@@ -66,14 +75,6 @@ struct GeomInfo {
     std::reverse(vtx_x.begin()+firstContourPt, vtx_x.end());
     std::reverse(vtx_y.begin()+firstContourPt, vtx_y.end());
     edges.clear(); //indices become invalid
-    //vertex at old index i moves to new index (numVtx-1-i); remap triangle
-    //connectivity so it still refers to the correct vertices
-    const auto lastIdx = numVtx - 1;
-    for (auto& tri : triangles) {
-      for (auto& vtx : tri) {
-        vtx = lastIdx - vtx;
-      }
-    }
   }
 };
 
