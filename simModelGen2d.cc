@@ -313,7 +313,7 @@ void createFace(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
   assert(GF_area(mdlTopo.faces.at(0), 0.2) > 0);
 }
 
-void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool hasSingleContour, bool debug) {
+void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool hasSingleContour, int numOuterEdges, bool debug) {
   // Now add the faces
   double corner[3], xPt[3], yPt[3]; // the points defining the surface of the face
 
@@ -341,22 +341,22 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool hasSingleCon
     // Create the face between the bounding rectangle and the grounding line
     // (water)
     // **************
-    // the first four edges define the outer bounding rectangle
-    for (int i = 0; i < 4; i++) {
+    // the first numOuterEdges edges define the outer contour
+    for (int i = 0; i < numOuterEdges; i++) {
       mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
       mdlTopo.faceEdges.push_back(mdlTopo.edges.at(i));
     }
     // the remaining edges define the grounding line
     // TODO generalize loop creation
     int j = mdlTopo.edges.size() - 1;
-    for (int i = 4; i < mdlTopo.edges.size(); i++) {
+    for (int i = numOuterEdges; i < mdlTopo.edges.size(); i++) {
       mdlTopo.faceDirs.push_back(faceDirectionRev); // counter clockwise
       // all edges are input in counter clockwise order,
       // reverse the order so the face is on the left (simmetrix requirement)
       mdlTopo.faceEdges.push_back(mdlTopo.edges.at(j--));
     }
     int numLoopsOuterFace = 2;
-    int loopFirstEdgeIdx[2] = {0, 4};
+    int loopFirstEdgeIdx[2] = {0, numOuterEdges};
     planarSurface = SSurface_createPlane(corner, xPt, yPt);
     mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, mdlTopo.edges.size(),
           mdlTopo.faceEdges.data(),
@@ -375,10 +375,10 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool hasSingleCon
     // Create the 'ice' face bounded by the grounding line
     // **************
     planarSurface = SSurface_createPlane(corner, xPt, yPt);
-    const int numEdgesInnerFace = mdlTopo.edges.size() - 4;
+    const int numEdgesInnerFace = mdlTopo.edges.size() - numOuterEdges;
     const int numLoopsInnerFace = 1;
     int loopFirstEdgeInnerIdx[1] = {0};
-    int k = 4;
+    int k = numOuterEdges;
     for (int i = 0; i < numEdgesInnerFace; i++) {
       mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
       mdlTopo.faceEdges.push_back(mdlTopo.edges.at(k++));
