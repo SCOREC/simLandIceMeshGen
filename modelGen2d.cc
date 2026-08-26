@@ -375,11 +375,8 @@ ModelFeatures readVtkGeom(std::string fname, bool debug) {
                   << std::endl;
     }
   } else {
-    // triangle connectivity is not needed to build the boundary contour;
-    // the per-vertex boundary order (read below from POINT_DATA) is
-    // sufficient to reconstruct the boundary edges
     for (int i = 0; i < numCells; i++) {
-      readTriangleVtk(vtkFile, debug);
+      geom.triangles.push_back(readTriangleVtk(vtkFile, debug));
     }
   }
 

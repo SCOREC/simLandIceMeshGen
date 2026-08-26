@@ -34,7 +34,9 @@ struct GeomInfo {
   std::vector<int> vtxIds; //application indexing for vertices, used to map data
                            //back to the application
   std::vector<int> verts; //indexing used by the edges vector
+  using Triangle = std::array<int,3>;
   std::vector<std::array<int, 2>> edges;
+  std::vector<Triangle> triangles;
   static const int firstContourPt = 0; //FIXME - remove this
   void addVtx(int id, double x, double y) {
     numVtx++;
