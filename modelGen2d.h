@@ -66,6 +66,14 @@ struct GeomInfo {
     std::reverse(vtx_x.begin()+firstContourPt, vtx_x.end());
     std::reverse(vtx_y.begin()+firstContourPt, vtx_y.end());
     edges.clear(); //indices become invalid
+    //vertex at old index i moves to new index (numVtx-1-i); remap triangle
+    //connectivity so it still refers to the correct vertices
+    const auto lastIdx = numVtx - 1;
+    for (auto& tri : triangles) {
+      for (auto& vtx : tri) {
+        vtx = lastIdx - vtx;
+      }
+    }
   }
 };
 
