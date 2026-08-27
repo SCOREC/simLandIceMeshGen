@@ -477,8 +477,8 @@ void specifyBoundaryTriangleMesh(pMesh mesh, GeomInfo& outerGeom, BoundaryClassi
     MS_specifyVertex(mesh, xyz, NULL, ent, i);
   }
 
-  //create a mesh edge for every boundary segment
-  //FIXME seems redundant given triangle creation below
+  //create a mesh edge for every boundary segment for explicit 
+  //classification on the model edges
   for (int k = 0; k < outerGeom.numVtx; k++) {
     const auto kNext = (k + 1) % outerGeom.numVtx;
     pGEdge edgeEnt = bndClassOuter.nextSegmentEdge.at(k);
