@@ -27,10 +27,24 @@ struct ModelTopo {
 
 };
 
-void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, PointClassification& ptClass, SplineInterp::SplineInfo& splines, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug=false);
+// per-outer-boundary-point (indexed like geom.vtx_x/y) handle of the model
+// vertex/edge it is classified on, captured during createEdges.
+struct BoundaryClassification {
+  std::vector<pGEntity> handle;
+  // nextSegmentEdge[k] is the model edge spanning boundary points k and
+  // k+1 (wrapping at numVtx-1 -> 0). A model edge can be a
+  // single segment between two adjacent model vertices, in which case
+  // handle[k] and handle[k+1] are both vertices with no edge between them
+  // to infer from.
+  std::vector<pGEdge> nextSegmentEdge;
+  BoundaryClassification(int n) : handle(n), nextSegmentEdge(n) {}
+};
+
+void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, PointClassification& ptClass, BoundaryClassification& bndClass, SplineInterp::SplineInfo& splines, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug=false);
 void createFace(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug=false);
 void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool hasSingleContour, int numOuterEdges, bool debug=false);
 void printModelInfo(pGModel model);
-pMesh createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress, bool debug=false);
+void specifyBoundaryTriangleMesh(pMesh mesh, GeomInfo& outerGeom, BoundaryClassification& bndClassOuter, pGFace outerFace, bool debug=false);
+pMesh createMesh(ModelTopo mdlTopo, GeomInfo& outerGeom, BoundaryClassification& bndClassOuter, pGFace outerFace, std::string& meshFileName, pProgress progress, bool debug=false);
 
 #endif

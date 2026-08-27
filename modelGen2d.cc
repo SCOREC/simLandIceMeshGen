@@ -571,6 +571,8 @@ bool checkVertexUse(GeomInfo &geom, bool debug = false) {
 void convertMetersToKm(GeomInfo &geom) {
   std::transform(geom.vtx_x.cbegin(), geom.vtx_x.cend(), geom.vtx_x.begin(), [](double v) { return v * 0.001; });
   std::transform(geom.vtx_y.cbegin(), geom.vtx_y.cend(), geom.vtx_y.begin(), [](double v) { return v * 0.001; });
+  std::transform(geom.all_vertices_x.cbegin(), geom.all_vertices_x.cend(), geom.all_vertices_x.begin(), [](double v) { return v * 0.001; });
+  std::transform(geom.all_vertices_y.cbegin(), geom.all_vertices_y.cend(), geom.all_vertices_y.begin(), [](double v) { return v * 0.001; });
 }
 
 quadtree::Box<double> makeBoxAroundPt(double x, double y, double pad) {
@@ -666,6 +668,10 @@ std::map<int,int> findNarrowChannels(GeomInfo& geom, double coincidentVtxToleran
 GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
                       bool debug) {
   if(dirty.numVtx == 0) {
+    return dirty;
+  }
+  if(dirty.hasBoundaryTriangles()) {
+    //a boundary-triangle contour is already clean
     return dirty;
   }
   assert(checkVertexUse(dirty));

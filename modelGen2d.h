@@ -75,6 +75,15 @@ struct GeomInfo {
     std::reverse(vtx_x.begin()+firstContourPt, vtx_x.end());
     std::reverse(vtx_y.begin()+firstContourPt, vtx_y.end());
     edges.clear(); //indices become invalid
+    if (hasBoundaryTriangles()) {
+      assert(firstContourPt == 0); //related to FIXME above
+      //keep boundaryOrder consistent
+      for (auto& order : boundaryOrder) {
+        if (order >= 0) {
+          order = numVtx - 1 - order;
+        }
+      }
+    }
   }
 };
 

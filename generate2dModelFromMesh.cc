@@ -136,7 +136,8 @@ int main(int argc, char **argv) {
     const auto numMdlVerts = isMdlVtx.size() ? std::accumulate(isMdlVtx.begin(), isMdlVtx.end(), 0) : 0;
     auto splines = SplineInterp::SplineInfo(numMdlVerts);
     PointClassification ptClass(geom.numVtx);
-    createEdges(mdlTopo, geom, ptClass, splines, isPointOnCurve, isMdlVtx, debug);
+    BoundaryClassification bndClass(geom.numVtx);
+    createEdges(mdlTopo, geom, ptClass, bndClass, splines, isPointOnCurve, isMdlVtx, debug);
 
     ModelFeatures features({geom,GeomInfo()});
     const auto paraCoords = setParametricCoords(features, ptClass, splines);

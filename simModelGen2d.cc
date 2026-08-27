@@ -71,11 +71,12 @@ void printModelInfo(pGModel model) {
     << std::endl;
 }
 
-void setClassification(GeomInfo& geom, PointClassification& ptClass, const int firstPt, const int numPts, pGVertex startingMdlVtx, pGVertex endMdlVtx, pGEdge edge, const int splineIdx) {
+void setClassification(GeomInfo& geom, PointClassification& ptClass, BoundaryClassification& bndClass, const int firstPt, const int numPts, pGVertex startingMdlVtx, pGVertex endMdlVtx, pGEdge edge, const int splineIdx) {
   const auto vtxDim = 0;
   ptClass.id.at(firstPt) = GEN_tag(startingMdlVtx);
   ptClass.dim.at(firstPt) = vtxDim;
   ptClass.splineIdx.at(firstPt) = splineIdx;
+  bndClass.handle.at(firstPt) = startingMdlVtx;
 
   auto ptIdx = geom.getNextPtIdx(firstPt); //handle wrap around in indexing
   if(numPts > 2) {
@@ -86,6 +87,7 @@ void setClassification(GeomInfo& geom, PointClassification& ptClass, const int f
       ptClass.id.at(ptIdx) = edgeTag;
       ptClass.dim.at(ptIdx) = edgeDim;
       ptClass.splineIdx.at(ptIdx) = splineIdx;
+      bndClass.handle.at(ptIdx) = edge;
       ptIdx = geom.getNextPtIdx(ptIdx);
       ptCount++;
     }
@@ -94,9 +96,19 @@ void setClassification(GeomInfo& geom, PointClassification& ptClass, const int f
   ptClass.id.at(ptIdx) = GEN_tag(endMdlVtx);
   ptClass.dim.at(ptIdx) = vtxDim;
   ptClass.splineIdx.at(ptIdx) = splineIdx;
+  bndClass.handle.at(ptIdx) = endMdlVtx;
+
+  //record which model edge spans each segment [firstPt..ptIdx]
+  //this handles recording the edge formed by two adjacent points
+  //that are model vertices
+  auto segPtIdx = firstPt;
+  for (int segCount = 0; segCount < numPts-1; segCount++) {
+    bndClass.nextSegmentEdge.at(segPtIdx) = edge;
+    segPtIdx = geom.getNextPtIdx(segPtIdx);
+  }
 }
 
-void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, PointClassification& ptClass, SplineInterp::SplineInfo& splines, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug) {
+void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, PointClassification& ptClass, BoundaryClassification& bndClass, SplineInterp::SplineInfo& splines, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug) {
   if(geom.numVtx <= 0) { //no contour
     return;
   }
@@ -149,7 +161,7 @@ void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, PointClassification& ptClas
     }
 
     auto edge = fitCurveToContourSimInterp(isLinearSpline, mdlTopo.region, startingMdlVtx, endMdlVtx, pts, debug);
-    setClassification(geom, ptClass, startingCurvePtIdx, ptsOnCurve.size(), startingMdlVtx, endMdlVtx, edge, splines.size());
+    setClassification(geom, ptClass, bndClass, startingCurvePtIdx, ptsOnCurve.size(), startingMdlVtx, endMdlVtx, edge, splines.size());
     if(isLinearSpline) {
       splines.addSpline(SplineInterp::attach_piecewise_linear_curve(pts));
     } else {
@@ -416,8 +428,93 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool hasSingleCon
   }
 }
 
-pMesh createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress, bool debug) {
+void specifyBoundaryTriangleMesh(pMesh mesh, GeomInfo& outerGeom, BoundaryClassification& bndClassOuter, pGFace outerFace, bool debug) {
+  const auto numAllVtx = (int)outerGeom.all_vertices_x.size();
+
+  //map from boundary traversal order to all_vertices
+  std::vector<int> boundaryPosToAllIdx(outerGeom.numVtx, -1);
+  for (int i = 0; i < numAllVtx; i++) {
+    const auto pos = outerGeom.boundaryOrder.at(i);
+    if (pos >= 0) {
+      boundaryPosToAllIdx.at(pos) = i;
+    }
+  }
+  for (int k = 0; k < outerGeom.numVtx; k++) {
+    if (boundaryPosToAllIdx.at(k) < 0) {
+      std::cerr << "ERROR: boundary traversal position " << k
+                 << " has no corresponding all_vertices point (boundaryOrder "
+                    "is missing an entry)... exiting\n";
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  //specify a mesh vertex for every point (boundary and interior), tagged by
+  //its all_vertices index so triangles can reference vertices by that same
+  //index when specifying mesh faces below.
+  for (int i = 0; i < numAllVtx; i++) {
+    double xyz[3] = {outerGeom.all_vertices_x[i], outerGeom.all_vertices_y[i], 0};
+    const auto pos = outerGeom.boundaryOrder.at(i);
+    pGEntity ent = (pos >= 0) ? bndClassOuter.handle.at(pos) : (pGEntity)outerFace;
+    if (ent == nullptr) {
+      std::cerr << "ERROR: all_vertices point " << i << " (boundary position "
+                 << pos << ") has no model entity to classify against... "
+                    "exiting\n";
+      exit(EXIT_FAILURE);
+    }
+    if (debug && pos >= 0 && GEN_type(ent) == Gedge) {
+      double closest[3], param;
+      GE_closestPoint((pGEdge)ent, xyz, closest, &param);
+      const auto dx = xyz[0]-closest[0], dy = xyz[1]-closest[1];
+      const auto dist = std::sqrt(dx*dx+dy*dy);
+      const auto tol = GEN_tolerance(ent);
+      if (dist > tol) {
+        std::cerr << "WARNING: all_vertices point " << i
+                   << " (boundary position " << pos << ") is " << dist
+                   << " from its classified model edge, tolerance is "
+                   << tol << "\n";
+      }
+    }
+    MS_specifyVertex(mesh, xyz, NULL, ent, i);
+  }
+
+  //create a mesh edge for every boundary segment
+  //FIXME seems redundant given triangle creation below
+  for (int k = 0; k < outerGeom.numVtx; k++) {
+    const auto kNext = (k + 1) % outerGeom.numVtx;
+    pGEdge edgeEnt = bndClassOuter.nextSegmentEdge.at(k);
+    if (edgeEnt == nullptr) {
+      std::cerr << "ERROR: boundary segment " << k << "->" << kNext
+                 << " has no model edge to classify against... exiting\n";
+      exit(EXIT_FAILURE);
+    }
+    int vertTags[2] = {boundaryPosToAllIdx.at(k), boundaryPosToAllIdx.at(kNext)};
+    MS_specifyEdge(mesh, vertTags, edgeEnt, -1);
+  }
+
+  //specify a mesh face for every input triangle
+  for (auto& tri : outerGeom.triangles) {
+    for (int v : tri) {
+      if (v < 0 || v >= numAllVtx) {
+        std::cerr << "ERROR: triangle references out-of-range vertex index "
+                   << v << " (numAllVtx=" << numAllVtx << ")... exiting\n";
+        exit(EXIT_FAILURE);
+      }
+    }
+    int vertTags[3] = {tri[0], tri[1], tri[2]};
+    MS_specifyFace(mesh, 3, vertTags, outerFace, -1);
+  }
+
+  if (debug) {
+    std::cerr << "specified " << numAllVtx << " boundary-triangle mesh "
+                 "vertices and " << outerGeom.triangles.size() << " mesh faces\n";
+  }
+}
+
+pMesh createMesh(ModelTopo mdlTopo, GeomInfo& outerGeom, BoundaryClassification& bndClassOuter, pGFace outerFace, std::string& meshFileName, pProgress progress, bool debug) {
   pMesh mesh = M_new(0, mdlTopo.model);
+  if (outerGeom.hasBoundaryTriangles()) {
+    specifyBoundaryTriangleMesh(mesh, outerGeom, bndClassOuter, outerFace, debug);
+  }
   pACase meshCase = MS_newMeshCase(mdlTopo.model);
 
   pModelItem domain = GM_domain(mdlTopo.model);
