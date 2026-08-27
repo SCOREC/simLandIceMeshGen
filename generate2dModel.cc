@@ -328,9 +328,9 @@ int main(int argc, char **argv) {
     PointClassification ptClassOuter(features.outer.numVtx);
     BoundaryClassification bndClassInner(features.inner.numVtx);
     BoundaryClassification bndClassOuter(features.outer.numVtx);
-    createEdges(mdlTopo, features.outer, ptClassOuter, bndClassOuter, splinesOuter, isPointOnCurveOuter, isMdlVtxOuter, true);
+    createEdges(mdlTopo, features.outer, ptClassOuter, bndClassOuter, splinesOuter, isPointOnCurveOuter, isMdlVtxOuter, debug);
     const auto numOuterEdges = (int)mdlTopo.edges.size();
-    createEdges(mdlTopo, features.inner, ptClassInner, bndClassInner, splinesInner, isPointOnCurveInner, isMdlVtxInner, true);
+    createEdges(mdlTopo, features.inner, ptClassInner, bndClassInner, splinesInner, isPointOnCurveInner, isMdlVtxInner, debug);
 
     const auto paraCoordsOuter = setParametricCoords(features.outer, ptClassOuter, splinesOuter);
     const auto paraCoordsInner = setParametricCoords(features.inner, ptClassInner, splinesInner);
@@ -349,7 +349,7 @@ int main(int argc, char **argv) {
 
     auto planeBounds = getBoundingPlane(features.outer);
     const bool hasSingleContour = (numContours == 1);
-    createFaces(mdlTopo, planeBounds, hasSingleContour, numOuterEdges, true);
+    createFaces(mdlTopo, planeBounds, hasSingleContour, numOuterEdges, debug);
     pGFace outerFace = mdlTopo.faces.at(0);
 
     printModelInfo(mdlTopo.model);
@@ -363,7 +363,7 @@ int main(int argc, char **argv) {
     }
 
     if(doCreateMesh) {
-      auto mesh = createMesh(mdlTopo, features.outer, bndClassOuter, outerFace, meshFileName, progress, true);
+      auto mesh = createMesh(mdlTopo, features.outer, bndClassOuter, outerFace, meshFileName, progress, debug);
       std::string netcdfFileName = prefix + ".nc";
       //compass assumes units of meters, need to convert back to meters,
       //simmetrix operations are done in units of km
