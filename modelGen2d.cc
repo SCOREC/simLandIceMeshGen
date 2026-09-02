@@ -303,6 +303,76 @@ std::array<int, 3> readTriangleVtk(std::ifstream &in, bool debug = true) {
   return tri;
 }
 
+// Reads the explicit polygonal-vertex entries written by compass'
+// writePolygonVerticesToVtk: a VTK POLYDATA file with POINTS (one per
+// entry) and a POINT_DATA/SCALARS "boundaryCellPositions" (3 components
+// per point) giving each entry's (up to 3) owning cells as boundary
+// traversal positions, -1 where missing/not applicable.
+BoundaryPolygons readBoundaryPolygonsVtk(std::string fname, bool debug) {
+  std::ifstream vtkFile(fname);
+  if (!vtkFile.is_open()) {
+    fprintf(stderr, "failed to open VTK boundary polygons file %s\n",
+            fname.c_str());
+    exit(EXIT_FAILURE);
+  }
+
+  BoundaryPolygons bndPolys;
+
+  // Version
+  skipLine(vtkFile, debug);
+  // Title
+  skipLine(vtkFile, debug);
+  // Format of VTK
+  std::string format;
+  vtkFile >> format;
+  assert(format == "ASCII");
+  skipLine(vtkFile, debug);
+
+  // Dataset Type
+  std::string keyword, datasetType;
+  vtkFile >> keyword >> datasetType;
+  assert(keyword == "DATASET");
+  assert(datasetType == "POLYDATA");
+
+  // Read points
+  int numPoints;
+  std::string dataType;
+  vtkFile >> keyword >> numPoints >> dataType;
+  assert(keyword == "POINTS");
+
+  bndPolys.vtx_x.reserve(numPoints);
+  bndPolys.vtx_y.reserve(numPoints);
+  for (int i = 0; i < numPoints; i++) {
+    auto pt = readPointVtk(vtkFile, debug);
+    bndPolys.vtx_x.push_back(pt[0]);
+    bndPolys.vtx_y.push_back(pt[1]);
+  }
+
+  // Read POINT_DATA / SCALARS boundaryCellPositions (3 components/point)
+  vtkFile >> keyword;
+  assert(keyword == "POINT_DATA");
+  int numPointData;
+  vtkFile >> numPointData;
+  assert(numPointData == numPoints);
+  std::string scalarsKeyword, fieldName, pdDataType, numComponents;
+  vtkFile >> scalarsKeyword >> fieldName >> pdDataType >> numComponents;
+  assert(scalarsKeyword == "SCALARS");
+  assert(fieldName == "boundaryCellPositions");
+  assert(std::stoi(numComponents) == 3);
+  std::string lookupKeyword, lookupName;
+  vtkFile >> lookupKeyword >> lookupName;
+  assert(lookupKeyword == "LOOKUP_TABLE");
+
+  bndPolys.cellPositions.reserve(numPoints);
+  for (int i = 0; i < numPoints; i++) {
+    std::array<int, 3> triple;
+    vtkFile >> triple[0] >> triple[1] >> triple[2];
+    bndPolys.cellPositions.push_back(triple);
+  }
+
+  return bndPolys;
+}
+
 ModelFeatures readVtkGeom(std::string fname, bool expectBoundaryTriangles, bool debug) {
   std::ifstream vtkFile(fname);
   if (!vtkFile.is_open()) {
@@ -573,6 +643,9 @@ void convertMetersToKm(GeomInfo &geom) {
   std::transform(geom.vtx_y.cbegin(), geom.vtx_y.cend(), geom.vtx_y.begin(), [](double v) { return v * 0.001; });
   std::transform(geom.all_vertices_x.cbegin(), geom.all_vertices_x.cend(), geom.all_vertices_x.begin(), [](double v) { return v * 0.001; });
   std::transform(geom.all_vertices_y.cbegin(), geom.all_vertices_y.cend(), geom.all_vertices_y.begin(), [](double v) { return v * 0.001; });
+  auto &bndPolys = geom.boundaryPolygons;
+  std::transform(bndPolys.vtx_x.cbegin(), bndPolys.vtx_x.cend(), bndPolys.vtx_x.begin(), [](double v) { return v * 0.001; });
+  std::transform(bndPolys.vtx_y.cbegin(), bndPolys.vtx_y.cend(), bndPolys.vtx_y.begin(), [](double v) { return v * 0.001; });
 }
 
 quadtree::Box<double> makeBoxAroundPt(double x, double y, double pad) {

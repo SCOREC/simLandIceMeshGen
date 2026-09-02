@@ -23,6 +23,7 @@ struct ContourSpec {
   std::string units;
   bool failIfCleaned = false;
   bool boundaryTriangles = false;
+  std::string boundaryPolygonsFile;
 };
 
 std::vector<std::string> splitOn(const std::string &s, char delim) {
@@ -64,10 +65,19 @@ ContourSpec parseContourSpec(const std::string &arg) {
       spec.order = std::stoi(value);
     } else if (key == "units") {
       spec.units = value;
+    } else if (key == "boundary-polygons") {
+      spec.boundaryPolygonsFile = value;
     } else {
       std::cerr << "ERROR: unknown --contour option '" << key << "'\n";
       exit(EXIT_FAILURE);
     }
+  }
+  if (!spec.boundaryPolygonsFile.empty() && !spec.boundaryTriangles) {
+    std::cerr << "ERROR: --contour '" << spec.file << "' has "
+                 "'boundary-polygons=' but not 'boundary-triangles'; "
+                 "boundary-polygons is only supported alongside "
+                 "boundary-triangles\n";
+    exit(EXIT_FAILURE);
   }
   if (spec.file.empty()) {
     std::cerr << "ERROR: --contour is missing required 'file=' option\n";
@@ -258,6 +268,9 @@ int main(int argc, char **argv) {
   contours.reserve(numContours);
   for (const auto &spec : contourSpecs) {
     auto geom = readSingleContour(spec.file, spec.boundaryTriangles, debug);
+    if (!spec.boundaryPolygonsFile.empty()) {
+      geom.boundaryPolygons = readBoundaryPolygonsVtk(spec.boundaryPolygonsFile, debug);
+    }
     //simmetrix operations are done in km to avoid problems with floating
     //point operations
     if (spec.units == "m") {
@@ -368,7 +381,8 @@ int main(int argc, char **argv) {
       //compass assumes units of meters, need to convert back to meters,
       //simmetrix operations are done in units of km
       const auto convertBackToMeters = true;
-      writeMeshSimToNetCDF(mesh, mdlTopo.model, netcdfFileName, convertBackToMeters);
+      writeMeshSimToNetCDF(mesh, mdlTopo.model, netcdfFileName, convertBackToMeters,
+                           features.outer.boundaryPolygons, features.outer.boundaryOrder);
       M_release(mesh);
     }
 

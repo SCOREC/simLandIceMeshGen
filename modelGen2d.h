@@ -25,6 +25,25 @@ struct PointClassification {
 };
 
 
+// Explicit polygonal-vertex entries needed to close boundary cells'
+// polygons (MPAS cellsOnVertex rows) that Simmetrix's triangle mesh alone
+// will not reproduce -- e.g. a polygonal vertex with a missing (boundary)
+// cell, or one whose 3 owning cells don't form one of the preserved
+// boundary triangles. These are not part of the Simmetrix mesh
+// geometry/topology at all -- they are only carried through so
+// writeMeshSimToNetCDF can append them as extra polygonal-vertex entries
+// (xVertex/yVertex/cellsOnVertex) in the output NetCDF.
+struct BoundaryPolygons {
+  std::vector<double> vtx_x;
+  std::vector<double> vtx_y;
+  // cellPositions[i] gives the boundary traversal position (0-based) of
+  // each of entry i's (up to 3) owning cells, or -1 where a cell is
+  // missing (boundary edge) or not itself a boundary-loop position, in
+  // the same position numbering as GeomInfo::boundaryOrder.
+  std::vector<std::array<int, 3>> cellPositions;
+  bool empty() const { return cellPositions.empty(); }
+};
+
 //FIXME - make this a class
 struct GeomInfo {
   int numVtx = 0;
@@ -43,6 +62,9 @@ struct GeomInfo {
   std::vector<int> boundaryOrder; //0-based position of each all_vertices
                                    //point in the CW/CCW boundary traversal,
                                    //-1 for interior (non-boundary) points
+  BoundaryPolygons boundaryPolygons; //explicit polygons for boundary cells
+                                      //that Simmetrix's triangle fan alone
+                                      //cannot close; empty if not supplied
   static const int firstContourPt = 0; //FIXME - remove this
   bool hasBoundaryTriangles() const {
     return !triangles.empty();
@@ -83,6 +105,17 @@ struct GeomInfo {
           order = numVtx - 1 - order;
         }
       }
+      //keep boundaryPolygons' cell positions consistent: they reference
+      //boundary traversal positions the same way boundaryOrder does
+      if (!boundaryPolygons.empty()) {
+        for (auto& triple : boundaryPolygons.cellPositions) {
+          for (auto& pos : triple) {
+            if (pos >= 0) {
+              pos = numVtx - 1 - pos;
+            }
+          }
+        }
+      }
     }
   }
 };
@@ -91,6 +124,8 @@ struct ModelFeatures {
   GeomInfo inner;
   GeomInfo outer;
 };
+
+BoundaryPolygons readBoundaryPolygonsVtk(std::string fname, bool debug = false);
 
 struct PlaneBounds {
   double minX;

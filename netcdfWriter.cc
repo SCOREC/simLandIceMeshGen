@@ -1,5 +1,6 @@
 #include <netcdfWriter.h>
 #include <netcdf.h>
+#include <algorithm> //max_element
 #include <iostream>
 #include <vector>
 #include <map>
@@ -23,12 +24,29 @@
   } \
 }
 
-int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName, bool convertKmToMeters) {
+int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName,
+                          bool convertKmToMeters,
+                          const BoundaryPolygons& boundaryPolygons,
+                          const std::vector<int>& boundaryOrder) {
   const double coordScaling = (convertKmToMeters) ? 1000.0 : 1.0;
   // Get mesh dimensions
-  const int numDualVertices = M_numFaces(mesh);
+  const int numExtraDualVertices = boundaryPolygons.cellPositions.size();
+  const int numDualVertices = M_numFaces(mesh) + numExtraDualVertices;
   const int numDualCells = M_numVertices(mesh);
   const int dualVertexDegree = 3;
+
+  // Map from boundary traversal position to the all_vertices index that
+  // was used as the mesh vertex tag in specifyBoundaryTriangleMesh, so
+  // boundaryPolygons' cell positions can be resolved to output cell
+  // indices below.
+  std::vector<int> boundaryPosToAllIdx(boundaryOrder.empty() ? 0 :
+      *std::max_element(boundaryOrder.begin(), boundaryOrder.end()) + 1, -1);
+  for (size_t i = 0; i < boundaryOrder.size(); i++) {
+    const auto pos = boundaryOrder[i];
+    if (pos >= 0) {
+      boundaryPosToAllIdx.at(pos) = (int)i;
+    }
+  }
 
   // Create the NetCDF file
   int ncid;
@@ -82,7 +100,11 @@ int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName, 
   std::vector<int> geomModelIdDualCell(numDualCells);
   std::vector<int> geomModelDimDualCell(numDualCells);
 
-  // Iterate over vertices and renumber them
+  // Iterate over vertices and renumber them. Also record each vertex's
+  // EN_id (the all_vertices index it was tagged with in
+  // specifyBoundaryTriangleMesh, for boundary-triangle-mesh vertices) so
+  // boundaryPolygons entries can be resolved to output cell indices below.
+  std::map<int, int> cellIdxByEnId;
   VIter vertices = M_vertexIter(mesh);
   pVertex vertex;
   int vertexIdx = 0;
@@ -98,6 +120,8 @@ int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName, 
     pGEntity gent = EN_whatIn((pEntity)vertex);
     geomModelIdDualCell[vertexIdx] = GEN_tag(gent);
     geomModelDimDualCell[vertexIdx] = GEN_type(gent);
+
+    cellIdxByEnId[EN_id((pEntity)vertex)] = vertexIdx;
 
     vertexIdx++;
   }
@@ -160,6 +184,31 @@ int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName, 
     cellIdx++;
   }
   FIter_delete(faces);
+
+  // Append synthetic polygonal-vertex entries for boundary cells whose
+  // polygons are not closed by the Simmetrix triangle mesh alone.
+  for (int i = 0; i < numExtraDualVertices; i++) {
+    xDualVertex[cellIdx] = boundaryPolygons.vtx_x[i] * coordScaling;
+    yDualVertex[cellIdx] = boundaryPolygons.vtx_y[i] * coordScaling;
+    zDualVertex[cellIdx] = 0.0;
+    // Not classified against any model entity; use the containing face's
+    // classification convention (dim=2) with id 0, consistent with an
+    // interior polygonal vertex that has no more specific classification.
+    geomModelIdDualVertex[cellIdx] = 0;
+    geomModelDimDualVertex[cellIdx] = 2;
+
+    const auto& posTriple = boundaryPolygons.cellPositions[i];
+    for (int k = 0; k < dualVertexDegree; k++) {
+      const auto pos = posTriple[k];
+      int outCellIdx1Based = 0; // 0 = no cell, matches MPAS convention
+      if (pos >= 0) {
+        const auto allIdx = boundaryPosToAllIdx.at(pos);
+        outCellIdx1Based = cellIdxByEnId.at(allIdx) + 1;
+      }
+      dualCellsOnDualVertex[cellIdx * dualVertexDegree + k] = outCellIdx1Based;
+    }
+    cellIdx++;
+  }
 
   // Write dual vertex data
   NC_CHECK(nc_put_var_double(ncid, xDualVertexVarID, xDualVertex.data()));
