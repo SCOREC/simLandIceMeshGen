@@ -382,7 +382,7 @@ int main(int argc, char **argv) {
       //simmetrix operations are done in units of km
       const auto convertBackToMeters = true;
       writeMeshSimToNetCDF(mesh, mdlTopo.model, netcdfFileName, convertBackToMeters,
-                           features.outer.boundaryPolygons, features.outer.boundaryOrder);
+                           features.outer.boundaryPolygons);
       M_release(mesh);
     }
 

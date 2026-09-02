@@ -305,9 +305,9 @@ std::array<int, 3> readTriangleVtk(std::ifstream &in, bool debug = true) {
 
 // Reads the explicit polygonal-vertex entries written by compass'
 // writePolygonVerticesToVtk: a VTK POLYDATA file with POINTS (one per
-// entry) and a POINT_DATA/SCALARS "boundaryCellPositions" (3 components
-// per point) giving each entry's (up to 3) owning cells as boundary
-// traversal positions, -1 where missing/not applicable.
+// entry) and a POINT_DATA/SCALARS "boundaryCellLocalIndices" (3
+// components per point) giving each entry's (up to 3) owning cells as
+// all_vertices indices, -1 where missing/not applicable.
 BoundaryPolygons readBoundaryPolygonsVtk(std::string fname, bool debug) {
   std::ifstream vtkFile(fname);
   if (!vtkFile.is_open()) {
@@ -348,7 +348,7 @@ BoundaryPolygons readBoundaryPolygonsVtk(std::string fname, bool debug) {
     bndPolys.vtx_y.push_back(pt[1]);
   }
 
-  // Read POINT_DATA / SCALARS boundaryCellPositions (3 components/point)
+  // Read POINT_DATA / SCALARS boundaryCellLocalIndices (3 components/point)
   vtkFile >> keyword;
   assert(keyword == "POINT_DATA");
   int numPointData;
@@ -357,7 +357,7 @@ BoundaryPolygons readBoundaryPolygonsVtk(std::string fname, bool debug) {
   std::string scalarsKeyword, fieldName, pdDataType, numComponents;
   vtkFile >> scalarsKeyword >> fieldName >> pdDataType >> numComponents;
   assert(scalarsKeyword == "SCALARS");
-  assert(fieldName == "boundaryCellPositions");
+  assert(fieldName == "boundaryCellLocalIndices");
   assert(std::stoi(numComponents) == 3);
   std::string lookupKeyword, lookupName;
   vtkFile >> lookupKeyword >> lookupName;

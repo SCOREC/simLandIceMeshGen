@@ -1,6 +1,5 @@
 #include <netcdfWriter.h>
 #include <netcdf.h>
-#include <algorithm> //max_element
 #include <iostream>
 #include <vector>
 #include <map>
@@ -26,27 +25,13 @@
 
 int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName,
                           bool convertKmToMeters,
-                          const BoundaryPolygons& boundaryPolygons,
-                          const std::vector<int>& boundaryOrder) {
+                          const BoundaryPolygons& boundaryPolygons) {
   const double coordScaling = (convertKmToMeters) ? 1000.0 : 1.0;
   // Get mesh dimensions
   const int numExtraDualVertices = boundaryPolygons.cellPositions.size();
   const int numDualVertices = M_numFaces(mesh) + numExtraDualVertices;
   const int numDualCells = M_numVertices(mesh);
   const int dualVertexDegree = 3;
-
-  // Map from boundary traversal position to the all_vertices index that
-  // was used as the mesh vertex tag in specifyBoundaryTriangleMesh, so
-  // boundaryPolygons' cell positions can be resolved to output cell
-  // indices below.
-  std::vector<int> boundaryPosToAllIdx(boundaryOrder.empty() ? 0 :
-      *std::max_element(boundaryOrder.begin(), boundaryOrder.end()) + 1, -1);
-  for (size_t i = 0; i < boundaryOrder.size(); i++) {
-    const auto pos = boundaryOrder[i];
-    if (pos >= 0) {
-      boundaryPosToAllIdx.at(pos) = (int)i;
-    }
-  }
 
   // Create the NetCDF file
   int ncid;
@@ -187,6 +172,11 @@ int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName,
 
   // Append synthetic polygonal-vertex entries for boundary cells whose
   // polygons are not closed by the Simmetrix triangle mesh alone.
+  std::cerr << "DEBUG writeMeshSimToNetCDF: numExtraDualVertices="
+            << numExtraDualVertices << " cellIdxByEnId.size()="
+            << cellIdxByEnId.size() << "\n";
+  int debugAllNegCount = 0;
+  int debugMissingEnIdCount = 0;
   for (int i = 0; i < numExtraDualVertices; i++) {
     xDualVertex[cellIdx] = boundaryPolygons.vtx_x[i] * coordScaling;
     yDualVertex[cellIdx] = boundaryPolygons.vtx_y[i] * coordScaling;
@@ -197,18 +187,34 @@ int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName,
     geomModelIdDualVertex[cellIdx] = 0;
     geomModelDimDualVertex[cellIdx] = 2;
 
-    const auto& posTriple = boundaryPolygons.cellPositions[i];
+    const auto& allIdxTriple = boundaryPolygons.cellPositions[i];
+    bool anyResolved = false;
     for (int k = 0; k < dualVertexDegree; k++) {
-      const auto pos = posTriple[k];
+      const auto allIdx = allIdxTriple[k];
       int outCellIdx1Based = 0; // 0 = no cell, matches MPAS convention
-      if (pos >= 0) {
-        const auto allIdx = boundaryPosToAllIdx.at(pos);
-        outCellIdx1Based = cellIdxByEnId.at(allIdx) + 1;
+      if (allIdx >= 0) {
+        auto it = cellIdxByEnId.find(allIdx);
+        if (it == cellIdxByEnId.end()) {
+          debugMissingEnIdCount++;
+          if (debugMissingEnIdCount <= 10) {
+            std::cerr << "DEBUG entry " << i << " allIdx " << allIdx
+                      << " not found in cellIdxByEnId\n";
+          }
+        } else {
+          outCellIdx1Based = it->second + 1;
+          anyResolved = true;
+        }
       }
       dualCellsOnDualVertex[cellIdx * dualVertexDegree + k] = outCellIdx1Based;
     }
+    if (!anyResolved) {
+      debugAllNegCount++;
+    }
     cellIdx++;
   }
+  std::cerr << "DEBUG writeMeshSimToNetCDF: entries with zero resolved "
+               "cells=" << debugAllNegCount << " missingEnIdCount="
+            << debugMissingEnIdCount << "\n";
 
   // Write dual vertex data
   NC_CHECK(nc_put_var_double(ncid, xDualVertexVarID, xDualVertex.data()));

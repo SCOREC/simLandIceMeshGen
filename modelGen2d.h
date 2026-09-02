@@ -36,10 +36,13 @@ struct PointClassification {
 struct BoundaryPolygons {
   std::vector<double> vtx_x;
   std::vector<double> vtx_y;
-  // cellPositions[i] gives the boundary traversal position (0-based) of
-  // each of entry i's (up to 3) owning cells, or -1 where a cell is
-  // missing (boundary edge) or not itself a boundary-loop position, in
-  // the same position numbering as GeomInfo::boundaryOrder.
+  // cellPositions[i] gives the all_vertices index (the same "all_vertices"
+  // index space GeomInfo::all_vertices_x/y and MS_specifyVertex's tag `i`
+  // use) of each of entry i's (up to 3) owning cells, or -1 where a cell
+  // is missing (boundary edge). Unlike boundary traversal position, this
+  // covers any real cell -- boundary-loop or interior -- since it is not
+  // reordered by GeomInfo::reverseContourPoints (which only reverses the
+  // boundary contour points, not all_vertices).
   std::vector<std::array<int, 3>> cellPositions;
   bool empty() const { return cellPositions.empty(); }
 };
@@ -105,17 +108,9 @@ struct GeomInfo {
           order = numVtx - 1 - order;
         }
       }
-      //keep boundaryPolygons' cell positions consistent: they reference
-      //boundary traversal positions the same way boundaryOrder does
-      if (!boundaryPolygons.empty()) {
-        for (auto& triple : boundaryPolygons.cellPositions) {
-          for (auto& pos : triple) {
-            if (pos >= 0) {
-              pos = numVtx - 1 - pos;
-            }
-          }
-        }
-      }
+      //boundaryPolygons.cellPositions reference all_vertices indices,
+      //which are not reordered above (only the boundary contour points
+      //vtx_x/vtx_y are), so no remapping is needed here.
     }
   }
 };

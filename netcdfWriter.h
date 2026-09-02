@@ -8,7 +8,6 @@
 
 int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName,
                           bool convertKmToMeters,
-                          const BoundaryPolygons& boundaryPolygons = BoundaryPolygons(),
-                          const std::vector<int>& boundaryOrder = {});
+                          const BoundaryPolygons& boundaryPolygons = BoundaryPolygons());
 
 #endif
