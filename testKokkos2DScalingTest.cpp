@@ -17,12 +17,12 @@ using MemSpace = ExecutionSpace::memory_space;
 
 int main(int argc, char *argv[]) {
   int retVal;
-  if (argc != 6) {
+  if (argc != 7) {
     std::cerr
         << "Input arguments: <number of splines> <average number of points per "
            "spline> <number of para coords to evaluate> <uniform distribution "
            "or gaussian distribution> <output file name(file type must be "
-           ".csv)>"
+           ".csv)> <disable serial: yes or no>"
         << std::endl;
     retVal = 1;
     return retVal;
@@ -37,6 +37,7 @@ int main(int argc, char *argv[]) {
     const int ptsPerSpline = std::atoi(argv[2]);
     std::string mode = argv[4];
     const std::string outFile = argv[5];
+    std::string disableSerial = argv[6];
     if (outFile.substr(outFile.size() - 4, outFile.size()) != ".csv") {
       std::cerr << "Output file provided is not a csv" << std::endl;
       return 1;
@@ -145,18 +146,20 @@ int main(int argc, char *argv[]) {
       val += incr;
     }
 
-    // Serial evaluation of 1st derivative
-    // Each of the splines will evaluate at all the para coords
     std::vector<double> serialResX(evalAt.size() * numSplines);
     std::vector<double> serialResY(evalAt.size() * numSplines);
-    int idx = 0;
+    // Serial evaluation of 1st derivative
+    // Each of the splines will evaluate at all the para coords
     timer.reset();
-    for (int i = 0; i < numSplines; i++) {
-      for (int j = 0; j < evalAt.size(); j++) {
-        serialResX[idx + j] = allSerial[i].x.evalFirstDeriv(evalAt[j]);
-        serialResY[idx + j] = allSerial[i].y.evalFirstDeriv(evalAt[j]);
+    if (disableSerial == "no") {
+      int idx = 0;
+      for (int i = 0; i < numSplines; i++) {
+        for (int j = 0; j < evalAt.size(); j++) {
+          serialResX[idx + j] = allSerial[i].x.evalFirstDeriv(evalAt[j]);
+          serialResY[idx + j] = allSerial[i].y.evalFirstDeriv(evalAt[j]);
+        }
+        idx += paraCoords;
       }
-      idx += paraCoords;
     }
     double serial1stDerivTime = timer.seconds();
 
@@ -197,56 +200,60 @@ int main(int argc, char *argv[]) {
 
     // Compare the serial and kokkos result
     timer.reset();
-    for (int i = 0; i < evalAt.size() * numSplines; i++) {
-      double xDiff = std::fabs(resMirror(i, 0)) - std::fabs(serialResX[i]);
-      double yDiff = std::fabs(resMirror(i, 1)) - std::fabs(serialResY[i]);
-      if (xDiff > EPSILON || yDiff > EPSILON) {
-        std::cout << "1st Deriv Test " << i + 1
+    if (disableSerial == "no") {
+      for (int i = 0; i < evalAt.size() * numSplines; i++) {
+        double xDiff = std::fabs(resMirror(i, 0)) - std::fabs(serialResX[i]);
+        double yDiff = std::fabs(resMirror(i, 1)) - std::fabs(serialResY[i]);
+        if (xDiff > EPSILON || yDiff > EPSILON) {
+          std::cout << "1st Deriv Test " << i + 1
                   << " failed, eval at: " << evalAt[i] << std::endl;
-        std::cout << "Difference: x = " << xDiff << " y = " << yDiff
+          std::cout << "Difference: x = " << xDiff << " y = " << yDiff
                   << std::endl;
-        std::cout << "SERIAL 1st deriv: x = " << serialResX[i]
+          std::cout << "SERIAL 1st deriv: x = " << serialResX[i]
                   << " y = " << serialResY[i] << std::endl;
-        std::cout << "KOKKOS 1st deriv: x = " << resMirror(i, 0)
+          std::cout << "KOKKOS 1st deriv: x = " << resMirror(i, 0)
                   << " y = " << resMirror(i, 1) << std::endl;
-        retVal = 1;
+          retVal = 1;
+        }
       }
     }
     double verifyTime1stDeriv = timer.seconds();
-
     /*-------- End of 1st Deriv Test --------*/
     /*-------- Start of 2nd Deriv Test --------*/
     // Serial evaluation
-    idx = 0;
     timer.reset();
-    for (int i = 0; i < numSplines; i++) {
-      for (int j = 0; j < evalAt.size(); j++) {
-        serialResX[idx + j] = allSerial[i].x.evalSecondDeriv(evalAt[j]);
-        serialResY[idx + j] = allSerial[i].y.evalSecondDeriv(evalAt[j]);
+    if (disableSerial == "no") {
+      int idx = 0;
+      for (int i = 0; i < numSplines; i++) {
+        for (int j = 0; j < evalAt.size(); j++) {
+          serialResX[idx + j] = allSerial[i].x.evalSecondDeriv(evalAt[j]);
+          serialResY[idx + j] = allSerial[i].y.evalSecondDeriv(evalAt[j]);
+        }
+        idx += paraCoords;
       }
-      idx += paraCoords;
     }
     double serial2ndDerivTime = timer.seconds();
     // Kokkos 2nd derivative function, using the existing csr
-    timer.reset();
     res = kokkosBSP.eval2ndDeriv(kokkosBSPCSR);
     double kokkos2ndDerivTime = timer.seconds();
     Kokkos::deep_copy(resMirror, res);
     // Compare serial and kokkos result
     timer.reset();
-    for (int i = 0; i < evalAt.size() * numSplines; i++) {
-      double xDiff = std::fabs(resMirror(i, 0)) - std::fabs(serialResX[i]);
-      double yDiff = std::fabs(resMirror(i, 1)) - std::fabs(serialResY[i]);
-      if (xDiff > EPSILON || yDiff > EPSILON) {
-        std::cout << "2nd Deriv Test " << i + 1
+    if (disableSerial == "no") {
+      for (int i = 0; i < evalAt.size() * numSplines; i++) {
+        double xDiff = std::fabs(resMirror(i, 0)) - std::fabs(serialResX[i]);
+        double yDiff = std::fabs(resMirror(i, 1)) - std::fabs(serialResY[i]);
+        if (xDiff > EPSILON || yDiff > EPSILON) {
+          std::cout << "2nd Deriv Test " << i + 1
                   << "  failed, eval at: " << evalAt[i] << std::endl;
-        std::cout << "Difference: x = " << xDiff << " y = " << yDiff
+          std::cout << "Difference: x = " << xDiff << " y = " << yDiff
                   << std::endl;
-        std::cout << "SERIAL 2nd deriv: x = " << serialResX[i]
+          std::cout << "SERIAL 2nd deriv: x = " << serialResX[i]
                   << " y = " << serialResY[i] << std::endl;
-        std::cout << "KOKKOS 2nd deriv: x = " << resMirror(i, 0)
+          std::cout << "KOKKOS 2nd deriv: x = " << resMirror(i, 0)
                   << " y = " << resMirror(i, 1) << std::endl;
-        retVal = 1;
+          retVal = 1;
+        }
       }
     }
     double verifyTime2ndDeriv = timer.seconds();
@@ -271,16 +278,22 @@ int main(int argc, char *argv[]) {
     std::cout << "Kokkos spline initialization time: "
               << kokkosSplineCreationTime << std::endl;
     std::cout << "Kokkos csr initialization time: " << csrInitTime << std::endl;
-    std::cout << "Serial 1st derivative time: " << serial1stDerivTime
+    if (disableSerial == "no") {
+      std::cout << "Serial 1st derivative time: " << serial1stDerivTime
               << std::endl;
+    }
     std::cout << "Kokkos 1st derivative time: " << kokkos1stDerivTime
               << std::endl;
-    std::cout << "1st deriv verify time: " << verifyTime1stDeriv << std::endl;
-    std::cout << "Serial 2nd derivative time: " << serial2ndDerivTime
+    if (disableSerial == "no") {
+      std::cout << "1st deriv verify time: " << verifyTime1stDeriv << std::endl;
+      std::cout << "Serial 2nd derivative time: " << serial2ndDerivTime
               << std::endl;
+    }
     std::cout << "Kokkos 2nd derivative time: " << kokkos2ndDerivTime
               << std::endl;
-    std::cout << "2nd deriv verify time: " << verifyTime2ndDeriv << std::endl;
+    if (disableSerial == "no") {
+      std::cout << "2nd deriv verify time: " << verifyTime2ndDeriv << std::endl;
+    }
   }
   Kokkos::finalize();
   return retVal;
