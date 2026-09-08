@@ -2,7 +2,7 @@
 
 set -e
 
-usage="Usage: ./run_BSplineKokkos2D_scaling_test.sh /path/to/build_dir"
+usage="Usage: ./run_BSplineKokkos2D_scaling_test.sh /path/to/build_dir <disableSerial: yes -or- no>"
 
 #Check commandline arguments
 if [[ $# -lt 1 ]]; then
@@ -10,6 +10,7 @@ if [[ $# -lt 1 ]]; then
 fi
 
 BUILD_DIR=$1
+DISABLE_SERIAL=$2
 
 #Check if the build dir provided exists
 [[ ! -d $BUILD_DIR ]] && "BUILD_DIR ${BUILD_DIR} does not exist... exiting" && exit 1
@@ -23,26 +24,26 @@ RUN_DIR="${BUILD_DIR}/testKokkos2DScalingTest"
 echo "Running Scaling Test with uniform number of pts per spline"
 
 #1000 splines, 10 pts per spline, 50000 paracoords
-${RUN_DIR} 1000 10 50000 uniform "scalingTestResult.csv"
+${RUN_DIR} 1000 10 50000 uniform "scalingTestResult.csv" ${DISABLE_SERIAL}
 
 #2000 splines, 10 pts per spline, 50000 paracoords
-${RUN_DIR} 2000 10 50000 uniform "scalingTestResult.csv"
+${RUN_DIR} 2000 10 50000 uniform "scalingTestResult.csv" ${DISABLE_SERIAL} 
 
 #6000 splines, 10 pts per spline, 50000 paracoords
-${RUN_DIR} 6000 10 50000 uniform "scalingTestResult.csv"
+${RUN_DIR} 6000 10 50000 uniform "scalingTestResult.csv" ${DISABLE_SERIAL}
 
 echo "-------- END OF UNIFORM TEST --------"
 
 echo "Running Scaling Test with variable sized pts per spline, sampled from a gaussian distribution"
 
 #1000 splines, 10 pts per spline, 50000 paracoords
-${RUN_DIR} 1000 10 50000 gaussian "scalingTestResult.csv"
+${RUN_DIR} 1000 10 50000 gaussian "scalingTestResult.csv" ${DISABLE_SERIAL}
 
 #2000 splines, 10 pts per spline, 50000 paracoords
-${RUN_DIR} 2000 10 50000 gaussian "scalingTestResult.csv"
+${RUN_DIR} 2000 10 50000 gaussian "scalingTestResult.csv" ${DISABLE_SERIAL}
 
 #6000 splines, 10 pts per spline, 50000 paracoords
-${RUN_DIR} 6000 10 50000 gaussian "scalingTestResult.csv"
+${RUN_DIR} 6000 10 50000 gaussian "scalingTestResult.csv" ${DISABLE_SERIAL}
 echo "-------- END OF GAUSSIAN TEST --------"
 
 
