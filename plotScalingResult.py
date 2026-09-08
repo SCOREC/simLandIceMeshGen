@@ -25,6 +25,9 @@ for i in range(modeCount):
 plt.xlabel("number of splines")
 plt.ylabel("number of para coords evaluated per second")
 plt.title("1st Derivative Result with Uniform Spline Length")
+plt.yscale('log')
+plt.ylim(bottom=1)
+plt.ylim(top=y1[:modeCount][0]*2)
 plt.show()
 plt.savefig('1stDerivUniform.png')
 
@@ -36,6 +39,9 @@ for i in range(modeCount):
 plt.xlabel("number of splines")
 plt.ylabel("number of para coords evaluated per second")
 plt.title("2nd Derivative Result with Uniform Spline Length")
+plt.yscale('log')
+plt.ylim(bottom=1)
+plt.ylim(top=y2[:modeCount][0]*2)
 plt.show()
 plt.savefig('2ndDerivUniform.png')
 
@@ -47,6 +53,9 @@ for i in range(modeCount, len(y1)):
 plt.xlabel("number of splines")
 plt.ylabel("number of para coords evaluated per second")
 plt.title("1st Derivative Result with Variable Spline Length Sampled from a Gaussian Distribution")
+plt.yscale('log')
+plt.ylim(bottom=1)
+plt.ylim(top=y1[modeCount:len(y1)][0]*2)
 plt.show()
 plt.savefig('1stDerivGaussian.png')
 
@@ -58,5 +67,8 @@ for i in range(modeCount, len(y2)):
 plt.xlabel("number of splines")
 plt.ylabel("number of para coords evaluated per second")
 plt.title("2nd Derivative Result with Variable Spline Length Sampled from a Gaussian Distribution")
+plt.yscale('log')
+plt.ylim(bottom=1)
+plt.ylim(top=y2[modeCount:len(y2)][0]*2)
 plt.show()
 plt.savefig('2ndDerivGaussian.png')
