@@ -1,0 +1,105 @@
+// Constructor test for new representation of Kokkos spline
+// We will be comparing this against the serial version
+#include "BSpline.h"
+#include "BSplineKokkos2D.h"
+#include "curveReader.h"
+#include "splineInterpolation.h"
+#include <Kokkos_Core.hpp>
+
+#include <cassert>
+#include <fstream>
+#include <iostream>
+#include <math.h>
+#include <numeric>
+#include <string>
+#include <vector>
+
+// For checking if the content of the splines are correct
+
+using ExecutionSpace = Kokkos::DefaultExecutionSpace;
+using MemSpace = ExecutionSpace::memory_space;
+
+int main(int argc, char *argv[]) {
+  // We check how many arguments are given
+  int retVal = 0;
+  if (argc != 3) {
+    std::cerr << "Input arguments: <input csv file> <expected curve length>"
+              << std::endl;
+    std::cerr << "input csv need these columns: ";
+    std::cerr
+        << "coordinate x, coordinate y, coordinate z,isOnCurve,angle,isMdlVtx"
+        << std::endl;
+    return 1;
+  }
+  Kokkos::initialize(argc, argv);
+  {
+    const double EPSILON = 1e-12;
+    std::string inputCSV = argv[1];
+    int extensionPos = inputCSV.rfind(".");
+    int slashPos = inputCSV.rfind("/");
+    std::string fileNameNoExt = inputCSV.substr(slashPos + 1, extensionPos);
+    double expectedCurveLength = std::stod(argv[2]);
+    auto curve = CurveReader::readCurveInfo(inputCSV);
+
+    // Construct BSpline2d object
+    SplineInterp::BSpline2d serialBSP;
+    if (curve.x.size() == 2) {
+      serialBSP = SplineInterp::attach_piecewise_linear_curve(curve.x, curve.y);
+    } else {
+      serialBSP = SplineInterp::fitCubicSplineToPoints(curve.x, curve.y);
+    }
+
+    std::vector<double> ctrlPtsX, ctrlPtsY, knots, weight;
+    int order;
+
+    serialBSP.x.getpara(order, ctrlPtsX, knots, weight);
+    serialBSP.y.getpara(order, ctrlPtsY, knots, weight);
+
+    BSplineKokkos2D<ExecutionSpace> kokkosBSP(order, ctrlPtsX, ctrlPtsY, knots);
+
+    auto intView = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),
+                                                       kokkosBSP.getOrder());
+    // Testing the order initialization
+    double diff = std::fabs(order - intView(0));
+    if (diff > EPSILON) {
+      std::cout << "Order difference : " << diff << std::endl;
+      std::cout << "Serial: " << order << " Kokkos: " << intView(0)
+                << std::endl;
+      retVal = 1;
+    }
+
+    auto double2DView = Kokkos::create_mirror_view_and_copy(
+        Kokkos::HostSpace(), kokkosBSP.getCtrlPts());
+
+    // Testing ctrlPts initialization
+    double xDiff, yDiff;
+    for (int i = 0; i < ctrlPtsX.size(); i++) {
+      xDiff = std::fabs(ctrlPtsX[i] - double2DView(i, 0));
+      yDiff = std::fabs(ctrlPtsY[i] - double2DView(i, 1));
+      if (xDiff > EPSILON || yDiff > EPSILON) {
+        std::cout << "CtrlPts difference: x = " << xDiff << " y = " << yDiff
+                  << std::endl;
+        std::cout << "Serial: " << ctrlPtsX[i] << ", " << ctrlPtsY[i]
+                  << std::endl;
+        std::cout << "Kokkos: " << double2DView(i, 0) << ", "
+                  << double2DView(i, 1) << std::endl;
+        retVal = 1;
+      }
+    }
+
+    // Test knots initialization
+    auto doubleView = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),
+                                                          kokkosBSP.getKnots());
+    for (int i = 0; i < knots.size(); i++) {
+      diff = std::fabs(knots[i] - doubleView(i));
+      if (diff > EPSILON) {
+        std::cout << "Knots difference: " << diff << std::endl;
+        std::cout << "Serial: " << knots[i] << std::endl;
+        std::cout << "Kokkos: " << doubleView(i) << std::endl;
+        retVal = 1;
+      }
+    }
+  }
+  Kokkos::finalize();
+  return retVal;
+}
