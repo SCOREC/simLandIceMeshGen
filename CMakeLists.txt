@@ -177,9 +177,9 @@ set_tests_properties(testDiscoverTopo_L11pts PROPERTIES
 add_executable(testSplineKokkos2DBase testSplineKokkos2DBase.cpp)
 target_link_libraries(testSplineKokkos2DBase PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos)
 add_test(NAME testSplineKokkos2DStraightEdge
-  COMMAND ./testSplineKokkos2DBase contour_test_data/testCurveStraightLine.csv 9)
+  COMMAND ./testSplineKokkos2DBase ${testDataDir}/testCurveStraightLine.csv 9)
 add_test(NAME testSplineKokkos2D2Pts
-  COMMAND ./testSplineKokkos2DBase contour_test_data/testCurve2pts.csv 1)
+  COMMAND ./testSplineKokkos2DBase ${testDataDir}/testCurve2pts.csv 1)
 add_test(NAME testSplineKokkos2DSingleEdge
   COMMAND ./testSplineKokkos2DBase ${testDataDir}/testCurveSplineFitting.csv 12.2685)
 
@@ -187,9 +187,9 @@ add_test(NAME testSplineKokkos2DSingleEdge
 add_executable(testKokkos2D1stDeriv testKokkos2D1stDeriv.cpp)
 target_link_libraries(testKokkos2D1stDeriv PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos)
 add_test(NAME testDeriv2DStraightEdge
-  COMMAND ./testKokkos2D1stDeriv contour_test_data/testCurveStraightLine.csv 9)
+  COMMAND ./testKokkos2D1stDeriv ${testDataDir}/testCurveStraightLine.csv 9)
 add_test(NAME testDeriv2D2Pts
-  COMMAND ./testKokkos2D1stDeriv contour_test_data/testCurve2pts.csv 1)
+  COMMAND ./testKokkos2D1stDeriv ${testDataDir}/testCurve2pts.csv 1)
 add_test(NAME testDeriv2DSingleEdge
   COMMAND ./testKokkos2D1stDeriv ${testDataDir}/testCurveSplineFitting.csv 12.2685)
 
@@ -197,9 +197,9 @@ add_test(NAME testDeriv2DSingleEdge
 add_executable(testKokkos2D2ndDeriv testKokkos2D2ndDeriv.cpp)
 target_link_libraries(testKokkos2D2ndDeriv PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos)
 add_test(NAME test2NDDeriv2DStraightEdge
-  COMMAND ./testKokkos2D2ndDeriv contour_test_data/testCurveStraightLine.csv 9)
+  COMMAND ./testKokkos2D2ndDeriv ${testDataDir}/testCurveStraightLine.csv 9)
 add_test(NAME test2NDDeriv2D2Pts
-  COMMAND ./testKokkos2D2ndDeriv contour_test_data/testCurve2pts.csv 1)
+  COMMAND ./testKokkos2D2ndDeriv ${testDataDir}/testCurve2pts.csv 1)
 add_test(NAME test2NDDerive2DSingleEdge
-  COMMAND ./testKokkos2D2ndDeriv contour_test_data/testSplineFitting.csv 12.2685)
+  COMMAND ./testKokkos2D2ndDeriv ${testDataDir}/testCurveSplineFitting.csv 12.2685)
 
