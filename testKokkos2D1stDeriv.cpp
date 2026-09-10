@@ -16,7 +16,7 @@ using ExecutionSpace = Kokkos::DefaultExecutionSpace;
 using MemSpace = ExecutionSpace::memory_space;
 
 int main(int argc, char *argv[]) {
-  int retVal = 0;
+  int retVal = 0; 
   if (argc != 3) {
     std::cerr << "Input arguments: <input csv file> <expected curve length>"
               << std::endl;
