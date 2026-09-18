@@ -383,6 +383,8 @@ int main(int argc, char **argv) {
       const auto convertBackToMeters = true;
       writeMeshSimToNetCDF(mesh, mdlTopo.model, netcdfFileName, convertBackToMeters,
                            features.outer.boundaryPolygons);
+      //M_write renumbers and writeMeshSimToNetCDF depends on our own numbering
+      M_write(mesh, meshFileName.c_str(), 0, progress);
       M_release(mesh);
     }
 

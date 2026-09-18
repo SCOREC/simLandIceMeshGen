@@ -85,30 +85,42 @@ int writeMeshSimToNetCDF(pMesh mesh, pGModel model, std::string outputFileName,
   std::vector<int> geomModelIdDualCell(numDualCells);
   std::vector<int> geomModelDimDualCell(numDualCells);
 
-  // Iterate over vertices and renumber them. Also record each vertex's
-  // EN_id (the all_vertices index it was tagged with in
-  // specifyBoundaryTriangleMesh, for boundary-triangle-mesh vertices) so
-  // boundaryPolygons entries can be resolved to output cell indices below.
+  // Write each vertex's data at the index given by its EN_id rather than at
+  // its iteration position, so the coordinates share an index space with
+  // cellsOnVertex below, which is built from EN_id.
+  //
+  // numberUnspecifiedVertices (simModelGen2d.cc) makes EN_id a contiguous
+  // 0..numDualCells-1 numbering in which a specified vertex keeps its
+  // all_vertices index, so the netcdf comes out in the caller's own cell
+  // numbering. The bounds check enforces that rather than trusting it.
+  // Note this only holds because M_write, which renumbers every entity by
+  // iteration position, runs after this function.
   std::map<int, int> cellIdxByEnId;
   VIter vertices = M_vertexIter(mesh);
   pVertex vertex;
-  int vertexIdx = 0;
   while ((vertex = VIter_next(vertices))) {
     double xyz[3];
     V_coord(vertex, xyz);
 
-    xDualCell[vertexIdx] = xyz[0] * coordScaling;
-    yDualCell[vertexIdx] = xyz[1] * coordScaling;
-    zDualCell[vertexIdx] = 0.0;  // 2D mesh, z = 0
+    const int enId = EN_id((pEntity)vertex);
+    if (enId < 0 || enId >= numDualCells) {
+      std::cerr << "ERROR: mesh vertex has EN_id " << enId
+                << " outside [0," << numDualCells << "); cellsOnVertex and "
+                   "the cell coordinates cannot share an index space\n";
+      VIter_delete(vertices);
+      return 1;
+    }
+
+    xDualCell[enId] = xyz[0] * coordScaling;
+    yDualCell[enId] = xyz[1] * coordScaling;
+    zDualCell[enId] = 0.0;  // 2D mesh, z = 0
 
     // Get geometric classification
     pGEntity gent = EN_whatIn((pEntity)vertex);
-    geomModelIdDualCell[vertexIdx] = GEN_tag(gent);
-    geomModelDimDualCell[vertexIdx] = GEN_type(gent);
+    geomModelIdDualCell[enId] = GEN_tag(gent);
+    geomModelDimDualCell[enId] = GEN_type(gent);
 
-    cellIdxByEnId[EN_id((pEntity)vertex)] = vertexIdx;
-
-    vertexIdx++;
+    cellIdxByEnId[enId] = enId;
   }
   VIter_delete(vertices);
 

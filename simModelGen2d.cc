@@ -428,6 +428,10 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool hasSingleCon
   }
 }
 
+//id offset used to tag the faces handed to MS_specifyFace. Chosen well above
+//any face count these cases produce so a tagged face is unambiguous.
+static const int specifiedFaceIdOffset = 10000;
+
 void specifyBoundaryTriangleMesh(pMesh mesh, GeomInfo& outerGeom, BoundaryClassification& bndClassOuter, pGFace outerFace, bool debug) {
   const auto numAllVtx = (int)outerGeom.all_vertices_x.size();
 
@@ -491,7 +495,14 @@ void specifyBoundaryTriangleMesh(pMesh mesh, GeomInfo& outerGeom, BoundaryClassi
     MS_specifyEdge(mesh, vertTags, edgeEnt, -1);
   }
 
-  //specify a mesh face for every input triangle
+  //specify a mesh face for every input triangle. The id passed to
+  //MS_specifyFace is only a temporary handle -- per the MeshSim
+  //exSpecifyMesh example, "there is no guarantee that this id will remain
+  //the same" through meshing -- so the durable id is stamped on the
+  //returned pFace with EN_setID, offset by specifiedFaceIdOffset. A face
+  //still carrying such an id after meshing is one of these, which is what
+  //makes preservation measurable on the mesh itself.
+  int faceTag = specifiedFaceIdOffset;
   for (auto& tri : outerGeom.triangles) {
     for (int v : tri) {
       if (v < 0 || v >= numAllVtx) {
@@ -501,12 +512,99 @@ void specifyBoundaryTriangleMesh(pMesh mesh, GeomInfo& outerGeom, BoundaryClassi
       }
     }
     int vertTags[3] = {tri[0], tri[1], tri[2]};
-    MS_specifyFace(mesh, 3, vertTags, outerFace, -1);
+    pFace f = MS_specifyFace(mesh, 3, vertTags, outerFace, -1);
+    if (f) {
+      EN_setID((pEntity)f, faceTag);
+    } else {
+      std::cerr << "WARNING: MS_specifyFace returned null for triangle "
+                << (faceTag - specifiedFaceIdOffset) << "\n";
+    }
+    faceTag++;
   }
 
   if (debug) {
     std::cerr << "specified " << numAllVtx << " boundary-triangle mesh "
                  "vertices and " << outerGeom.triangles.size() << " mesh faces\n";
+  }
+}
+
+/**
+ * \brief put every mesh vertex into one contiguous id space
+ *
+ * specifyBoundaryTriangleMesh tags each *specified* vertex with its
+ * all_vertices index via MS_specifyVertex(..., i), so EN_id on those
+ * vertices is already the input cell index. The surface mesher then adds
+ * interior vertices of its own. Those ids are unique per mesh dimension,
+ * but they are not in the all_vertices space and may overlap
+ * [0, numAllVtx).
+ *
+ * netcdfWriter.cc writes cellsOnVertex straight from EN_id, so unless both
+ * groups share one space a triangle corner that refers to a mesher-created
+ * vertex is indistinguishable from one that refers to an input cell. This
+ * renumbers the mesher-created vertices from numAllVtx upward and leaves
+ * the specified ones untouched, establishing:
+ *
+ *   EN_id <  numAllVtx  ->  input cell of that all_vertices index
+ *   EN_id >= numAllVtx  ->  vertex created by the mesher
+ *
+ * The specified vertices cannot be identified by their id here -- that is
+ * the property being repaired -- so they are found by position, which is
+ * reliable because MS_specifyVertex places them exactly and the mesher
+ * does not move them. A specified point that fails to match is reported,
+ * not silently renumbered, since that would mean the mesher moved or
+ * dropped it (the first failure mode stage 3 is written to catch).
+ *
+ * \param mesh (in/out) the meshed pMesh, renumbered in place
+ * \param outerGeom (in) supplies all_vertices, the specified index space
+ * \param debug (in) true to report the specified/created split
+ */
+void numberUnspecifiedVertices(pMesh mesh, GeomInfo& outerGeom, bool debug) {
+  const int numAllVtx = (int)outerGeom.all_vertices_x.size();
+
+  //bucket the specified points by rounded position for exact lookup
+  auto key = [](double x, double y) {
+    return std::make_pair(std::llround(x * 1e6), std::llround(y * 1e6));
+  };
+  std::map<std::pair<long long, long long>, int> idxByPos;
+  for (int i = 0; i < numAllVtx; i++) {
+    idxByPos[key(outerGeom.all_vertices_x.at(i),
+                 outerGeom.all_vertices_y.at(i))] = i;
+  }
+
+  //assign the mesher-created vertices ids past the specified range. EN_setID
+  //is deferred until every vertex has been classified so that an id written
+  //here is never mistaken for a specified one by a later iteration.
+  std::vector<std::pair<pVertex,int>> assignment;
+  int nextId = numAllVtx;
+  int numSpecified = 0;
+  VIter vertices = M_vertexIter(mesh);
+  pVertex vertex;
+  while ((vertex = VIter_next(vertices))) {
+    double xyz[3];
+    V_coord(vertex, xyz);
+    auto it = idxByPos.find(key(xyz[0], xyz[1]));
+    if (it != idxByPos.end()) {
+      assignment.push_back({vertex, it->second});
+      numSpecified++;
+    } else {
+      assignment.push_back({vertex, nextId++});
+    }
+  }
+  VIter_delete(vertices);
+
+  for (auto& [vtx, id] : assignment) {
+    EN_setID((pEntity)vtx, id);
+  }
+
+  if (numSpecified != numAllVtx) {
+    std::cerr << "WARNING: " << numAllVtx << " vertices were specified but "
+              << numSpecified << " were found in the meshed output; "
+              << (numAllVtx - numSpecified)
+              << " were moved or removed by the mesher\n";
+  }
+  if (debug) {
+    std::cerr << "numbered " << numSpecified << " specified and "
+              << (nextId - numAllVtx) << " mesher-created mesh vertices\n";
   }
 }
 
@@ -534,7 +632,31 @@ pMesh createMesh(ModelTopo mdlTopo, GeomInfo& outerGeom, BoundaryClassification&
   std::cout << "Number of mesh faces in surface: " << M_numFaces(mesh)
     << std::endl;
 
-  M_write(mesh, meshFileName.c_str(), 0, progress);
+  if (outerGeom.hasBoundaryTriangles()) {
+    numberUnspecifiedVertices(mesh, outerGeom, debug);
+
+    //every specified face should still be present, identified by the id
+    //offset specifyBoundaryTriangleMesh tagged it with. Fewer means the
+    //mesher reworked part of the preserved region.
+    int numTagged = 0;
+    FIter faces = M_faceIter(mesh);
+    pFace face;
+    while ((face = FIter_next(faces))) {
+      if (EN_id((pEntity)face) >= specifiedFaceIdOffset) {
+        numTagged++;
+      }
+    }
+    FIter_delete(faces);
+    if (numTagged != (int)outerGeom.triangles.size()) {
+      std::cerr << "WARNING: " << outerGeom.triangles.size()
+                << " faces were specified but only " << numTagged
+                << " survived meshing\n";
+    } else if (debug) {
+      std::cerr << "all " << numTagged << " specified faces survived meshing ("
+                << M_numFaces(mesh) << " faces total)\n";
+    }
+  }
+
   std::cout << "Number of mesh regions in volume: " << M_numRegions(mesh)
     << std::endl;
   MS_deleteMeshCase(meshCase);
