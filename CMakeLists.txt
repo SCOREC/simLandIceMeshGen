@@ -52,14 +52,14 @@ if(USE_SIMMODSUITE)
   add_test(NAME simModelGen2dFromMesh_thwaites
     COMMAND ./generate2dModelFromMesh ${testDataDir}/thwaites_basal_effectiveStrain.osh thwaites 1 100 100 "km")
   set_tests_properties(simModelGen2dFromMesh_thwaites PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 26")
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 27")
   add_test(NAME simModelGen2d_gis
     COMMAND ./generate2dModel
       --contour file=${testDataDir}/gis_inner.msh,order=0,units=m
       --contour file=${testDataDir}/gis_outer.msh,order=1,units=m
       gis 1 100 100 1)
   set_tests_properties(simModelGen2d_gis PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 1054(.|\n)*mesh faces in surface: 293595"
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 1043(.|\n)*mesh faces in surface: 293696"
     FAIL_REGULAR_EXPRESSION "SimModSuite error caught")
 
   add_test(NAME simModelGen2d_ais
@@ -85,7 +85,7 @@ if(USE_SIMMODSUITE)
       --contour file=${testDataDir}/gis_domain_boundary.vtk,order=0,units=m,fail-if-cleaned
       gis_domain_boundary 1 100 100 0)
   set_tests_properties(simModelGen2d_gis_domainBoundary PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 123")
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 125")
 
   add_test(NAME simModelGen2d_gis_noBbox
     COMMAND ./generate2dModel

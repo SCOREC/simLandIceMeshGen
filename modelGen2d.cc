@@ -1033,6 +1033,11 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
   //that cannot be meshed.  The reversal itself is already a model vertex; it is
   //the curves running into it that have to be straightened.
   const double reversalTurnTol = 120; //degrees
+  //A neighbor lying on a straight run has no curvature to overshoot with, so
+  //leave it alone - straightening it would only introduce a model vertex in the
+  //middle of a line.  This keeps the rule off of reversals that are an artifact
+  //of the contour closing back on itself, e.g. the free ends of an open arm.
+  const double straightTurnTol = 1; //degrees
   int numReversalPts = 0;
   for(int i=geom.firstContourPt; i<geom.numVtx; i++) {
     if(turnAngleDegrees(geom, i) <= reversalTurnTol) {
@@ -1040,6 +1045,9 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
     }
     numReversalPts++;
     for(const int nbor : {geom.getPrevPtIdx(i), geom.getNextPtIdx(i)}) {
+      if(isMdlVtx.at(nbor) || turnAngleDegrees(geom, nbor) <= straightTurnTol) {
+        continue;
+      }
       isPointOnCurve.at(nbor) = 0;
     }
   }
