@@ -68,9 +68,8 @@ if(USE_SIMMODSUITE)
       --contour file=${testDataDir}/ais_outer.vtk,order=1,units=m
       ais 1 100 100 1)
   set_tests_properties(simModelGen2d_ais PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 571")
-  set_tests_properties(simModelGen2d_ais PROPERTIES
-    PASS_REGULAR_EXPRESSION "mesh faces in surface: 216199")
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 571(.|\n)*mesh faces in surface: 216199"
+    FAIL_REGULAR_EXPRESSION "SimModSuite error caught")
 
   add_test(NAME simModelGen2d_gis_failIfCleaned
     COMMAND ./generate2dModel
@@ -92,9 +91,8 @@ if(USE_SIMMODSUITE)
       --contour file=${testDataDir}/gis_noBbox.vtk,order=0,units=m
       gis_noBbox 1 100 100 1)
   set_tests_properties(simModelGen2d_gis_noBbox PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 310")
-  set_tests_properties(simModelGen2d_gis_noBbox PROPERTIES
-    PASS_REGULAR_EXPRESSION "mesh faces in surface: 118736")
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 310(.|\n)*mesh faces in surface: 118736"
+    FAIL_REGULAR_EXPRESSION "SimModSuite error caught")
 
   add_test(NAME simModelGen2d_gis_boundaryTriangles
     COMMAND ./generate2dModel
@@ -107,9 +105,8 @@ if(USE_SIMMODSUITE)
       --contour file=${testDataDir}/oneSquare.msh,order=0,units=km
       one_jig 1e-6 100 100 1)
   set_tests_properties(simModelGen2d_oneSquare_jig PROPERTIES
-    PASS_REGULAR_EXPRESSION "mesh faces in surface: 1122")
-  set_tests_properties(simModelGen2d_oneSquare_jig PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 4")
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 4(.|\n)*mesh faces in surface: 280"
+    FAIL_REGULAR_EXPRESSION "SimModSuite error caught")
 
   add_test(NAME simModelGen2d_twoSquares_jig
     COMMAND ./generate2dModel
@@ -117,18 +114,16 @@ if(USE_SIMMODSUITE)
       --contour file=${testDataDir}/twoSquares_outer.msh,order=1,units=km
       two_jig 1e-6 100 100 1)
   set_tests_properties(simModelGen2d_twoSquares_jig PROPERTIES
-    PASS_REGULAR_EXPRESSION "mesh faces in surface: 1176")
-  set_tests_properties(simModelGen2d_twoSquares_jig PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 8")
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 8(.|\n)*mesh faces in surface: 268"
+    FAIL_REGULAR_EXPRESSION "SimModSuite error caught")
 
   add_test(NAME simModelGen2d_oneSquare_vtk
     COMMAND ./generate2dModel
       --contour file=${testDataDir}/oneSquare.vtk,order=0,units=km
       one_vtk 1e-6 120 30 1)
   set_tests_properties(simModelGen2d_oneSquare_vtk PROPERTIES
-    PASS_REGULAR_EXPRESSION "mesh faces in surface: 1122")
-  set_tests_properties(simModelGen2d_oneSquare_vtk PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 4")
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 4(.|\n)*mesh faces in surface: 280"
+    FAIL_REGULAR_EXPRESSION "SimModSuite error caught")
 
   add_test(NAME simModelGen2d_twoSquares_vtk
     COMMAND ./generate2dModel
@@ -136,9 +131,8 @@ if(USE_SIMMODSUITE)
       --contour file=${testDataDir}/twoSquares_outer.vtk,order=1,units=km
       two_vtk 1e-6 120 30 1)
   set_tests_properties(simModelGen2d_twoSquares_vtk PROPERTIES
-    PASS_REGULAR_EXPRESSION "mesh faces in surface: 1176")
-  set_tests_properties(simModelGen2d_twoSquares_vtk PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 8")
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 8(.|\n)*mesh faces in surface: 268"
+    FAIL_REGULAR_EXPRESSION "SimModSuite error caught")
 
   add_test(NAME simModelGen2d_oval_vtk
     COMMAND ./generate2dModel
@@ -158,23 +152,20 @@ if(USE_SIMMODSUITE)
   add_test(NAME curve4277
     COMMAND ./testCreateEdges ${testDataDir}/testCurve4277.csv curve4277)
   set_tests_properties(curve4277 PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 3")
-  set_tests_properties(curve4277 PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of edges in model: 3")
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 3(.|\n)*Number of edges in model: 3"
+    FAIL_REGULAR_EXPRESSION "SimModSuite error caught")
 
   add_test(NAME curve1293
     COMMAND ./testCreateEdges ${testDataDir}/testCurve1293.csv curve1293)
   set_tests_properties(curve1293 PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 2")
-  set_tests_properties(curve1293 PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of edges in model: 2")
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 2(.|\n)*Number of edges in model: 2"
+    FAIL_REGULAR_EXPRESSION "SimModSuite error caught")
 
   add_test(NAME curve1655
     COMMAND ./testCreateEdges ${testDataDir}/testCurve1655.csv curve1655)
   set_tests_properties(curve1655 PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 2")
-  set_tests_properties(curve1655 PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of edges in model: 2")
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 2(.|\n)*Number of edges in model: 2"
+    FAIL_REGULAR_EXPRESSION "SimModSuite error caught")
 
   add_test(NAME intersection2339_2344
     COMMAND ./testCreateEdges
@@ -184,16 +175,14 @@ if(USE_SIMMODSUITE)
   add_test(NAME edge522
     COMMAND ./testCreateEdges ${testDataDir}/testEdge522.csv edge522)
   set_tests_properties(edge522 PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 4")
-  set_tests_properties(edge522 PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of edges in model: 4")
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 4(.|\n)*Number of edges in model: 4"
+    FAIL_REGULAR_EXPRESSION "SimModSuite error caught")
 
   add_test(NAME dblMdlVtx
     COMMAND ./testCreateEdges ${testDataDir}/testDoubleMdlVtx.csv dblMdlVtx)
   set_tests_properties(dblMdlVtx PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 3")
-  set_tests_properties(dblMdlVtx PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of edges in model: 3")
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 3(.|\n)*Number of edges in model: 3"
+    FAIL_REGULAR_EXPRESSION "SimModSuite error caught")
 
   add_test(NAME fjord
     COMMAND ./testCreateEdges ${testDataDir}/fjord.csv fjord)
