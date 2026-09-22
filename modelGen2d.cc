@@ -668,7 +668,7 @@ bool isNumEdgesBtwnPtsGreaterThanOne(size_t small, size_t large, size_t firstPt,
 //find pairs of points that are not consecutative, but are within some length
 //tolerance of each other - mark these points as model vertices to help prevent
 //intersecting bsplines
-std::map<int,int> findNarrowChannels(GeomInfo& geom, double coincidentVtxToleranceSquared, bool debug=false) {
+std::multimap<int,int> findNarrowChannels(GeomInfo& geom, double coincidentVtxToleranceSquared, bool debug=false) {
   assert(geom.numVtx >= 0);
 
   //use a quadtree
@@ -716,13 +716,16 @@ std::map<int,int> findNarrowChannels(GeomInfo& geom, double coincidentVtxToleran
     std::cout << "done\n";
   }
   //remove consecutative pairs
-  std::map<int,int> longPairs;
+  //a point may be within the tolerance of multiple non-consecutative points
+  // (common in narrow channels), so a multimap is used to retain every pair -
+  // dropping one would leave its points fit with a bspline that can cross the
+  // channel
+  std::multimap<int,int> longPairs;
   const int lastPt = geom.vtx_x.size()-1;
   for(auto& [a,b] : intersections) {
     const auto small = std::min(a->id, b->id);
     const auto large = std::max(a->id, b->id);
     if(isNumEdgesBtwnPtsGreaterThanOne(small, large, geom.firstContourPt, lastPt)) {
-      assert(longPairs.count(small) == 0);
       longPairs.insert({small, large});
     }
   }
