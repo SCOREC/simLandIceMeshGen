@@ -309,7 +309,7 @@ int main(int argc, char **argv) {
   // as errors are thrown.
   try {
     auto ohLib = Omega_h::Library(&argc, &argv);
-    Sim_logOn("simMeshGen.log");
+    if(debug) Sim_logOn("simMeshGen.log");
     SimModel_start(); // Call before Sim_readLicenseFile
     // NOTE: Sim_readLicenseFile() is for internal testing only.  To use,
     // pass in the location of a file containing your keys.  For a release
@@ -400,7 +400,7 @@ int main(int argc, char **argv) {
     MS_exit();
     Sim_unregisterAllKeys();
     SimModel_stop();
-    Sim_logOff();
+    if(debug) Sim_logOff();
 
   } catch (pSimInfo err) {
     std::cerr << "SimModSuite error caught:" << std::endl;
