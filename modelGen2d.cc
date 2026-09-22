@@ -125,6 +125,18 @@ Vec2d getVector(GeomInfo& geom, int a, int b) {
           geom.vtx_y[b]-geom.vtx_y[a]};
 }
 
+//Magnitude of the change in direction at point 'i', in degrees.  Zero is
+//straight ahead and 180 is a complete reversal.  Unlike the taxicab angle used
+//for topology discovery this is a true euclidean angle, so it is comparable
+//across contours with differing point spacing.
+double turnAngleDegrees(GeomInfo& geom, int i) {
+  const auto in = getVector(geom, geom.getPrevPtIdx(i), i);
+  const auto out = getVector(geom, i, geom.getNextPtIdx(i));
+  const double cross = crossProduct2d(in, out);
+  const double dot = in[0]*out[0] + in[1]*out[1];
+  return std::abs(std::atan2(cross, dot)) * (180/M_PI);
+}
+
 int getMinYPoint(GeomInfo& geom) {
   double minY = std::numeric_limits<double>::max();
   double minX = std::numeric_limits<double>::max();
@@ -1013,6 +1025,28 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
 
   if(debug) {
     writeToCSV(debugPrefix+"narrowChannels.csv", geom, angle, isPointOnCurve, isMdlVtx);
+  }
+
+  //Force the points on either side of a sharp reversal (a spike or the tip of a
+  //narrow fjord) to be linear.  A cubic spline through such a reversal
+  //overshoots outside of it and can cross the opposing side, producing a model
+  //that cannot be meshed.  The reversal itself is already a model vertex; it is
+  //the curves running into it that have to be straightened.
+  const double reversalTurnTol = 120; //degrees
+  int numReversalPts = 0;
+  for(int i=geom.firstContourPt; i<geom.numVtx; i++) {
+    if(turnAngleDegrees(geom, i) <= reversalTurnTol) {
+      continue;
+    }
+    numReversalPts++;
+    for(const int nbor : {geom.getPrevPtIdx(i), geom.getNextPtIdx(i)}) {
+      isPointOnCurve.at(nbor) = 0;
+    }
+  }
+  if(debug) {
+    std::cout << debugPrefix << "number of sharp reversals (turn > "
+      << reversalTurnTol << " deg): " << numReversalPts << "\n";
+    writeToCSV(debugPrefix+"sharpReversals.csv", geom, angle, isPointOnCurve, isMdlVtx);
   }
 
   //eliminate curve segments (consecutive points) that don't have at least four points

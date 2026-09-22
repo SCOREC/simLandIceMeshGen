@@ -260,7 +260,7 @@ int main(int argc, char **argv) {
               << " boundary-triangles=" << spec.boundaryTriangles << "\n";
   }
 
-  const auto debug = true;
+  const auto debug = false;
   const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
 
   //load, clean, and orient each contour, in nesting order (0=innermost)

@@ -59,9 +59,8 @@ if(USE_SIMMODSUITE)
       --contour file=${testDataDir}/gis_outer.msh,order=1,units=m
       gis 1 100 100 1)
   set_tests_properties(simModelGen2d_gis PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 925")
-  set_tests_properties(simModelGen2d_gis PROPERTIES
-    PASS_REGULAR_EXPRESSION "mesh faces in surface: 68495")
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 1054(.|\n)*mesh faces in surface: 293595"
+    FAIL_REGULAR_EXPRESSION "SimModSuite error caught")
 
   add_test(NAME simModelGen2d_ais
     COMMAND ./generate2dModel
