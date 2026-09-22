@@ -608,6 +608,32 @@ void numberUnspecifiedVertices(pMesh mesh, GeomInfo& outerGeom, bool debug) {
   }
 }
 
+/**
+ * \brief number every mesh vertex by its iteration position
+ *
+ * Used when no vertices were specified, so there is no caller-supplied
+ * index space to honour. writeMeshSimToNetCDF indexes both cellsOnVertex
+ * and xCell/yCell by EN_id, which requires a contiguous
+ * 0..M_numVertices-1 range.
+ *
+ * \param mesh (in/out) the meshed pMesh, renumbered in place
+ * \param debug (in) true to report the number of vertices numbered
+ */
+void numberVerticesByIterationOrder(pMesh mesh, bool debug) {
+  int nextId = 0;
+  VIter vertices = M_vertexIter(mesh);
+  pVertex vertex;
+  while ((vertex = VIter_next(vertices))) {
+    EN_setID((pEntity)vertex, nextId++);
+  }
+  VIter_delete(vertices);
+
+  if (debug) {
+    std::cerr << "numbered " << nextId
+              << " mesh vertices by iteration order\n";
+  }
+}
+
 pMesh createMesh(ModelTopo mdlTopo, GeomInfo& outerGeom, BoundaryClassification& bndClassOuter, pGFace outerFace, std::string& meshFileName, pProgress progress, bool debug) {
   pMesh mesh = M_new(0, mdlTopo.model);
   if (outerGeom.hasBoundaryTriangles()) {
@@ -632,7 +658,9 @@ pMesh createMesh(ModelTopo mdlTopo, GeomInfo& outerGeom, BoundaryClassification&
   std::cout << "Number of mesh faces in surface: " << M_numFaces(mesh)
     << std::endl;
 
-  if (outerGeom.hasBoundaryTriangles()) {
+  if (!outerGeom.hasBoundaryTriangles()) {
+    numberVerticesByIterationOrder(mesh, debug);
+  } else {
     numberUnspecifiedVertices(mesh, outerGeom, debug);
 
     //every specified face should still be present, identified by the id

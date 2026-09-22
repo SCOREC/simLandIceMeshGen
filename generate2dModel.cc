@@ -381,8 +381,14 @@ int main(int argc, char **argv) {
       //compass assumes units of meters, need to convert back to meters,
       //simmetrix operations are done in units of km
       const auto convertBackToMeters = true;
-      writeMeshSimToNetCDF(mesh, mdlTopo.model, netcdfFileName, convertBackToMeters,
-                           features.outer.boundaryPolygons);
+      //a failed write leaves the netcdf holding fill values, so stop here
+      //rather than letting a downstream tool read it as valid
+      if (writeMeshSimToNetCDF(mesh, mdlTopo.model, netcdfFileName,
+                               convertBackToMeters,
+                               features.outer.boundaryPolygons)) {
+        std::cerr << "ERROR: failed to write " << netcdfFileName << "\n";
+        exit(EXIT_FAILURE);
+      }
       //M_write renumbers and writeMeshSimToNetCDF depends on our own numbering
       M_write(mesh, meshFileName.c_str(), 0, progress);
       M_release(mesh);
