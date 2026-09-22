@@ -428,10 +428,6 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool hasSingleCon
   }
 }
 
-//id offset used to tag the faces handed to MS_specifyFace. Chosen well above
-//any face count these cases produce so a tagged face is unambiguous.
-static const int specifiedFaceIdOffset = 10000;
-
 void specifyBoundaryTriangleMesh(pMesh mesh, GeomInfo& outerGeom, BoundaryClassification& bndClassOuter, pGFace outerFace, bool debug) {
   const auto numAllVtx = (int)outerGeom.all_vertices_x.size();
 
@@ -495,14 +491,10 @@ void specifyBoundaryTriangleMesh(pMesh mesh, GeomInfo& outerGeom, BoundaryClassi
     MS_specifyEdge(mesh, vertTags, edgeEnt, -1);
   }
 
-  //specify a mesh face for every input triangle. The id passed to
-  //MS_specifyFace is only a temporary handle -- per the MeshSim
-  //exSpecifyMesh example, "there is no guarantee that this id will remain
-  //the same" through meshing -- so the durable id is stamped on the
-  //returned pFace with EN_setID, offset by specifiedFaceIdOffset. A face
-  //still carrying such an id after meshing is one of these, which is what
-  //makes preservation measurable on the mesh itself.
-  int faceTag = specifiedFaceIdOffset;
+  //specify a mesh face for every input triangle. A null return means the
+  //triangle was not specified at all, so the preserved region is already
+  //incomplete and the mesher would fill the gap with its own faces.
+  int triIdx = 0;
   for (auto& tri : outerGeom.triangles) {
     for (int v : tri) {
       if (v < 0 || v >= numAllVtx) {
@@ -513,13 +505,21 @@ void specifyBoundaryTriangleMesh(pMesh mesh, GeomInfo& outerGeom, BoundaryClassi
     }
     int vertTags[3] = {tri[0], tri[1], tri[2]};
     pFace f = MS_specifyFace(mesh, 3, vertTags, outerFace, -1);
-    if (f) {
-      EN_setID((pEntity)f, faceTag);
-    } else {
-      std::cerr << "WARNING: MS_specifyFace returned null for triangle "
-                << (faceTag - specifiedFaceIdOffset) << "\n";
+    if (!f) {
+      std::cerr << "ERROR: MS_specifyFace returned null for triangle "
+                << triIdx << " with corners";
+      double cx = 0, cy = 0;
+      for (int v : tri) {
+        const auto x = outerGeom.all_vertices_x.at(v);
+        const auto y = outerGeom.all_vertices_y.at(v);
+        std::cerr << " (" << x << ", " << y << ")";
+        cx += x / 3;
+        cy += y / 3;
+      }
+      std::cerr << " centroid (" << cx << ", " << cy << ")... exiting\n";
+      exit(EXIT_FAILURE);
     }
-    faceTag++;
+    triIdx++;
   }
 
   if (debug) {
@@ -658,31 +658,13 @@ pMesh createMesh(ModelTopo mdlTopo, GeomInfo& outerGeom, BoundaryClassification&
   std::cout << "Number of mesh faces in surface: " << M_numFaces(mesh)
     << std::endl;
 
+  //whether the specified faces survived meshing is checked on the written
+  //mesh by comparing corner sets, which does not depend on an id the mesh
+  //database is free to change (see EN_setID).
   if (!outerGeom.hasBoundaryTriangles()) {
     numberVerticesByIterationOrder(mesh, debug);
   } else {
     numberUnspecifiedVertices(mesh, outerGeom, debug);
-
-    //every specified face should still be present, identified by the id
-    //offset specifyBoundaryTriangleMesh tagged it with. Fewer means the
-    //mesher reworked part of the preserved region.
-    int numTagged = 0;
-    FIter faces = M_faceIter(mesh);
-    pFace face;
-    while ((face = FIter_next(faces))) {
-      if (EN_id((pEntity)face) >= specifiedFaceIdOffset) {
-        numTagged++;
-      }
-    }
-    FIter_delete(faces);
-    if (numTagged != (int)outerGeom.triangles.size()) {
-      std::cerr << "WARNING: " << outerGeom.triangles.size()
-                << " faces were specified but only " << numTagged
-                << " survived meshing\n";
-    } else if (debug) {
-      std::cerr << "all " << numTagged << " specified faces survived meshing ("
-                << M_numFaces(mesh) << " faces total)\n";
-    }
   }
 
   std::cout << "Number of mesh regions in volume: " << M_numRegions(mesh)
