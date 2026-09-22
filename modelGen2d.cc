@@ -30,6 +30,7 @@
 #include "modelGen2d.h"
 #include "Quadtree.h"
 #include <map>
+#include <set>
 #include <Omega_h_file.hpp>
 
 void PointClassification::writeToOsh(std::string filename) {
@@ -656,26 +657,51 @@ quadtree::Box<double> makeBoxAroundPt(double x, double y, double pad) {
   return {left, bottom, width, height};
 }
 
-bool isNumEdgesBtwnPtsGreaterThanOne(size_t small, size_t large, size_t firstPt, size_t lastPt) {
-  assert(small<=large);
-  if(large == lastPt && small == firstPt) {
-    return false; //difference is one
-  } else {
-    return (large-small > 1);
+//bounding box of the segment [(x0,y0),(x1,y1)] grown by 'pad' on all sides
+quadtree::Box<double> makeBoxAroundSegment(double x0, double y0,
+                                           double x1, double y1, double pad) {
+  const double left = std::min(x0,x1)-pad;
+  const double bottom = std::min(y0,y1)-pad; //'bottom' is the min y corner, see makeBoxAroundPt
+  const double width = std::abs(x1-x0)+(pad*2);
+  const double height = std::abs(y1-y0)+(pad*2);
+  return {left, bottom, width, height};
+}
+
+//squared distance from point (px,py) to the segment [(x0,y0),(x1,y1)]
+double distanceSquaredPtToSegment(double px, double py,
+                                  double x0, double y0, double x1, double y1) {
+  const double dx = x1-x0;
+  const double dy = y1-y0;
+  const double lenSquared = dx*dx + dy*dy;
+  double t = 0; //parametric position of the closest point on the segment
+  if(lenSquared > 0) {
+    t = ((px-x0)*dx + (py-y0)*dy) / lenSquared;
+    t = std::max(0.0, std::min(1.0, t)); //clamp to the segment
   }
+  const double cx = px - (x0 + t*dx);
+  const double cy = py - (y0 + t*dy);
+  return cx*cx + cy*cy;
+}
+
+//number of contour edges between two points, taking the shorter way around the
+//closed loop of 'numPts' points
+int numPtsBetween(int a, int b, int numPts) {
+  assert(numPts > 0);
+  const int diff = std::abs(a-b);
+  return std::min(diff, numPts-diff);
 }
 
 //find pairs of points that are not consecutative, but are within some length
 //tolerance of each other - mark these points as model vertices to help prevent
 //intersecting bsplines
-std::multimap<int,int> findNarrowChannels(GeomInfo& geom, double coincidentVtxToleranceSquared, bool debug=false) {
+std::multimap<int,int> findNarrowChannels(GeomInfo& geom, double coincidentVtxToleranceSquared, bool debug=false, std::string debugPrefix="") {
   assert(geom.numVtx >= 0);
 
   //use a quadtree
   struct Node
   {
     quadtree::Box<double> box;
-    std::size_t id;
+    int id; //index of the contour edge the box bounds
   };
   auto getBox = [](Node* node)
   {
@@ -695,48 +721,84 @@ std::multimap<int,int> findNarrowChannels(GeomInfo& geom, double coincidentVtxTo
                                       bbox.maxY-bbox.minY+(4*padding));
   auto quadtree = quadtree::Quadtree<Node*, decltype(getBox), std::equal_to<Node*>, double>(domain, getBox);
 
+  //The quadtree holds a box per contour edge (edge 'i' runs from point 'i' to
+  // the next point in the loop).  Testing a point against the *segments* of the
+  // opposing side of a channel - instead of against the opposing points - is
+  // needed because the points bounding a narrow channel are often staggered:
+  // the sides can be well within the tolerance of each other while the nearest
+  // pair of points along them is many times the tolerance apart.
   std::vector<Node> nodes;
-  for(size_t i = 0; i < geom.numVtx; i++) {
-    auto box = makeBoxAroundPt(geom.vtx_x.at(i),geom.vtx_y.at(i),padding);
+  nodes.reserve(geom.numVtx);
+  for(int i = 0; i < geom.numVtx; i++) {
+    const int next = geom.getNextPtIdx(i);
+    auto box = makeBoxAroundSegment(geom.vtx_x.at(i),geom.vtx_y.at(i),
+                                    geom.vtx_x.at(next),geom.vtx_y.at(next),
+                                    padding);
     nodes.push_back({box,i});
   }
   for(auto& node : nodes) {
     quadtree.add(&node);
   }
-  auto intersections = quadtree.findAllIntersections();
-  if(debug) {
-    std::cout << "number of point pairs within " << std::sqrt(coincidentVtxToleranceSquared) << "km found: " << intersections.size() << '\n';
-    std::cout << "pt0_id, pt0_x, pt0_y, pt1_id, pt1_x, pt1_y\n";
-    for(auto& [a,b] : intersections) {
-      const int distance = std::abs(static_cast<int>(a->id)-static_cast<int>(b->id));
-      std::cout << a->id << ", " << geom.vtx_x.at(a->id) << ", " << geom.vtx_y.at(a->id) << ", "
-        << b->id << ", " << geom.vtx_x.at(b->id) << ", " << geom.vtx_y.at(b->id) << ", "
-        << distance << "\n";
-    }
-    std::cout << "done\n";
-  }
-  //remove consecutative pairs
+
   //a point may be within the tolerance of multiple non-consecutative points
   // (common in narrow channels), so a multimap is used to retain every pair -
   // dropping one would leave its points fit with a bspline that can cross the
   // channel
   std::multimap<int,int> longPairs;
-  const int lastPt = geom.vtx_x.size()-1;
-  for(auto& [a,b] : intersections) {
-    const auto small = std::min(a->id, b->id);
-    const auto large = std::max(a->id, b->id);
-    if(isNumEdgesBtwnPtsGreaterThanOne(small, large, geom.firstContourPt, lastPt)) {
-      longPairs.insert({small, large});
+  //pairs are keyed on the smaller index; track them to avoid inserting the
+  // same pair twice (once from each end of the segment)
+  std::set<std::pair<int,int>> seen;
+  for(int pt = 0; pt < geom.numVtx; pt++) {
+    const double px = geom.vtx_x.at(pt);
+    const double py = geom.vtx_y.at(pt);
+    //the box overlap is only a cull - it is an over-estimate that admits
+    // candidates further than the tolerance from the segment itself
+    auto candidates = quadtree.query(makeBoxAroundPt(px,py,padding));
+    for(auto& candidate : candidates) {
+      const int edgeStart = candidate->id;
+      const int edgeEnd = geom.getNextPtIdx(edgeStart);
+      //Skip segments the point is adjacent to along the contour - they are
+      // trivially within the tolerance and are not a channel.  Neighbors must
+      // be skipped (not just the two segments the point bounds) because the
+      // contour is sampled at a spacing near the tolerance, so a point is
+      // routinely within the tolerance of the next segment but one even along
+      // a straight boundary.
+      if(numPtsBetween(pt, edgeStart, geom.numVtx) <= 1 ||
+         numPtsBetween(pt, edgeEnd, geom.numVtx) <= 1) {
+        continue;
+      }
+      const double distSquared =
+        distanceSquaredPtToSegment(px,py,
+                                   geom.vtx_x.at(edgeStart),geom.vtx_y.at(edgeStart),
+                                   geom.vtx_x.at(edgeEnd),geom.vtx_y.at(edgeEnd));
+      if(distSquared > coincidentVtxToleranceSquared) {
+        continue;
+      }
+      //mark the point against both ends of the segment so the whole segment is
+      // forced linear - the neighbor check above guarantees both ends are more
+      // than one edge away from the point
+      for(const int other : {edgeStart, edgeEnd}) {
+        const auto pair = std::make_pair(std::min(pt,other), std::max(pt,other));
+        if(seen.insert(pair).second) {
+          longPairs.insert(pair);
+        }
+      }
     }
   }
   if(debug) {
-    std::cout << "longPairs " << longPairs.size() << "\n";
-    std::cout << "id, min, max\n";
+    std::cout << debugPrefix << "number of narrow channel point pairs within "
+      << std::sqrt(coincidentVtxToleranceSquared) << "km found: " << longPairs.size() << '\n';
+    std::ofstream out(debugPrefix+"narrowChannelPairs.csv");
+    out << "id, pt0_id, pt0_x, pt0_y, pt1_id, pt1_x, pt1_y, ptsBetween, dist\n";
     int i=0;
     for(auto& [a,b] : longPairs) {
-      std::cout << i++ << ", " << a << ", " << b << "\n";
+      const double dist = std::sqrt(getLengthSquared(geom.vtx_x.at(a),geom.vtx_y.at(a),
+                                                     geom.vtx_x.at(b),geom.vtx_y.at(b)));
+      out << i++ << ", "
+        << a << ", " << geom.vtx_x.at(a) << ", " << geom.vtx_y.at(a) << ", "
+        << b << ", " << geom.vtx_x.at(b) << ", " << geom.vtx_y.at(b) << ", "
+        << numPtsBetween(a,b,geom.numVtx) << ", " << dist << "\n";
     }
-    std::cout << "done\n";
   }
   return longPairs;
 }
@@ -873,7 +935,7 @@ int findFirstPt(std::vector<int>& prop, const int offset, const int match) {
  *         isMdlVtx = 1: point bounds two edges which have a narrow angle (> angleTol or < -angleTol) between them
  */
 std::tuple<std::vector<int>,std::vector<int>>
-discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug) {
+discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug, std::string debugPrefix) {
   if(geom.numVtx <= 0) { // no internal contour
     return {std::vector<int>(), std::vector<int>()};
   }
@@ -938,19 +1000,19 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
   }
 
   if(debug) {
-    writeToCSV("init.csv", geom, angle, isPointOnCurve, isMdlVtx);
+    writeToCSV(debugPrefix+"init.csv", geom, angle, isPointOnCurve, isMdlVtx);
   }
 
   //mark pairs of points that are within a tolerance of each other as not on
   //smooth curves to force a linear spline through them
-  auto narrowPtPairs = findNarrowChannels(geom, coincidentPtTolSquared);
+  auto narrowPtPairs = findNarrowChannels(geom, coincidentPtTolSquared, debug, debugPrefix);
   for(auto& [a,b] : narrowPtPairs) {
     isPointOnCurve.at(a) = 0;
     isPointOnCurve.at(b) = 0;
   }
 
   if(debug) {
-    writeToCSV("narrowChannels.csv", geom, angle, isPointOnCurve, isMdlVtx);
+    writeToCSV(debugPrefix+"narrowChannels.csv", geom, angle, isPointOnCurve, isMdlVtx);
   }
 
   //eliminate curve segments (consecutive points) that don't have at least four points
@@ -1002,7 +1064,7 @@ discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol,
   }
 
   if(debug) {
-    writeToCSV("rmvSegmentsAddVerts.csv", geom, angle, isPointOnCurve, isMdlVtxMod);
+    writeToCSV(debugPrefix+"rmvSegmentsAddVerts.csv", geom, angle, isPointOnCurve, isMdlVtxMod);
   }
   return {isPointOnCurve,isMdlVtxMod};
 }

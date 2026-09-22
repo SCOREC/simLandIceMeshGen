@@ -260,7 +260,7 @@ int main(int argc, char **argv) {
               << " boundary-triangles=" << spec.boundaryTriangles << "\n";
   }
 
-  const auto debug = false;
+  const auto debug = true;
   const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
 
   //load, clean, and orient each contour, in nesting order (0=innermost)
@@ -330,8 +330,8 @@ int main(int argc, char **argv) {
     mdlTopo.part = GM_rootPart(mdlTopo.model);
     mdlTopo.region = GIP_outerRegion(mdlTopo.part);
 
-    auto [isPointOnCurveInner, isMdlVtxInner] = discoverTopology(features.inner, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
-    auto [isPointOnCurveOuter, isMdlVtxOuter] = discoverTopology(features.outer, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug);
+    auto [isPointOnCurveInner, isMdlVtxInner] = discoverTopology(features.inner, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug, "inner_");
+    auto [isPointOnCurveOuter, isMdlVtxOuter] = discoverTopology(features.outer, coincidentPtTolSquared, angleTol, onCurveAngleTol, debug, "outer_");
 
     const auto numInnerMdlVerts = isMdlVtxInner.size() ? std::accumulate(isMdlVtxInner.begin(), isMdlVtxInner.end(), 0) : 0;
     const auto numOuterMdlVerts = isMdlVtxOuter.size() ? std::accumulate(isMdlVtxOuter.begin(), isMdlVtxOuter.end(), 0) : 0;

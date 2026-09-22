@@ -155,8 +155,11 @@ GeomInfo cleanGeom(GeomInfo &dirty, double coincidentVtxToleranceSquared,
                       bool debug = false);
 void makeOrientationPositive(GeomInfo& geom, bool debug=false);
 
+//'debugPrefix' is prepended to the names of the files written when 'debug' is
+//set; pass a distinct prefix per contour so concurrent calls don't overwrite
+//each other's output
 std::tuple<std::vector<int>,std::vector<int>>
-discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug = false);
+discoverTopology(GeomInfo& geom, double coincidentPtTolSquared, double angleTol, double onCurveAngleTol, bool debug = false, std::string debugPrefix = "");
 
 class OnCurve {
   public:
