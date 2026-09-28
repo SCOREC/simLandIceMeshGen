@@ -16,7 +16,7 @@ using ExecutionSpace = Kokkos::DefaultExecutionSpace;
 using MemSpace = ExecutionSpace::memory_space;
 
 int main(int argc, char *argv[]) {
-  int retVal;
+  int retVal = 0;
   if (argc != 7) {
     std::cerr
         << "Input arguments: <number of splines> <average number of points per "
@@ -35,13 +35,21 @@ int main(int argc, char *argv[]) {
     Kokkos::Timer timer;
     const int numSplines = std::atoi(argv[1]);
     const int ptsPerSpline = std::atoi(argv[2]);
+    //Each spline must have at least 2 points
+    if (ptsPerSpline < 2) {
+      std::cerr << "Each spline should have at least 2 points" << std::endl;
+      retVal = 1;
+      return retVal;
+    }
     std::string mode = argv[4];
     const std::string outFile = argv[5];
     std::string disableSerial = argv[6];
+    //Check for correct file format
     if (outFile.substr(outFile.size() - 4, outFile.size()) != ".csv") {
       std::cerr << "Output file provided is not a csv" << std::endl;
       return 1;
     }
+    //Keep track of the individual spline size if in Gaussian mode
     std::vector<int> gaussianSplineSize(numSplines);
     Kokkos::View<int *, MemSpace> gaussianSplines("gaussian spline sizes",
                                                   numSplines);
@@ -72,6 +80,7 @@ int main(int argc, char *argv[]) {
       // Uniform number of points per spline
       numpts = numSplines * ptsPerSpline;
     }
+
     Kokkos::View<double *[2], MemSpace> pts("PointsOnCircle", numpts);
 
     pts = makeCircle(1000.0, 2000.0, 500.0, numpts);
