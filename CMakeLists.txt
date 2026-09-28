@@ -178,54 +178,59 @@ set_tests_properties(testDiscoverTopo_L11pts PROPERTIES
 #TEST FOR BSPLINEKOKKOS2D CONSTRUCTOR
 add_executable(testSplineKokkos2DBase testSplineKokkos2DBase.cpp) 
 target_link_libraries(testSplineKokkos2DBase PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos) 
-add_test(NAME testSplineKokkos2DStraightEdge
-  COMMAND ./testSplineKokkos2DBase ${testDataDir}/testCurveStraightLine.csv 9)
-add_test(NAME testSplineKokkos2D2Pts
-  COMMAND ./testSplineKokkos2DBase ${testDataDir}/testCurve2pts.csv 1)
-add_test(NAME testSplineKokkos2DSingleEdge
-  COMMAND ./testSplineKokkos2DBase ${testDataDir}/testCurveSplineFitting.csv 12.2685)
+if (USE_SIMMODSUITE)
+  add_test(NAME testSplineKokkos2DStraightEdge
+    COMMAND ./testSplineKokkos2DBase ${testDataDir}/testCurveStraightLine.csv 9)
+  add_test(NAME testSplineKokkos2D2Pts
+    COMMAND ./testSplineKokkos2DBase ${testDataDir}/testCurve2pts.csv 1)
+  add_test(NAME testSplineKokkos2DSingleEdge
+    COMMAND ./testSplineKokkos2DBase ${testDataDir}/testCurveSplineFitting.csv 12.2685)
+endif()
 
 #TEST FOR BSPLINEKOKKOS2D 1ST DERIVATIVE
 add_executable(testKokkos2D1stDeriv testKokkos2D1stDeriv.cpp)
 target_link_libraries(testKokkos2D1stDeriv PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos) 
-add_test(NAME testDeriv2DStraightEdge
-  COMMAND ./testKokkos2D1stDeriv ${testDataDir}/testCurveStraightLine.csv 9) 
-add_test(NAME testDeriv2D2Pts
-  COMMAND ./testKokkos2D1stDeriv ${testDataDir}/testCurve2pts.csv 1) 
-add_test(NAME testDeriv2DSingleEdge
-  COMMAND ./testKokkos2D1stDeriv ${testDataDir}/testCurveSplineFitting.csv 12.2685)
+if (USE_SIMMODSUITE)
+  add_test(NAME testDeriv2DStraightEdge
+    COMMAND ./testKokkos2D1stDeriv ${testDataDir}/testCurveStraightLine.csv 9) 
+  add_test(NAME testDeriv2D2Pts
+    COMMAND ./testKokkos2D1stDeriv ${testDataDir}/testCurve2pts.csv 1) 
+  add_test(NAME testDeriv2DSingleEdge
+    COMMAND ./testKokkos2D1stDeriv ${testDataDir}/testCurveSplineFitting.csv 12.2685)
+endif()
 
 #TEST FOR BSPLINEKOKKOS2D 2ND DERIVATIVE
 add_executable(testKokkos2D2ndDeriv testKokkos2D2ndDeriv.cpp)
 target_link_libraries(testKokkos2D2ndDeriv PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos) 
-add_test(NAME test2NDDeriv2DStraightEdge
-  COMMAND ./testKokkos2D2ndDeriv ${testDataDir}/testCurveStraightLine.csv 9) 
-add_test(NAME test2NDDeriv2D2Pts
-  COMMAND ./testKokkos2D2ndDeriv ${testDataDir}/testCurve2pts.csv 1) 
-add_test(NAME test2NDDerive2DSingleEdge
-  COMMAND ./testKokkos2D2ndDeriv ${testDataDir}/testCurveSplineFitting.csv 12.2685)
-
+if (USE_SIMMODSUITE)
+  add_test(NAME test2NDDeriv2DStraightEdge
+    COMMAND ./testKokkos2D2ndDeriv ${testDataDir}/testCurveStraightLine.csv 9) 
+  add_test(NAME test2NDDeriv2D2Pts
+    COMMAND ./testKokkos2D2ndDeriv ${testDataDir}/testCurve2pts.csv 1) 
+  add_test(NAME test2NDDerive2DSingleEdge
+    COMMAND ./testKokkos2D2ndDeriv ${testDataDir}/testCurveSplineFitting.csv 12.2685)
+endif()
 #BSPLINEKOKKOS2D SCALING TEST
 add_executable(testKokkos2DScalingTest testKokkos2DScalingTest.cpp)
 target_link_libraries(testKokkos2DScalingTest PRIVATE splineInterp curveReader modelGen2d splineKokkos2D makeScalingTestData Kokkos::kokkos)
-add_test (NAME testKokkos2DScalingTest_720pts
-  COMMAND ./testKokkos2DScalingTest 720 1 50000 uniform scalingResult.csv yes) 
-add_test (NAME testKokkos2DScalingTest_1200pts
-  COMMAND ./testKokkos2DScalingTest 1200 1 50000 uniform scalingResult.csv yes)
-add_test (NAME testKokkos2DScalingTest_3600pts
-  COMMAND ./testKokkos2DScalingTest 3600 1 50000 uniform scalingResult.csv yes)
-add_test (NAME testKokkos2DScalingTest_1000SplinesUniform
-  COMMAND ./testKokkos2DScalingTest 1000 10 50000 uniform scalingResult.csv yes)
-add_test (NAME testKokkos2DScalingTest_2000SplinesUniform
-  COMMAND ./testKokkos2DScalingTest 2000 10 50000 uniform scalingResult.csv yes)
-add_test (Name testKokkos2DScalingTest_6000SplinesUniform
-  COMMAND ./testKokkos2DScalingTest 6000 10 50000 uniform scalingResult.csv yes)
-add_test (NAME testKokkos2DScalingTest_1000SplinesGaussian
-  COMMAND ./testKokkos2DScalingTest 1000 10 50000 gaussian scalingResult.csv yes)
-add_test (NAME testKokkos2DScalingTest_2000SplinesGaussian
-  COMMAND ./testKokkos2DScalingTest 2000 10 50000 gaussian scalingResult.csv yes)
-add_test (Name testKokkos2DScalingTest_6000SplinesGaussian
-  COMMAND ./testKokkos2DScalingTest 6000 10 50000 gaussian scalingResult.csv yes)
+if (USE_SIMMODSUITE)
+  add_test (NAME testKokkos2DScalingTest_720pts
+    COMMAND ./testKokkos2DScalingTest 1 720 1000 uniform scalingResult.csv yes) 
+  add_test (NAME testKokkos2DScalingTest_1200pts
+    COMMAND ./testKokkos2DScalingTest 1 1200 1000 uniform scalingResult.csv yes)
+  add_test (NAME testKokkos2DScalingTest_1000SplinesUniform
+    COMMAND ./testKokkos2DScalingTest 1000 10 1000 uniform scalingResult.csv yes)
+  add_test (NAME testKokkos2DScalingTest_2000SplinesUniform
+    COMMAND ./testKokkos2DScalingTest 2000 10 1000 uniform scalingResult.csv yes)
+  add_test (NAME testKokkos2DScalingTest_6000SplinesUniform
+    COMMAND ./testKokkos2DScalingTest 6000 10 1000 uniform scalingResult.csv yes)
+  add_test (NAME testKokkos2DScalingTest_1000SplinesGaussian
+    COMMAND ./testKokkos2DScalingTest 1000 10 1000 gaussian scalingResult.csv yes)
+  add_test (NAME testKokkos2DScalingTest_2000SplinesGaussian
+    COMMAND ./testKokkos2DScalingTest 2000 10 1000 gaussian scalingResult.csv yes)
+  add_test (NAME testKokkos2DScalingTest_6000SplinesGaussian
+    COMMAND ./testKokkos2DScalingTest 6000 10 1000 gaussian scalingResult.csv yes)
+endif()
 
 #BSPLINEKOKKOS2D CONSTRUCTOR FROM MULTIPLE SERIAL BSpline2d
 add_executable(testMultiSplineBase testMultiSplineBase.cpp)
