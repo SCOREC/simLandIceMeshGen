@@ -120,9 +120,9 @@ double BSpline::evalSecondDeriv(double x) const {
   }
   int order_t = order - 2;
   vector<double> pts(&(ctrlPts_2nd.at(leftPt)),
-                     &(ctrlPts_2nd[leftPt + order_t]));
+                     &(ctrlPts_2nd.at(leftPt + order_t)));
   vector<double> localKnots(&(knots.at(leftKnot - order_t + 2)),
-                            &(knots[leftKnot + order_t]));
+                            &(knots.at(leftKnot + order_t)));
   for (int r = 1; r <= order_t; r++) {
     // from bottom to top to save a buff
     for (int i = order_t - 1; i >= r; i--) {
