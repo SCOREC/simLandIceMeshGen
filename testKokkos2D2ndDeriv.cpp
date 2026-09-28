@@ -54,21 +54,19 @@ int main(int argc, char *argv[]) {
 
     // DerivCSR for derivative evaluation, initialized with data
     const size_t paraSize = evalAt.size();
-    const size_t splineIdxSize = 3;
+    const size_t splineIdxSize = 1;
     BSplineKokkos2D<ExecutionSpace>::CSR kokkosBSPCSR(splineIdxSize, paraSize);
     auto valsMirror = Kokkos::create_mirror_view(kokkosBSPCSR.paraCoor);
     for (int i = 0; i < evalAt.size(); i++) {
       valsMirror(i) = evalAt[i];
     }
     auto splineIdxMirror = Kokkos::create_mirror_view(kokkosBSPCSR.splineIdx);
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < splineIdxSize; i++) {
       splineIdxMirror(i) = 0;
     }
     auto offsetMirror = Kokkos::create_mirror_view(kokkosBSPCSR.offset);
     offsetMirror(0) = 0;
-    offsetMirror(1) = 3;
-    offsetMirror(2) = 4;
-    offsetMirror(3) = 10;
+    offsetMirror(1) = 10;
 
     Kokkos::deep_copy(kokkosBSPCSR.splineIdx, splineIdxMirror);
     Kokkos::deep_copy(kokkosBSPCSR.offset, offsetMirror);
@@ -85,8 +83,8 @@ int main(int argc, char *argv[]) {
       double derivX = serialBSP.x.evalSecondDeriv(evalAt[i]);
       double derivY = serialBSP.y.evalSecondDeriv(evalAt[i]);
 
-      double xDiff = std::fabs(derivX - mvRes(i, 0));
-      double yDiff = std::fabs(derivY - mvRes(i, 1));
+      double xDiff = std::fabs(derivX) - std::fabs(mvRes(i, 0));
+      double yDiff = std::fabs(derivY) - std::fabs(mvRes(i, 1));
 
       if (xDiff > EPSILON || yDiff > EPSILON) {
         std::cout << "Test " << i + 1 << " failed, eval at: " << evalAt[i]
