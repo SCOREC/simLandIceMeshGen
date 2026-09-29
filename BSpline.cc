@@ -16,6 +16,31 @@ using std::endl;
 using std::vector;
 using namespace Spline;
 
+bool isLessThan(const double a, const double b) {
+  const bool areClose = (std::abs(a-b) < 1e-6);
+  if( areClose ) {
+    return false;
+  } else if ( a < b ) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+//this isn't cheap and should be replaced with views for the calls that use
+//control points as inputs, the calls using knots are readonly and should use
+//const views etc.
+std::vector<double> createVec(int first, int last, const std::vector<double>& ptsIn) {
+  assert(first >= 0);
+  assert(last <= ptsIn.size());
+  assert(first <= last);
+  vector<double> pts;
+  for(int i=first; i<last; i++) {
+    pts.push_back(ptsIn.at(i));
+  }
+  return pts;
+}
+
 BSpline::BSpline(int order_p, vector<double> &ctrlPts_p,
                  vector<double> &knots_p, vector<double> &weight_p) {
   assert(order_p > 1);
@@ -47,7 +72,7 @@ double BSpline::eval(double x, bool debug) const {
   // first find the interval of x in knots
   int leftKnot = order - 1;
   int leftPt = 0;
-  while (knots.at(leftKnot + 1) < x) {
+  while ( isLessThan(knots.at(leftKnot + 1), x) ) {
     leftKnot++;
     leftPt++;
     if (leftKnot == knots.size() - 1)
@@ -62,9 +87,10 @@ double BSpline::eval(double x, bool debug) const {
     printf("order %d coord %.2f leftPt %d leftKnot %d\n",
         order, x, leftPt, leftKnot);
   }
-  vector<double> pts(&(ctrlPts[leftPt]), &ctrlPts[leftPt + order]);
-  vector<double> localKnots(&(knots[leftKnot - order + 2]),
-                            &(knots[leftKnot + order]));
+
+  auto pts = createVec(leftPt, leftPt+order, ctrlPts);
+  auto localKnots = createVec(leftKnot-order+2, leftKnot+order, knots);
+
   for (int r = 1; r <= order; r++) {
     // from bottom to top to save a buff
     for (int i = order - 1; i >= r; i--) {
@@ -84,15 +110,14 @@ double BSpline::evalFirstDeriv(double x) const {
   // first find the interval of x in knots
   int leftKnot = order - 1;
   int leftPt = 0;
-  while (knots.at(leftKnot + 1) < x) {
+  while ( isLessThan(knots.at(leftKnot + 1), x) ) {
     leftKnot++;
     leftPt++;
   }
   int order_t = order - 1;
-  vector<double> pts(&(ctrlPts_1st.at(leftPt)),
-                     &(ctrlPts_1st[leftPt + order_t]));
-  vector<double> localKnots(&(knots.at(leftKnot - order_t + 2)),
-                            &(knots[leftKnot + order_t]));
+  auto pts = createVec(leftPt, leftPt+order_t, ctrlPts_1st);
+  auto localKnots = createVec(leftKnot-order_t+2, leftKnot+order_t, knots);
+
   for (int r = 1; r <= order_t; r++) {
     // from bottom to top to save a buff
     for (int i = order_t - 1; i >= r; i--) {
@@ -114,15 +139,14 @@ double BSpline::evalSecondDeriv(double x) const {
   // first find the interval of x in knots
   int leftKnot = order - 1;
   int leftPt = 0;
-  while (knots.at(leftKnot + 1) < x) {
+  while ( isLessThan(knots.at(leftKnot + 1), x) ) {
     leftKnot++;
     leftPt++;
   }
   int order_t = order - 2;
-  vector<double> pts(&(ctrlPts_2nd.at(leftPt)),
-                     &(ctrlPts_2nd.at(leftPt + order_t)));
-  vector<double> localKnots(&(knots.at(leftKnot - order_t + 2)),
-                            &(knots.at(leftKnot + order_t)));
+  auto pts = createVec(leftPt, leftPt+order_t, ctrlPts_2nd);
+  auto localKnots = createVec(leftKnot-order_t+2, leftKnot+order_t, knots);
+
   for (int r = 1; r <= order_t; r++) {
     // from bottom to top to save a buff
     for (int i = order_t - 1; i >= r; i--) {
