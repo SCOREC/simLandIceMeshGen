@@ -66,7 +66,8 @@ int main(int argc, char *argv[]) {
           "sampling gaussian distr", numSplines, KOKKOS_LAMBDA(const int i) {
             auto gen = randPool.get_state();
             int res = gen.normal(mean, stddev);
-            gaussianSplines(i) = res;
+            //Check if we have at least 2 pts per spline
+            gaussianSplines(i) = (res < 2) ? 2 : res;
             randPool.free_state(gen);
           });
       // Copy to host
@@ -90,21 +91,18 @@ int main(int argc, char *argv[]) {
     auto ptsMirror =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), pts);
     //Kokkos::deep_copy(ptsMirror, pts);
-    Kokkos::printf("Copying to serial\n");
     std::vector<double> ptsX(ptsMirror.extent(0)),
         ptsY(ptsMirror.extent(0));
     for (int i = 0; i < ptsMirror.extent(0); i++) {
       ptsX[i] = ptsMirror(i, 0);
       ptsY[i] = ptsMirror(i, 1);
     }
-    Kokkos::printf("Copied to serial\n");
     double dataCopyTime = timer.seconds();
     timer.reset();
 
     // Initializing Serial BSpline, divide the given points into correct number
     // of splines to initialize A vector that holds all the BSpline2d created
     // Uniform distribution mode
-    Kokkos::printf("Initializing Serial Splines\n");
     std::vector<SplineInterp::BSpline2d> allSerial(numSplines);
     if (mode == "uniform") {
       std::vector<double> subPtsX(ptsPerSpline), subPtsY(ptsPerSpline);
@@ -125,7 +123,6 @@ int main(int argc, char *argv[]) {
       // Make variable sized splines based on the gaussian sampling result
       int start = 0;
       for (int i = 0; i < numSplines; i++) {
-        Kokkos::printf("Spline %d, spline size: %d\n", i, gaussianSplineSize[i]);
         std::vector<double> subPtsX(gaussianSplineSize[i]),
             subPtsY(gaussianSplineSize[i]);
         for (int j = start; j < start + gaussianSplineSize[i]; j++) {
@@ -144,7 +141,6 @@ int main(int argc, char *argv[]) {
     double serialSplineCreationTime = timer.seconds();
 
     // BSplineKokkos2D object initialization based on serial spline
-    Kokkos::printf("Initializing Kokkos Spline\n");
     timer.reset();
     BSplineKokkos2D<ExecutionSpace> kokkosBSP(allSerial);
     double kokkosSplineCreationTime = timer.seconds();
