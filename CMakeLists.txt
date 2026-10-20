@@ -231,7 +231,3 @@ if (USE_SIMMODSUITE)
   add_test (NAME testKokkos2DScalingTest_6000SplinesGaussian
     COMMAND ./testKokkos2DScalingTest 6000 10 1000 gaussian scalingResult.csv yes)
 endif()
-
-#BSPLINEKOKKOS2D CONSTRUCTOR FROM MULTIPLE SERIAL BSpline2d
-add_executable(testMultiSplineBase testMultiSplineBase.cpp)
-target_link_libraries(testMultiSplineBase PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos)
