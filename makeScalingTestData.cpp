@@ -13,7 +13,7 @@ using MemSpace = ExecutionSpace::memory_space;
 // with specified center and radius
 Kokkos::View<double *[2], MemSpace> makeCircle(double centerX, double centerY,
                                                double radius, int numPts) {
-  Kokkos::View<double *[2], MemSpace> res("result", numPts);
+  Kokkos::View<double *[2], MemSpace> res("circlePts", numPts);
   double angle = (2 * Kokkos::numbers::pi) / numPts;
   Kokkos::parallel_for(
       "parallel calculation of points on a circle", numPts,
@@ -27,7 +27,7 @@ Kokkos::View<double *[2], MemSpace> makeCircle(double centerX, double centerY,
 Kokkos::View<double *[2], MemSpace> makeEllipse(double centerX, double centerY,
                                                 double xRadius, double yRadius,
                                                 int numPts) {
-  Kokkos::View<double *[2], MemSpace> res("result", numPts);
+  Kokkos::View<double *[2], MemSpace> res("circlePts", numPts);
   double angle = (2 * Kokkos::numbers::pi) / numPts;
   Kokkos::parallel_for(
       "parallel calculation of points on a circle", numPts,
