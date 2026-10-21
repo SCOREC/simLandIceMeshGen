@@ -23,7 +23,7 @@ cmake --build $BUILD_DIR -j 10
 
 #Running tests
 RUN_DIR="${BUILD_DIR}/testKokkos2DScalingTest"
-echo "Running Scaling Test with uniform number of pts per spline"
+echo "Running Scaling Test with ${MODE} number of pts per spline"
 
 #10 pts per spline average, 100 paracoords
 ${RUN_DIR} ${NUM_SPLINES} 10 100 ${MODE} "scalingTestResult.csv" ${DISABLE_SERIAL}
