@@ -81,10 +81,12 @@ int main(int argc, char *argv[]) {
       // Uniform number of points per spline
       numpts = numSplines * ptsPerSpline;
     }
-
+    /*
     Kokkos::View<double *[2], MemSpace> pts("PointsOnCircle", numpts);
 
     pts = makeCircle(1000.0, 2000.0, 5000000.0, numpts);
+    */
+    Kokkos::View<double*[2], MemSpace> pts = makeCircle(1000.0, 2000.0, 5000000.0, numpts);
     double dataGenTime = timer.seconds();
 
     // Copy the result to vectors for serial initialization
@@ -200,10 +202,12 @@ int main(int argc, char *argv[]) {
     Kokkos::deep_copy(kokkosBSPCSR.paraCoor, valsMirror);
     double csrInitTime = timer.seconds();
     // Calling batch 1st derivative function
+    /*
     Kokkos::View<double *[2], MemSpace> res("derivResult",
-                                            evalAt.size() * numSplines);
+                                           evalAt.size() * numSplines);
+    */
     timer.reset();
-    res = kokkosBSP.eval1stDeriv(kokkosBSPCSR);
+    Kokkos::View<double *[2], MemSpace> res = kokkosBSP.eval1stDeriv(kokkosBSPCSR);
     double kokkos1stDerivTime = timer.seconds();
     auto resMirror =
         Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(), res);
@@ -244,6 +248,7 @@ int main(int argc, char *argv[]) {
     }
     double serial2ndDerivTime = timer.seconds();
     // Kokkos 2nd derivative function, using the existing csr
+    res = Kokkos::View<double * [2], MemSpace>();
     res = kokkosBSP.eval2ndDeriv(kokkosBSPCSR);
     double kokkos2ndDerivTime = timer.seconds();
     Kokkos::deep_copy(resMirror, res);
