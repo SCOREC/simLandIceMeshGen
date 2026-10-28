@@ -80,6 +80,8 @@ int main(int argc, char *argv[]) {
     } else {
       // Uniform number of points per spline
       numpts = numSplines * ptsPerSpline;
+      // Since it is not Gaussian mode, deallocate the gaussianSplines view
+      gaussianSplines = Kokkos::View<int *, MemSpace>();
     }
     /*
     Kokkos::View<double *[2], MemSpace> pts("PointsOnCircle", numpts);
@@ -101,6 +103,8 @@ int main(int argc, char *argv[]) {
     }
     double dataCopyTime = timer.seconds();
     timer.reset();
+    //Deallocate the circle points, they will not be used for the rest of the experiment
+    pts = Kokkos::View<double*[2], MemSpace>();
 
     // Initializing Serial BSpline, divide the given points into correct number
     // of splines to initialize A vector that holds all the BSpline2d created
@@ -202,10 +206,6 @@ int main(int argc, char *argv[]) {
     Kokkos::deep_copy(kokkosBSPCSR.paraCoor, valsMirror);
     double csrInitTime = timer.seconds();
     // Calling batch 1st derivative function
-    /*
-    Kokkos::View<double *[2], MemSpace> res("derivResult",
-                                           evalAt.size() * numSplines);
-    */
     timer.reset();
     Kokkos::View<double *[2], MemSpace> res = kokkosBSP.eval1stDeriv(kokkosBSPCSR);
     double kokkos1stDerivTime = timer.seconds();
@@ -248,6 +248,7 @@ int main(int argc, char *argv[]) {
     }
     double serial2ndDerivTime = timer.seconds();
     // Kokkos 2nd derivative function, using the existing csr
+    // Deallocate res, it held the 1st derivative results
     res = Kokkos::View<double * [2], MemSpace>();
     res = kokkosBSP.eval2ndDeriv(kokkosBSPCSR);
     double kokkos2ndDerivTime = timer.seconds();
