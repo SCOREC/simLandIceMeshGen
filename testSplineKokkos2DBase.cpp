@@ -13,9 +13,6 @@
 #include <vector>
 
 // For checking if the content of the splines are correct
-//
-
-double EPSILON = 1e-12;
 
 using ExecutionSpace = Kokkos::DefaultExecutionSpace;
 using MemSpace = ExecutionSpace::memory_space;
@@ -34,6 +31,7 @@ int main(int argc, char *argv[]) {
   }
   Kokkos::initialize(argc, argv);
   {
+    const double EPSILON = 1e-12;
     std::string inputCSV = argv[1];
     int extensionPos = inputCSV.rfind(".");
     int slashPos = inputCSV.rfind("/");
@@ -57,8 +55,8 @@ int main(int argc, char *argv[]) {
 
     BSplineKokkos2D<ExecutionSpace> kokkosBSP(order, ctrlPtsX, ctrlPtsY, knots);
 
-    auto intView = Kokkos::create_mirror_view(kokkosBSP.getOrder());
-    Kokkos::deep_copy(intView, kokkosBSP.getOrder());
+    auto intView = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),
+                                                       kokkosBSP.getOrder());
     // Testing the order initialization
     double diff = std::fabs(order - intView(0));
     if (diff > EPSILON) {
@@ -68,8 +66,8 @@ int main(int argc, char *argv[]) {
       retVal = 1;
     }
 
-    auto double2DView = Kokkos::create_mirror_view(kokkosBSP.getCtrlPts());
-    Kokkos::deep_copy(double2DView, kokkosBSP.getCtrlPts());
+    auto double2DView = Kokkos::create_mirror_view_and_copy(
+        Kokkos::HostSpace(), kokkosBSP.getCtrlPts());
 
     // Testing ctrlPts initialization
     double xDiff, yDiff;
@@ -88,8 +86,8 @@ int main(int argc, char *argv[]) {
     }
 
     // Test knots initialization
-    auto doubleView = Kokkos::create_mirror_view(kokkosBSP.getKnots());
-    Kokkos::deep_copy(doubleView, kokkosBSP.getKnots());
+    auto doubleView = Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace(),
+                                                          kokkosBSP.getKnots());
     for (int i = 0; i < knots.size(); i++) {
       diff = std::fabs(knots[i] - doubleView(i));
       if (diff > EPSILON) {

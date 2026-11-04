@@ -1,6 +1,6 @@
-#This is the top level CMake file for the SCOREC build
-cmake_minimum_required(VERSION 3.10) 
-project(simLandIceMeshGen VERSION 0.0.1 LANGUAGES CXX)
+# This is the top level CMake file for the SCOREC build
+cmake_minimum_required(VERSION 3.10)
+project(simLandIceMeshGen VERSION 0.0.1 LANGUAGES CXX C)
 
 enable_testing() 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -18,7 +18,12 @@ find_package(BLAS REQUIRED)
 
 find_package(Omega_h REQUIRED)
 
-add_library(splineInterp splineInterpolation.cc BSpline.cc BSpline2d.cc Expression.cc PolyNomial.cc) 
+if(USE_SIMMODSUITE)
+  find_package(netCDF CONFIG REQUIRED)
+endif()
+
+add_library(splineInterp splineInterpolation.cc BSpline.cc BSpline2d.cc Expression.cc PolyNomial.cc)
+
 target_link_libraries(splineInterp PRIVATE BLAS::BLAS Omega_h::omega_h)
 
 add_library(modelGen2d modelGen2d.cc geomReaders.cc) 
@@ -34,12 +39,13 @@ target_link_libraries(makeScalingTestData PRIVATE Kokkos::kokkos)
 
 set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
 
-if (USE_SIMMODSUITE) 
-  add_library(simModelGen2d simModelGen2d.cc) 
-  target_include_directories(simModelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}) 
-  target_include_directories(simModelGen2d PUBLIC ${SIMMODSUITE_INCLUDE_DIR}) 
-  target_link_libraries(simModelGen2d PRIVATE ${SIMMODSUITE_LIBS}) 
-  target_link_libraries(simModelGen2d PRIVATE splineInterp modelGen2d) 
+if(USE_SIMMODSUITE)
+  add_library(simModelGen2d simModelGen2d.cc netcdfWriter.cc)
+  target_include_directories(simModelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+  target_include_directories(simModelGen2d PUBLIC ${SIMMODSUITE_INCLUDE_DIR})
+  target_link_libraries(simModelGen2d PRIVATE ${SIMMODSUITE_LIBS})
+  target_link_libraries(simModelGen2d PRIVATE splineInterp modelGen2d)
+  target_link_libraries(simModelGen2d PRIVATE netCDF::netcdf)
   target_compile_definitions(simModelGen2d PRIVATE USE_SIMMODSUITE)
 
   function(addExe name) 
@@ -59,31 +65,50 @@ if (USE_SIMMODSUITE)
   set_tests_properties(simModelGen2d_gis PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 925") 
   set_tests_properties(simModelGen2d_gis PROPERTIES
-    PASS_REGULAR_EXPRESSION "mesh faces in surface: 3326")
-
+    PASS_REGULAR_EXPRESSION "mesh faces in surface: 68495")
+  
   add_test(NAME simModelGen2d_ais
     COMMAND ./generate2dModel ${testDataDir}/ais.vtk ais 1 100 100 1 "m")
+  set_tests_properties(simModelGen2d_ais PROPERTIES
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 571")
+  set_tests_properties(simModelGen2d_ais PROPERTIES
+    PASS_REGULAR_EXPRESSION "mesh faces in surface: 216199")
 
+  add_test(NAME simModelGen2d_gis_noBbox
+    COMMAND ./generate2dModel ${testDataDir}/gis_noBbox.vtk gis_noBbox 1 100 100 1 "m")
+  set_tests_properties(simModelGen2d_gis_noBbox PROPERTIES
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 310")
+  set_tests_properties(simModelGen2d_gis_noBbox PROPERTIES
+    PASS_REGULAR_EXPRESSION "mesh faces in surface: 118736")
+  
   add_test(NAME simModelGen2d_oneSquare_jig
     COMMAND ./generate2dModel ${testDataDir}/oneSquare.msh one_jig 1e-6 100 100 1 "km") 
   set_tests_properties(simModelGen2d_oneSquare_jig PROPERTIES
-    PASS_REGULAR_EXPRESSION "mesh faces in surface: 4")
-
-  add_test(NAME simModelGen2d_twoSquares_jig 
+    PASS_REGULAR_EXPRESSION "mesh faces in surface: 1122")
+  set_tests_properties(simModelGen2d_oneSquare_jig PROPERTIES
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 4")
+  
+  add_test(NAME simModelGen2d_twoSquares_jig
     COMMAND ./generate2dModel ${testDataDir}/twoSquares.msh two_jig 1e-6 100 100 1 "km")
   set_tests_properties(simModelGen2d_twoSquares_jig PROPERTIES
-    PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
-
+    PASS_REGULAR_EXPRESSION "mesh faces in surface: 1176")
+  set_tests_properties(simModelGen2d_twoSquares_jig PROPERTIES
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 8")
+  
   add_test(NAME simModelGen2d_oneSquare_vtk
     COMMAND ./generate2dModel ${testDataDir}/oneSquare.vtk one_vtk 1e-6 120 30 1 "km")
   set_tests_properties(simModelGen2d_oneSquare_vtk PROPERTIES
-    PASS_REGULAR_EXPRESSION "mesh faces in surface: 4")
-
+    PASS_REGULAR_EXPRESSION "mesh faces in surface: 1122")
+  set_tests_properties(simModelGen2d_oneSquare_vtk PROPERTIES
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 4")
+  
   add_test(NAME simModelGen2d_twoSquares_vtk
     COMMAND ./generate2dModel ${testDataDir}/twoSquares.vtk two_vtk 1e-6 120 30 1 "km")
   set_tests_properties(simModelGen2d_twoSquares_vtk PROPERTIES
-    PASS_REGULAR_EXPRESSION "mesh faces in surface: 18")
-
+    PASS_REGULAR_EXPRESSION "mesh faces in surface: 1176")
+  set_tests_properties(simModelGen2d_twoSquares_vtk PROPERTIES
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 8")
+  
   add_test(NAME simModelGen2d_oval_vtk
     COMMAND ./generate2dModel ${testDataDir}/oval_wBbox.vtk oval 1e-8 120 120 1 "km")
   set_tests_properties(simModelGen2d_oval_vtk PROPERTIES

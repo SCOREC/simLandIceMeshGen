@@ -1,4 +1,5 @@
 #include "simModelGen2d.h"
+#include "netcdfWriter.h"
 #include <numeric> //std::accumulate
 #include "Omega_h_file.hpp"
 #include "Omega_h_library.hpp"
@@ -56,7 +57,7 @@ int main(int argc, char **argv) {
   const int numExpectedArgs = 8;
   if (argc != numExpectedArgs) {
     std::cerr << "Usage: <jigsaw .msh or .vtk file> <output prefix> "
-                 "<coincidentVtxTolerance> <angleTolerance> <createMesh> <units>\n";
+                 "<coincidentVtxTolerance> <angleTolerance> <createMesh> <inputDataUnits>\n";
     std::cerr << "coincidentVtxTolerance is the mininum allowed "
                  "distance between adjacent vertices in the "
                  "input.  Vertices within the specified distance will "
@@ -70,7 +71,7 @@ int main(int argc, char **argv) {
                  "used to determine if they are part of the same curve.\n";
     std::cerr << "createMesh = 1:generate mesh, otherwise, "
                  "skip mesh generation.\n";
-    std::cerr << "units = m:meters, km:kilometers\n";
+    std::cerr << "inputDataUnits = m:meters, km:kilometers\n";
     return 1;
   }
   assert(argc == numExpectedArgs);
@@ -89,7 +90,7 @@ int main(int argc, char **argv) {
             << "angleTol: " << angleTol << " "
             << "onCurveAngleTol: " << onCurveAngleTol << " "
             << "createMesh: " << doCreateMesh << " "
-            << "units: " << units << "\n";
+            << "input data units: " << units << "\n";
 
   assert(units == "m" || units == "km");
 
@@ -103,18 +104,25 @@ int main(int argc, char **argv) {
     std::cerr << "Unsupported file extension: " << ext << "\n";
     return 1;
   }
+
+  //simmetrix operations are done in km to avoid problems with floating point
+  //operations
   if(units == "m") {
     convertMetersToKm(features.inner);
     convertMetersToKm(features.outer);
   }
+  const bool hasSingleContour = (features.inner.numVtx == 0);
   const double coincidentPtTolSquared = coincidentPtTol*coincidentPtTol;
+  //force all contours to be positive (CCW)
   features.inner = cleanGeom(features.inner, coincidentPtTolSquared, false);
   makeOrientationPositive(features.inner);
+  features.outer = cleanGeom(features.outer, coincidentPtTolSquared, false);
+  makeOrientationPositive(features.outer);
 
   std::string modelFileName = prefix + ".smd";
   std::string meshFileName = prefix + ".sms";
 
-  const auto debug = false;
+  const auto debug = true;
 
   // You will want to place a try/catch around all SimModSuite calls,
   // as errors are thrown.
@@ -132,7 +140,7 @@ int main(int argc, char **argv) {
     Sim_setMessageHandler(messageHandler);
     pProgress progress = NULL;
     if(debug) {
-      pProgress progress = Progress_new();
+      progress = Progress_new();
       Progress_setDefaultCallback(progress);
     }
 
@@ -150,27 +158,26 @@ int main(int argc, char **argv) {
     auto splinesOuter = SplineInterp::SplineInfo(numOuterMdlVerts);
     PointClassification ptClassInner(features.inner.numVtx);
     PointClassification ptClassOuter(features.outer.numVtx);
-    const bool debug = false;
     createEdges(mdlTopo, features.outer, ptClassOuter, splinesOuter, isPointOnCurveOuter, isMdlVtxOuter, debug);
     createEdges(mdlTopo, features.inner, ptClassInner, splinesInner, isPointOnCurveInner, isMdlVtxInner, debug);
 
     const auto paraCoordsOuter = setParametricCoords(features.outer, ptClassOuter, splinesOuter);
     const auto paraCoordsInner = setParametricCoords(features.inner, ptClassInner, splinesInner);
 
-    writePointParametricCoords(paraCoordsInner, modelFileName + "_parametricInner.oshb");
-    writePointParametricCoords(paraCoordsOuter, modelFileName + "_parametricOuter.oshb");
+    writePointParametricCoords(paraCoordsInner, prefix + "_parametricInner.oshb");
+    writePointParametricCoords(paraCoordsOuter, prefix + "_parametricOuter.oshb");
     //write the point classification to an omegah binary file
-    ptClassInner.writeToOsh(modelFileName + "_classInner.oshb");
-    ptClassOuter.writeToOsh(modelFileName + "_classOuter.oshb");
+    ptClassInner.writeToOsh(prefix + "_classInner.oshb");
+    ptClassOuter.writeToOsh(prefix + "_classOuter.oshb");
     //write the bsplines to an omegah binary file
-    splinesInner.writeToOsh(modelFileName + "_splinesInner.oshb");
-    splinesOuter.writeToOsh(modelFileName + "_splinesOuter.oshb");
+    splinesInner.writeToOsh(prefix + "_splinesInner.oshb");
+    splinesOuter.writeToOsh(prefix + "_splinesOuter.oshb");
     //write the sampled bsplines to a csv file
-    splinesInner.writeSamplesToCsv(modelFileName + "_splinesInner.csv");
-    splinesOuter.writeSamplesToCsv(modelFileName + "_splinesOuter.csv");
+    splinesInner.writeSamplesToCsv(prefix + "_splinesInner.csv");
+    splinesOuter.writeSamplesToCsv(prefix + "_splinesOuter.csv");
 
     auto planeBounds = getBoundingPlane(features.outer);
-    createFaces(mdlTopo, planeBounds);
+    createFaces(mdlTopo, planeBounds, hasSingleContour, debug);
 
     printModelInfo(mdlTopo.model);
 
@@ -183,7 +190,13 @@ int main(int argc, char **argv) {
     }
 
     if(doCreateMesh) {
-      createMesh(mdlTopo, meshFileName, progress);
+      auto mesh = createMesh(mdlTopo, meshFileName, progress);
+      std::string netcdfFileName = prefix + ".nc";
+      //compass assumes units of meters, need to convert back to meters,
+      //simmetrix operations are done in units of km
+      const auto convertBackToMeters = true;
+      writeMeshSimToNetCDF(mesh, mdlTopo.model, netcdfFileName, convertBackToMeters);
+      M_release(mesh);
     }
 
     // cleanup

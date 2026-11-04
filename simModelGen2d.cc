@@ -313,7 +313,7 @@ void createFace(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
   assert(GF_area(mdlTopo.faces.at(0), 0.2) > 0);
 }
 
-void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
+void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool hasSingleContour, bool debug) {
   // Now add the faces
   double corner[3], xPt[3], yPt[3]; // the points defining the surface of the face
 
@@ -321,10 +321,6 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
   // faceEdges array
   pSurface planarSurface;
 
-  // **************
-  // Create the face between the bounding rectangle and the grounding line
-  // (water)
-  // **************
   // Define the surface
   corner[0] = planeBounds.minX;
   corner[1] = planeBounds.minY;
@@ -339,14 +335,17 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
   const int faceDirectionFwd = 1;
   const int faceDirectionRev = 0;
   const int sameNormal = 1;
-  const int oppositeNormal = 0;
 
-  // the first four edges define the outer bounding rectangle
-  for (int i = 0; i < 4; i++) {
-    mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
-    mdlTopo.faceEdges.push_back(mdlTopo.edges.at(i));
-  }
-  if (mdlTopo.edges.size() > 4) {
+  if (!hasSingleContour) {
+    // **************
+    // Create the face between the bounding rectangle and the grounding line
+    // (water)
+    // **************
+    // the first four edges define the outer bounding rectangle
+    for (int i = 0; i < 4; i++) {
+      mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
+      mdlTopo.faceEdges.push_back(mdlTopo.edges.at(i));
+    }
     // the remaining edges define the grounding line
     // TODO generalize loop creation
     int j = mdlTopo.edges.size() - 1;
@@ -356,7 +355,6 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
       // reverse the order so the face is on the left (simmetrix requirement)
       mdlTopo.faceEdges.push_back(mdlTopo.edges.at(j--));
     }
-
     int numLoopsOuterFace = 2;
     int loopFirstEdgeIdx[2] = {0, 4};
     planarSurface = SSurface_createPlane(corner, xPt, yPt);
@@ -369,7 +367,40 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
       std::cout << "faces[0] area: " << GF_area(mdlTopo.faces[0], 0.2) << "\n";
     }
     assert(GF_area(mdlTopo.faces[0], 0.2) > 0);
+
+    mdlTopo.faceEdges.clear();
+    mdlTopo.faceDirs.clear();
+
+    // **************
+    // Create the 'ice' face bounded by the grounding line
+    // **************
+    planarSurface = SSurface_createPlane(corner, xPt, yPt);
+    const int numEdgesInnerFace = mdlTopo.edges.size() - 4;
+    const int numLoopsInnerFace = 1;
+    int loopFirstEdgeInnerIdx[1] = {0};
+    int k = 4;
+    for (int i = 0; i < numEdgesInnerFace; i++) {
+      mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
+      mdlTopo.faceEdges.push_back(mdlTopo.edges.at(k++));
+    }
+    mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, numEdgesInnerFace,
+          mdlTopo.faceEdges.data(),
+          mdlTopo.faceDirs.data(),
+          numLoopsInnerFace, loopFirstEdgeInnerIdx,
+          planarSurface, sameNormal));
+    if(debug) {
+      std::cout << "faces[1] area: " << GF_area(mdlTopo.faces[1], 0.2) << "\n";
+    }
+    assert(GF_area(mdlTopo.faces[1], 0.2) > 0);
   } else {
+    // **************
+    // Single contour: the contour itself is the domain boundary
+    // **************
+    // the contour is CCW; faceDirectionFwd places the face on the left
+    for (int i = 0; i < (int)mdlTopo.edges.size(); i++) {
+      mdlTopo.faceDirs.push_back(faceDirectionFwd);
+      mdlTopo.faceEdges.push_back(mdlTopo.edges.at(i));
+    }
     int numLoopsOuterFace = 1;
     int loopFirstEdgeIdx[1] = {0};
     planarSurface = SSurface_createPlane(corner, xPt, yPt);
@@ -383,72 +414,22 @@ void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug) {
     }
     assert(GF_area(mdlTopo.faces[0], 0.2) > 0);
   }
-
-  mdlTopo.faceEdges.clear();
-  mdlTopo.faceDirs.clear();
-
-  if (mdlTopo.edges.size() > 4) {
-    // **************
-    // Create the 'ice' face bounded by the grounding line
-    // **************
-    planarSurface = SSurface_createPlane(corner, xPt, yPt);
-    const int numEdgesInnerFace = mdlTopo.edges.size() - 4;
-    const int numLoopsInnerFace = 1;
-    int loopFirstEdgeIdx[1] = {0};
-    int j = 4;
-    for (int i = 0; i < numEdgesInnerFace; i++) {
-      mdlTopo.faceDirs.push_back(faceDirectionFwd); // clockwise
-      mdlTopo.faceEdges.push_back(mdlTopo.edges.at(j++));
-    }
-    mdlTopo.faces.push_back(GR_createFace(mdlTopo.region, numEdgesInnerFace,
-          mdlTopo.faceEdges.data(),
-          mdlTopo.faceDirs.data(),
-          numLoopsInnerFace, loopFirstEdgeIdx,
-          planarSurface, sameNormal));
-    if(debug) {
-      std::cout << "faces[1] area: " << GF_area(mdlTopo.faces[1], 0.2) << "\n";
-    }
-    assert(GF_area(mdlTopo.faces[1], 0.2) > 0);
-  }
 }
 
-void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress, bool debug) {
+pMesh createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress, bool debug) {
   pMesh mesh = M_new(0, mdlTopo.model);
   pACase meshCase = MS_newMeshCase(mdlTopo.model);
 
   pModelItem domain = GM_domain(mdlTopo.model);
-  // find the smallest size of the geometric model edges
-  auto minGEdgeLen = std::numeric_limits<double>::max();
-  for (int i = 0; i < mdlTopo.edges.size(); i++) {
-    auto len = GE_length(mdlTopo.edges.at(i));
-    if (len < minGEdgeLen)
-      minGEdgeLen = len;
-  }
-  const auto contourMeshSize = minGEdgeLen * 128;
-  const auto globMeshSize = contourMeshSize * 128;
-  if(debug) {
-    std::cout << "Min geometric model edge length: " << minGEdgeLen << std::endl;
-    std::cout << "Contour absolute mesh size target: " << contourMeshSize
-      << std::endl;
-    std::cout << "Global absolute mesh size target: " << globMeshSize
-      << std::endl;
-  }
-  MS_setMeshSize(meshCase, domain, 1, globMeshSize, NULL);
-  for (int i = 4; i < mdlTopo.edges.size(); i++)
-    MS_setMeshSize(meshCase, mdlTopo.edges.at(i), 1, contourMeshSize, NULL);
-
-  {
-    GFIter fIter = GM_faceIter(mdlTopo.model);
-    pGFace modelFace;
-    while (modelFace = GFIter_next(fIter)) {
-      const double area = GF_area(modelFace, 0.2);
-      if(debug) {
-        std::cout << "face area: " << area << "\n";
-      }
-      assert(area > 0);
-    }
-    GFIter_delete(fIter);
-  }
+  const auto relativeSizeType = 2;
+  MS_setMeshSize(meshCase, domain, relativeSizeType, 0.1, NULL);
+  const auto calcCurvatureFromEdgesAndFaces = 3;
+  MS_setMeshCurv(meshCase, domain, relativeSizeType, 0.001, calcCurvatureFromEdgesAndFaces);
+  MS_setMinCurvSize(meshCase, domain, relativeSizeType, 0.0005);
+  //make the transition from the fine mesh to the coarse mesh slower, default
+  //rate ~= 2/3
+  const auto slowGradationRate = 0.3;
+  MS_setGlobalSizeGradationRate(meshCase, slowGradationRate);
 
   pSurfaceMesher surfMesh = SurfaceMesher_new(meshCase, mesh);
   SurfaceMesher_execute(surfMesh, progress);
@@ -460,6 +441,6 @@ void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress
   std::cout << "Number of mesh regions in volume: " << M_numRegions(mesh)
     << std::endl;
   MS_deleteMeshCase(meshCase);
-  M_release(mesh);
+  return mesh;
 }
 

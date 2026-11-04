@@ -29,8 +29,8 @@ struct ModelTopo {
 
 void createEdges(ModelTopo& mdlTopo, GeomInfo& geom, PointClassification& ptClass, SplineInterp::SplineInfo& splines, std::vector<int>& isPtOnCurve, std::vector<int>& isMdlVtx, const bool debug=false);
 void createFace(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug=false);
-void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool debug=false);
+void createFaces(ModelTopo& mdlTopo, PlaneBounds& planeBounds, bool hasSingleContour, bool debug=false);
 void printModelInfo(pGModel model);
-void createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress, bool debug=false);
+pMesh createMesh(ModelTopo mdlTopo, std::string& meshFileName, pProgress progress, bool debug=false);
 
 #endif
