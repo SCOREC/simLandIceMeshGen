@@ -230,4 +230,8 @@ if (USE_SIMMODSUITE)
     COMMAND ./testKokkos2DScalingTest 2000 10 1000 gaussian scalingResult.csv yes)
   add_test (NAME testKokkos2DScalingTest_6000SplinesGaussian
     COMMAND ./testKokkos2DScalingTest 6000 10 1000 gaussian scalingResult.csv yes)
+
+#TEMP_TEST Understanding what Kokkos View Allocation is doing if it is 2D view
+add_executable(allocTest2DView allocTest2DView.cpp)
+target_link_libraries(allocTest2DView PRIVATE Kokkos::kokkos makeScalingTestData)
 endif()

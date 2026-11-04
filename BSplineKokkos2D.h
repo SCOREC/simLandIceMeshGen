@@ -282,7 +282,7 @@ public:
     Kokkos::deep_copy(resultSize,
                       Kokkos::subview(derivSplines.offset,
                                       derivSplines.offset.extent(0) - 1));
-    Kokkos::View<double *[2], MemSpace> res("result", resultSize);
+    Kokkos::View<double *[2], MemSpace> res("resultDeriv1", resultSize);
     int offsetSize = derivSplines.offset.extent(0);
     Kokkos::parallel_for(
         "parallel De Boor's for 1st derivative", offsetSize - 1,
@@ -365,7 +365,7 @@ public:
     Kokkos::deep_copy(resultSize,
                       Kokkos::subview(derivSplines.offset,
                                       derivSplines.offset.extent(0) - 1));
-    Kokkos::View<double *[2], MemSpace> res("result", resultSize);
+    Kokkos::View<double *[2], MemSpace> res("resultDeriv2", resultSize);
     int offsetSize = derivSplines.offset.extent(0);
     Kokkos::parallel_for(
         "parallel De Boor's for 2nd derivative", offsetSize - 1,
