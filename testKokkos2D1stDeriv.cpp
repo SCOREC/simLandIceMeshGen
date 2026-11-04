@@ -1,10 +1,8 @@
-#include "BSpline.h"
 #include "BSplineKokkos2D.h"
 #include <Kokkos_Core.hpp>
 #include <vector>
 
 #include "curveReader.h"
-#include "splineInterpolation.h"
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -16,7 +14,7 @@ using ExecutionSpace = Kokkos::DefaultExecutionSpace;
 using MemSpace = ExecutionSpace::memory_space;
 
 int main(int argc, char *argv[]) {
-  int retVal = 0; 
+  int retVal = 0;
   if (argc != 3) {
     std::cerr << "Input arguments: <input csv file> <expected curve length>"
               << std::endl;
@@ -36,7 +34,6 @@ int main(int argc, char *argv[]) {
     std::string fileNameNoExt = inputCSV.substr(slashPos + 1, extensionPos);
     double expectedCurveLength = std::stod(argv[2]);
     auto curve = CurveReader::readCurveInfo(inputCSV);
-
     // Construct BSpline2d object
     SplineInterp::BSpline2d serialBSP;
     if (curve.x.size() == 2) {
@@ -51,7 +48,7 @@ int main(int argc, char *argv[]) {
     // Get the info from serial spline, we will feed this to kokkos spline
     serialBSP.x.getpara(order, ctrlPtsX, knots, weight);
     serialBSP.y.getpara(order, ctrlPtsY, knots, weight);
-
+    
     BSplineKokkos2D<ExecutionSpace> kokkosBSP(order, ctrlPtsX, ctrlPtsY, knots);
 
     std::vector<double> evalAt = {0,    0.2,  0.41, 0.5,  0.66,
@@ -59,22 +56,20 @@ int main(int argc, char *argv[]) {
 
     // Create a derivCSR that will be used during deriv eval
     const size_t paraSize = evalAt.size();
-    const size_t splineIdxSize = 3;
+    const size_t splineIdxSize = 1;
     BSplineKokkos2D<ExecutionSpace>::CSR kokkosBSPCSR(splineIdxSize, paraSize);
     auto valsMirror = Kokkos::create_mirror_view(kokkosBSPCSR.paraCoor);
     for (int i = 0; i < evalAt.size(); i++) {
-      valsMirror(i) = evalAt[i];
+      valsMirror(i) = evalAt.at(i);
     }
     auto splineIdxMirror = Kokkos::create_mirror_view(kokkosBSPCSR.splineIdx);
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < splineIdxSize; i++) {
       splineIdxMirror(i) = 0;
     }
     auto offsetMirror = Kokkos::create_mirror_view(kokkosBSPCSR.offset);
 
     offsetMirror(0) = 0;
-    offsetMirror(1) = 3;
-    offsetMirror(2) = 4;
-    offsetMirror(3) = 10;
+    offsetMirror(1) = 10;
 
     Kokkos::deep_copy(kokkosBSPCSR.splineIdx, splineIdxMirror);
     Kokkos::deep_copy(kokkosBSPCSR.offset, offsetMirror);
@@ -87,9 +82,9 @@ int main(int argc, char *argv[]) {
     auto mvRes = Kokkos::create_mirror_view(res);
     Kokkos::deep_copy(mvRes, res);
 
-    for (int i = 0; i < 10; i++) {
-      double derivX = serialBSP.x.evalFirstDeriv(evalAt[i]);
-      double derivY = serialBSP.y.evalFirstDeriv(evalAt[i]);
+    for (int i = 0; i < evalAt.size(); i++) {
+      double derivX = serialBSP.x.evalFirstDeriv(evalAt.at(i));
+      double derivY = serialBSP.y.evalFirstDeriv(evalAt.at(i));
 
       double xDiff = std::fabs(derivX) - std::fabs(mvRes(i, 0));
       double yDiff = std::fabs(derivY) - std::fabs(mvRes(i, 1));
