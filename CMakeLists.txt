@@ -2,15 +2,15 @@
 cmake_minimum_required(VERSION 3.10)
 project(simLandIceMeshGen VERSION 0.0.1 LANGUAGES CXX C)
 
-enable_testing() 
+enable_testing()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 option(USE_SIMMODSUITE "Enable SimModSuite support" ON)
 
-if (USE_SIMMODSUITE) 
+if(USE_SIMMODSUITE)
   find_package(SimModSuite MODULE REQUIRED) 
   message(STATUS "Building with SimModSuite support") 
-else() 
+else()
   message(STATUS "Building without SimModSuite support") 
 endif()
 
@@ -23,15 +23,14 @@ if(USE_SIMMODSUITE)
 endif()
 
 add_library(splineInterp splineInterpolation.cc BSpline.cc BSpline2d.cc Expression.cc PolyNomial.cc)
-
 target_link_libraries(splineInterp PRIVATE BLAS::BLAS Omega_h::omega_h)
 
 add_library(modelGen2d modelGen2d.cc geomReaders.cc) 
-target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}) 
-target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Quadtree/include) 
+target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Quadtree/include)
 target_link_libraries(modelGen2d PRIVATE splineInterp Omega_h::omega_h)
 
-add_library(splineKokkos2D INTERFACE) 
+add_library(splineKokkos2D INTERFACE)
 target_link_libraries(splineKokkos2D INTERFACE Kokkos::kokkos splineInterp)
 
 add_library(makeScalingTestData makeScalingTestData.cpp)
@@ -53,17 +52,17 @@ if(USE_SIMMODSUITE)
     target_link_libraries(${name} PRIVATE simModelGen2d Omega_h::omega_h) 
   endfunction()
 
-  addExe(generate2dModel) 
+  addExe(generate2dModel)
   addExe(generate2dModelFromMesh)
 
   add_test(NAME simModelGen2dFromMesh_thwaites
     COMMAND ./generate2dModelFromMesh ${testDataDir}/thwaites_basal_effectiveStrain.osh thwaites 1 100 100 "km") 
-  set_tests_properties(simModelGen2dFromMesh_thwaites PROPERTIES 
+  set_tests_properties(simModelGen2dFromMesh_thwaites PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 26")
   add_test(NAME simModelGen2d_gis
-    COMMAND ./generate2dModel ${testDataDir}/gis.msh gis 1 100 100 1 "m") 
+    COMMAND ./generate2dModel ${testDataDir}/gis.msh gis 1 100 100 1 "m")
   set_tests_properties(simModelGen2d_gis PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 925") 
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 925")
   set_tests_properties(simModelGen2d_gis PROPERTIES
     PASS_REGULAR_EXPRESSION "mesh faces in surface: 68495")
   
@@ -82,7 +81,7 @@ if(USE_SIMMODSUITE)
     PASS_REGULAR_EXPRESSION "mesh faces in surface: 118736")
   
   add_test(NAME simModelGen2d_oneSquare_jig
-    COMMAND ./generate2dModel ${testDataDir}/oneSquare.msh one_jig 1e-6 100 100 1 "km") 
+    COMMAND ./generate2dModel ${testDataDir}/oneSquare.msh one_jig 1e-6 100 100 1 "km")
   set_tests_properties(simModelGen2d_oneSquare_jig PROPERTIES
     PASS_REGULAR_EXPRESSION "mesh faces in surface: 1122")
   set_tests_properties(simModelGen2d_oneSquare_jig PROPERTIES
@@ -117,15 +116,15 @@ endif()
 
 add_library(curveReader curveReader.cc)
 target_include_directories(curveReader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}) 
-if (USE_SIMMODSUITE)
-  addExe(testCreateEdges) 
+if(USE_SIMMODSUITE)
+  addExe(testCreateEdges)
   target_link_libraries(testCreateEdges PRIVATE curveReader)
 
-  add_test(NAME curve4277 
+  add_test(NAME curve4277
     COMMAND ./testCreateEdges ${testDataDir}/testCurve4277.csv curve4277)
-  set_tests_properties(curve4277 PROPERTIES 
+  set_tests_properties(curve4277 PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 3")
-  set_tests_properties(curve4277 PROPERTIES 
+  set_tests_properties(curve4277 PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of edges in model: 3")
 
   add_test(NAME curve1293
@@ -138,12 +137,12 @@ if (USE_SIMMODSUITE)
   add_test(NAME curve1655
     COMMAND ./testCreateEdges ${testDataDir}/testCurve1655.csv curve1655)
   set_tests_properties(curve1655 PROPERTIES
-    PASS_REGULAR_EXPRESSION "Number of vertices in model: 2") 
+    PASS_REGULAR_EXPRESSION "Number of vertices in model: 2")
   set_tests_properties(curve1655 PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of edges in model: 2")
 
   add_test(NAME intersection2339_2344
-    COMMAND ./testCreateEdges 
+    COMMAND ./testCreateEdges
     ${testDataDir}/testIntersectionEdge2339Edge2344.csv
     intersection2339_2344)
 
@@ -189,14 +188,14 @@ endfunction()
 
 #Build curve - only executables when SimModSuite is disabled
 addCurveExe(testOnCurve)
-add_test(NAME onCurve_edge522 
+add_test(NAME onCurve_edge522
   COMMAND ./testOnCurve ${testDataDir}/testEdge522.csv 4 0 150)
 
-addCurveExe(testDiscoverTopo) 
-add_test(NAME testDiscoverTopo_dblMdlVtx 
+addCurveExe(testDiscoverTopo)
+add_test(NAME testDiscoverTopo_dblMdlVtx
   COMMAND ./testDiscoverTopo ${testDataDir}/testDoubleMdlVtxWBbox.csv)
 add_test(NAME testDiscoverTopo_L11pts
-  COMMAND ./testDiscoverTopo ${testDataDir}/L_11pts.csv) 
+  COMMAND ./testDiscoverTopo ${testDataDir}/L_11pts.csv)
 set_tests_properties(testDiscoverTopo_L11pts PROPERTIES
   PASS_REGULAR_EXPRESSION "number of model vertices: 3")
 
