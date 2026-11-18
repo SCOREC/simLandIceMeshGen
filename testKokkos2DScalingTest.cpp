@@ -250,6 +250,7 @@ int main(int argc, char *argv[]) {
     // Kokkos 2nd derivative function, using the existing csr
     // Deallocate res, it held the 1st derivative results
     res = Kokkos::View<double * [2], MemSpace>();
+    timer.reset();
     res = kokkosBSP.eval2ndDeriv(kokkosBSPCSR);
     double kokkos2ndDerivTime = timer.seconds();
     Kokkos::deep_copy(resMirror, res);
