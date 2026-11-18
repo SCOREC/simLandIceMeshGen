@@ -1,9 +1,7 @@
 // Constructor test for new representation of Kokkos spline
 // We will be comparing this against the serial version
-#include "BSpline.h"
 #include "BSplineKokkos2D.h"
 #include "curveReader.h"
-#include "splineInterpolation.h"
 #include <Kokkos_Core.hpp>
 
 #include <cassert>
