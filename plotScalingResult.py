@@ -24,57 +24,141 @@ with open('scalingTestResult.csv', mode = 'r') as infile:
       gy2.append(float(row['paraCoords'])*int(row['numSplines'])/float(row['2ndDerivDuration']))
 
 #Plotting 1st deriv result uniform
-plt.plot(ux, uy1, 'o', linestyle='-')
+fig, ax = plt.subplots()
+ax.plot(ux, uy1, 'o', linestyle='-')
+ax.set_xlabel("number of splines")
+ax.set_ylabel("number of para coords evaluated per second")
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_ylim(bottom=1)
+ax.set_ylim(top=1e15)
+ax.set_title("1st Derivative Result with Uniform Spline Length")
+offset = 8
 for i in range(len(uy1)):
-  label= f"({ux[i]}, {round(uy1[i], 3)})"
-  plt.text(ux[i], uy1[i]+3, label, ha='center', va='bottom', fontsize=5)
-plt.xlabel("number of splines")
-plt.ylabel("number of para coords evaluated per second")
-plt.title("1st Derivative Result with Uniform Spline Length")
-plt.yscale('log')
-plt.ylim(bottom=1)
-plt.ylim(top=1e15)
+  ax.annotate(
+    f"{round(uy1[i], 2)}",
+    (ux[i], uy1[i]),
+    xytext=(0, offset),
+    textcoords='offset points',
+    ha='center',
+    va='bottom',
+    fontsize=10)
+  if i % 2 == 0:
+    offset = -16
+  else:
+    offset = 8
 plt.show()
-plt.savefig('1stDerivUniform.png')
+fig.savefig('1stDerivUniform.png')
 
 #Plotting 2nd deriv result uniform
-plt.plot(ux, uy2, 'o', linestyle='-')
+fig, ax = plt.subplots()
+ax.plot(ux, uy2, 'o', linestyle='-')
+ax.set_xlabel("number of splines")
+ax.set_ylabel("number of para coords evaluated per second")
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_ylim(bottom=1)
+ax.set_ylim(top=1e15)
+ax.set_title("2nd Derivative Result with Uniform Spline Length")
+offset = 8
 for i in range(len(uy2)):
-  label=f"({ux[i]}, {round(uy2[i], 3)})"
-  plt.text(ux[i], uy2[i]+3, label, ha='center', va='bottom', fontsize=5)
-plt.xlabel("number of splines")
-plt.ylabel("number of para coords evaluated per second")
-plt.title("2nd Derivative Result with Uniform Spline Length")
-plt.yscale('log')
-plt.ylim(bottom=1)
-plt.ylim(top=1e15)
+  ax.annotate(
+    f"{round(uy2[i], 2)}",
+    (ux[i], uy2[i]),
+    xytext=(0, offset),
+    textcoords='offset points',
+    ha='center',
+    va='bottom',
+    fontsize=10
+  )
+  if i % 2 == 0:
+    offset = -16
+  else:
+    offset = 8
 plt.show()
-plt.savefig('2ndDerivUniform.png')
+fig.savefig('2ndDerivUniform.png')
 
 #Plotting 1st deriv result gaussian
+fig, ax = plt.subplots()
+ax.plot(gx, gy1, 'o', linestyle='-')
+ax.set_xlabel('number of splines')
+ax.set_ylabel('number of para coords evaluated per second')
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_ylim(bottom=1)
+ax.set_ylim(top=1e15)
+ax.set_title("1st Derivative Result with Variable Spline Length Sampled from a Gaussian Distribution")
+offset = 8
+for i in range(len(gy1)):
+  ax.annotate(
+    f"{round(gy1[i], 2)}",
+    (gx[i], gy1[i]),
+    xytext=(0, offset),
+    textcoords='offset points', 
+    ha='center',
+    va='bottom',
+    fontsize=10
+  )
+  if i % 2 == 0:
+    offset = -16
+  else:
+    offset = 8
+plt.show()
+fig.savefig('1stDerivGaussian.png')
+
+'''
 plt.plot(gx, gy1, 'o', linestyle='-')
 for i in range(len(gy1)):
-  label=f"({gx[i]}, {round(gy1[i], 3)})"
-  plt.text(gx[i], gy1[i]+3, label, ha='center', va='bottom', fontsize=5)
+  label=f"{round(gy1[i], 2)}"
+  plt.text(gx[i], gy1[i]+10, label, ha='center', va='bottom', fontsize=10)
 plt.xlabel("number of splines")
 plt.ylabel("number of para coords evaluated per second")
 plt.title("1st Derivative Result with Variable Spline Length Sampled from a Gaussian Distribution")
+plt.xscale('log')
 plt.yscale('log')
 plt.ylim(bottom=1)
 plt.ylim(top=1e15)
 plt.show()
 plt.savefig('1stDerivGaussian.png')
-
+'''
 #Plotting 2nd deriv result gaussian
+fig, ax = plt.subplots()
+ax.plot(gx, gy2, 'o', linestyle='-')
+ax.set_xlabel("number of splines")
+ax.set_ylabel("number of para coords evaluated per second")
+ax.set_xscale("log")
+ax.set_yscale("log")
+ax.set_ylim(bottom=1)
+ax.set_ylim(top=1e15)
+ax.set_title("2nd Derivative Result with Variable Spline Length Sampled from a Gaussian Distribution")
+offset = 8
+for i in range(len(gy2)):
+  ax.annotate(
+    f"{round(gy2[i], 2)}",
+    (gx[i], gy2[i]),
+    xytext=(0,offset),
+    textcoords='offset points',
+    ha='center',
+    va='bottom',
+    fontsize=10)
+  if i % 2 == 0:
+    offset = -16
+  else:
+    offset = 8
+plt.show()
+fig.savefig('2ndDerivGaussian.png')
+'''
 plt.plot(gx, gy2, 'o', linestyle='-')
 for i in range(len(gy2)):
-  label=f"({gx[i]}, {round(gy2[i], 4)})"
-  plt.text(gx[i], gy2[i]+3, label, ha='center', va='bottom', fontsize=5)
+  label=f"{round(gy2[i], 2)}"
+  plt.text(gx[i], gy2[i]+10, label, ha='center', va='bottom', fontsize=10)
 plt.xlabel("number of splines")
 plt.ylabel("number of para coords evaluated per second")
 plt.title("2nd Derivative Result with Variable Spline Length Sampled from a Gaussian Distribution")
+plt.xscale('log')
 plt.yscale('log')
 plt.ylim(bottom=1)
 plt.ylim(top=1e15)
 plt.show()
 plt.savefig('2ndDerivGaussian.png')
+'''
