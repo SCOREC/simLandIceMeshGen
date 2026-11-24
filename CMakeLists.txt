@@ -8,10 +8,10 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 option(USE_SIMMODSUITE "Enable SimModSuite support" ON)
 
 if(USE_SIMMODSUITE)
-  find_package(SimModSuite MODULE REQUIRED)
-  message(STATUS "Building with SimModSuite support")
+  find_package(SimModSuite MODULE REQUIRED) 
+  message(STATUS "Building with SimModSuite support") 
 else()
-  message(STATUS "Building without SimModSuite support")
+  message(STATUS "Building without SimModSuite support") 
 endif()
 
 find_package(BLAS REQUIRED)
@@ -25,14 +25,16 @@ endif()
 add_library(splineInterp splineInterpolation.cc BSpline.cc BSpline2d.cc Expression.cc PolyNomial.cc)
 target_link_libraries(splineInterp PRIVATE BLAS::BLAS Omega_h::omega_h)
 
-add_library(modelGen2d modelGen2d.cc geomReaders.cc)
+add_library(modelGen2d modelGen2d.cc geomReaders.cc) 
 target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(modelGen2d PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Quadtree/include)
 target_link_libraries(modelGen2d PRIVATE splineInterp Omega_h::omega_h)
 
 add_library(splineKokkos2D INTERFACE)
-target_link_libraries(splineKokkos2D INTERFACE Kokkos::kokkos)
+target_link_libraries(splineKokkos2D INTERFACE Kokkos::kokkos splineInterp)
 
+add_library(makeScalingTestData makeScalingTestData.cpp)
+target_link_libraries(makeScalingTestData PRIVATE Kokkos::kokkos)
 
 set(testDataDir ${CMAKE_CURRENT_SOURCE_DIR}/contour_test_data)
 
@@ -45,16 +47,16 @@ if(USE_SIMMODSUITE)
   target_link_libraries(simModelGen2d PRIVATE netCDF::netcdf)
   target_compile_definitions(simModelGen2d PRIVATE USE_SIMMODSUITE)
 
-  function(addExe name)
-    add_executable(${name} ${name}.cc)
-    target_link_libraries(${name} PRIVATE simModelGen2d Omega_h::omega_h)
+  function(addExe name) 
+    add_executable(${name} ${name}.cc) 
+    target_link_libraries(${name} PRIVATE simModelGen2d Omega_h::omega_h) 
   endfunction()
 
   addExe(generate2dModel)
   addExe(generate2dModelFromMesh)
 
   add_test(NAME simModelGen2dFromMesh_thwaites
-    COMMAND ./generate2dModelFromMesh ${testDataDir}/thwaites_basal_effectiveStrain.osh thwaites 1 100 100 "km")
+    COMMAND ./generate2dModelFromMesh ${testDataDir}/thwaites_basal_effectiveStrain.osh thwaites 1 100 100 "km") 
   set_tests_properties(simModelGen2dFromMesh_thwaites PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 26")
   add_test(NAME simModelGen2d_gis
@@ -113,7 +115,7 @@ if(USE_SIMMODSUITE)
 endif()
 
 add_library(curveReader curveReader.cc)
-target_include_directories(curveReader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(curveReader PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}) 
 if(USE_SIMMODSUITE)
   addExe(testCreateEdges)
   target_link_libraries(testCreateEdges PRIVATE curveReader)
@@ -148,7 +150,7 @@ if(USE_SIMMODSUITE)
     COMMAND ./testCreateEdges ${testDataDir}/testEdge522.csv edge522)
   set_tests_properties(edge522 PROPERTIES
     PASS_REGULAR_EXPRESSION "Number of vertices in model: 4")
-  set_tests_properties(edge522 PROPERTIES
+  set_tests_properties(edge522 PROPERTIES 
     PASS_REGULAR_EXPRESSION "Number of edges in model: 4")
 
   add_test(NAME dblMdlVtx
@@ -160,31 +162,31 @@ if(USE_SIMMODSUITE)
 
   add_test(NAME fjord
     COMMAND ./testCreateEdges ${testDataDir}/fjord.csv fjord)
-
+  
   addExe(testSplineFitting)
   target_link_libraries(testSplineFitting PRIVATE curveReader splineInterp)
-  
+
   add_test(NAME testSplineFitting_straight_edge
-           COMMAND ./testSplineFitting ${testDataDir}/testCurveStraightLine.csv 9)
+    COMMAND ./testSplineFitting ${testDataDir}/testCurveStraightLine.csv 9)
   add_test(NAME testSplineFitting_edge_2pts
-           COMMAND ./testSplineFitting ${testDataDir}/testCurve2pts.csv 1)
+    COMMAND ./testSplineFitting ${testDataDir}/testCurve2pts.csv 1)
   add_test(NAME testSplineFitting_single_edge
-           COMMAND ./testSplineFitting ${testDataDir}/testCurveSplineFitting.csv 12.2685)
+    COMMAND ./testSplineFitting ${testDataDir}/testCurveSplineFitting.csv 12.2685) 
   add_test(NAME testSplineFitting_sine_edge
-           COMMAND ./testSplineFitting ${testDataDir}/testCurveSineSegment.csv 10.24227846)
+    COMMAND ./testSplineFitting ${testDataDir}/testCurveSineSegment.csv 10.24227846) 
   add_test(NAME testSplineFitting_gisCurve1_edge
-           COMMAND ./testSplineFitting ${testDataDir}/gisCurve1.csv 22.8891)
-  add_test(NAME testSplineFitting_gisCurve3_edge
-           COMMAND ./testSplineFitting ${testDataDir}/gisCurve3.csv 20.669088)
+    COMMAND ./testSplineFitting ${testDataDir}/gisCurve1.csv 22.8891)
+  add_test(NAME testSplineFitting_gisCurve3_edge 
+    COMMAND ./testSplineFitting ${testDataDir}/gisCurve3.csv 20.669088)
 endif()
 
-# Create function for executables that only use curveReader and modelGen2d (no SimModSuite)
+#Create function for executables that only use curveReader and modelGen2d(no SimModSuite)
 function(addCurveExe name)
   add_executable(${name} ${name}.cc)
   target_link_libraries(${name} PRIVATE curveReader modelGen2d)
 endfunction()
 
-# Build curve-only executables when SimModSuite is disabled
+#Build curve - only executables when SimModSuite is disabled
 addCurveExe(testOnCurve)
 add_test(NAME onCurve_edge522
   COMMAND ./testOnCurve ${testDataDir}/testEdge522.csv 4 0 150)
@@ -198,32 +200,62 @@ set_tests_properties(testDiscoverTopo_L11pts PROPERTIES
   PASS_REGULAR_EXPRESSION "number of model vertices: 3")
 
 #TEST FOR BSPLINEKOKKOS2D CONSTRUCTOR
-add_executable(testSplineKokkos2DBase testSplineKokkos2DBase.cpp)
-target_link_libraries(testSplineKokkos2DBase PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos)
-add_test(NAME testSplineKokkos2DStraightEdge
-  COMMAND ./testSplineKokkos2DBase ${testDataDir}/testCurveStraightLine.csv 9)
-add_test(NAME testSplineKokkos2D2Pts
-  COMMAND ./testSplineKokkos2DBase ${testDataDir}/testCurve2pts.csv 1)
-add_test(NAME testSplineKokkos2DSingleEdge
-  COMMAND ./testSplineKokkos2DBase ${testDataDir}/testCurveSplineFitting.csv 12.2685)
+add_executable(testSplineKokkos2DBase testSplineKokkos2DBase.cpp) 
+target_link_libraries(testSplineKokkos2DBase PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos) 
+if (USE_SIMMODSUITE)
+  add_test(NAME testSplineKokkos2DStraightEdge
+    COMMAND ./testSplineKokkos2DBase ${testDataDir}/testCurveStraightLine.csv 9)
+  add_test(NAME testSplineKokkos2D2Pts
+    COMMAND ./testSplineKokkos2DBase ${testDataDir}/testCurve2pts.csv 1)
+  add_test(NAME testSplineKokkos2DSingleEdge
+    COMMAND ./testSplineKokkos2DBase ${testDataDir}/testCurveSplineFitting.csv 12.2685)
+endif()
 
 #TEST FOR BSPLINEKOKKOS2D 1ST DERIVATIVE
 add_executable(testKokkos2D1stDeriv testKokkos2D1stDeriv.cpp)
-target_link_libraries(testKokkos2D1stDeriv PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos)
-add_test(NAME testDeriv2DStraightEdge
-  COMMAND ./testKokkos2D1stDeriv ${testDataDir}/testCurveStraightLine.csv 9)
-add_test(NAME testDeriv2D2Pts
-  COMMAND ./testKokkos2D1stDeriv ${testDataDir}/testCurve2pts.csv 1)
-add_test(NAME testDeriv2DSingleEdge
-  COMMAND ./testKokkos2D1stDeriv ${testDataDir}/testCurveSplineFitting.csv 12.2685)
+target_link_libraries(testKokkos2D1stDeriv PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos) 
+if (USE_SIMMODSUITE)
+  add_test(NAME testDeriv2DStraightEdge
+    COMMAND ./testKokkos2D1stDeriv ${testDataDir}/testCurveStraightLine.csv 9) 
+  add_test(NAME testDeriv2D2Pts
+    COMMAND ./testKokkos2D1stDeriv ${testDataDir}/testCurve2pts.csv 1) 
+  add_test(NAME testDeriv2DSingleEdge
+    COMMAND ./testKokkos2D1stDeriv ${testDataDir}/testCurveSplineFitting.csv 12.2685)
+endif()
 
 #TEST FOR BSPLINEKOKKOS2D 2ND DERIVATIVE
 add_executable(testKokkos2D2ndDeriv testKokkos2D2ndDeriv.cpp)
-target_link_libraries(testKokkos2D2ndDeriv PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos)
-add_test(NAME test2NDDeriv2DStraightEdge
-  COMMAND ./testKokkos2D2ndDeriv ${testDataDir}/testCurveStraightLine.csv 9)
-add_test(NAME test2NDDeriv2D2Pts
-  COMMAND ./testKokkos2D2ndDeriv ${testDataDir}/testCurve2pts.csv 1)
-add_test(NAME test2NDDerive2DSingleEdge
-  COMMAND ./testKokkos2D2ndDeriv ${testDataDir}/testCurveSplineFitting.csv 12.2685)
+target_link_libraries(testKokkos2D2ndDeriv PRIVATE splineInterp curveReader modelGen2d splineKokkos2D Kokkos::kokkos) 
+if (USE_SIMMODSUITE)
+  add_test(NAME test2NDDeriv2DStraightEdge
+    COMMAND ./testKokkos2D2ndDeriv ${testDataDir}/testCurveStraightLine.csv 9) 
+  add_test(NAME test2NDDeriv2D2Pts
+    COMMAND ./testKokkos2D2ndDeriv ${testDataDir}/testCurve2pts.csv 1) 
+  add_test(NAME test2NDDerive2DSingleEdge
+    COMMAND ./testKokkos2D2ndDeriv ${testDataDir}/testCurveSplineFitting.csv 12.2685)
+endif()
+#BSPLINEKOKKOS2D SCALING TEST
+add_executable(testKokkos2DScalingTest testKokkos2DScalingTest.cpp)
+target_link_libraries(testKokkos2DScalingTest PRIVATE splineInterp curveReader modelGen2d splineKokkos2D makeScalingTestData Kokkos::kokkos)
+if (USE_SIMMODSUITE)
+  add_test (NAME testKokkos2DScalingTest_720pts
+    COMMAND ./testKokkos2DScalingTest 1 720 1000 uniform scalingResult.csv yes) 
+  add_test (NAME testKokkos2DScalingTest_1200pts
+    COMMAND ./testKokkos2DScalingTest 1 1200 1000 uniform scalingResult.csv yes)
+  add_test (NAME testKokkos2DScalingTest_1000SplinesUniform
+    COMMAND ./testKokkos2DScalingTest 1000 10 1000 uniform scalingResult.csv yes)
+  add_test (NAME testKokkos2DScalingTest_2000SplinesUniform
+    COMMAND ./testKokkos2DScalingTest 2000 10 1000 uniform scalingResult.csv yes)
+  add_test (NAME testKokkos2DScalingTest_6000SplinesUniform
+    COMMAND ./testKokkos2DScalingTest 6000 10 1000 uniform scalingResult.csv yes)
+  add_test (NAME testKokkos2DScalingTest_1000SplinesGaussian
+    COMMAND ./testKokkos2DScalingTest 1000 10 1000 gaussian scalingResult.csv yes)
+  add_test (NAME testKokkos2DScalingTest_2000SplinesGaussian
+    COMMAND ./testKokkos2DScalingTest 2000 10 1000 gaussian scalingResult.csv yes)
+  add_test (NAME testKokkos2DScalingTest_6000SplinesGaussian
+    COMMAND ./testKokkos2DScalingTest 6000 10 1000 gaussian scalingResult.csv yes)
 
+#TEMP_TEST Understanding what Kokkos View Allocation is doing if it is 2D view
+add_executable(allocTest2DView allocTest2DView.cpp)
+target_link_libraries(allocTest2DView PRIVATE Kokkos::kokkos makeScalingTestData)
+endif()
